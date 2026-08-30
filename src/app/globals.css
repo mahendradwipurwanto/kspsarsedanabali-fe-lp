@@ -1,0 +1,323 @@
+@import 'tailwindcss';
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   KSP SARI SEDANA BALI — design system
+
+   Tokens sampled from the client's approved homepage design
+   (docs/homepage_v2_requirements.pdf) and from the logo:
+
+     · green   #5B9638 / #4E8B2C   — the logo leaf, and every primary action
+     · gold    #EFC15C             — branch names on the green strip
+     · navy    #1F2A44             — all headings
+     · slate   #64748B             — body copy
+     · ground  #FFFFFF / #F6F8FA   — page and alternating sections
+
+   Cards are rounded 12px with a hairline cool-grey border and a whisper of
+   shadow. Buttons are full pills. Headings are bold geometric sans.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  /* ── Brand green ────────────────────────────────────────────────────────── */
+  --color-green-50:  #f1f7ec;
+  --color-green-100: #e4f2d9;
+  --color-green-200: #c9e5b5;
+  --color-green-300: #a5d287;
+  --color-green-400: #7cba57;
+  --color-green-500: #5b9638;  /* logo green */
+  --color-green-600: #4e8b2c;  /* buttons */
+  --color-green-700: #3d6f22;
+  --color-green-800: #31581d;
+  --color-green-900: #274818;
+
+  /* ── Gold: the leaf beneath, and the branch-strip labels ────────────────── */
+  --color-gold-50:  #fdf8e8;
+  --color-gold-100: #faeec4;
+  --color-gold-200: #f5df94;
+  --color-gold-300: #efc15c;  /* the strip label colour */
+  --color-gold-400: #dfae3c;
+  --color-gold-500: #b0a808;  /* logo gold */
+  --color-gold-600: #8f8906;
+  --color-gold-700: #6f6b05;  /* deep enough to set small caps on a light ground */
+
+  /* ── Navy / slate: headings and copy ────────────────────────────────────── */
+  --color-navy-900: #16203a;
+  --color-navy-800: #1f2a44;  /* headings */
+  --color-navy-700: #334155;
+  --color-slate-600: #52607a;
+  --color-slate-500: #64748b;  /* body */
+  --color-slate-400: #94a3b8;  /* muted */
+  --color-slate-300: #cbd5e1;
+  --color-slate-200: #e2e8f0;
+  /* The two lightest steps were falling through to Tailwind's own slate, which
+     is a hair cooler than this ramp. Pinned so the neutrals are all one family. */
+  --color-slate-100: #eef1f6;
+  --color-slate-50:  #f6f8fa;
+  --color-line: #e7eaf0;       /* hairline border */
+
+  --color-surface: #ffffff;
+  --color-surface-alt: #f6f8fa;
+
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --radius-card: 0.875rem;   /* 14px */
+  --radius-tile: 0.625rem;   /* 10px — icon tiles */
+  --radius-input: 0.625rem;
+
+  /* ── Elevation ────────────────────────────────────────────────────────────
+     Shadows are tinted with the brand's own navy rather than black. A neutral
+     black shadow greys the surface underneath and is the single clearest tell
+     of an untuned interface; a hue-matched one reads as depth instead of dirt.
+     Each level layers a tight contact shadow under a wider ambient one.        */
+  --shadow-card:
+    0 1px 1px rgb(31 42 68 / 0.04),
+    0 2px 6px -2px rgb(31 42 68 / 0.06);
+  --shadow-raised:
+    0 1px 2px rgb(31 42 68 / 0.05),
+    0 6px 14px -6px rgb(31 42 68 / 0.10),
+    0 14px 28px -14px rgb(31 42 68 / 0.08);
+  --shadow-lift:
+    0 2px 4px -2px rgb(31 42 68 / 0.07),
+    0 12px 24px -8px rgb(31 42 68 / 0.13),
+    0 28px 52px -18px rgb(31 42 68 / 0.11);
+  --shadow-green:
+    0 1px 2px rgb(49 88 29 / 0.20),
+    0 6px 14px -6px rgb(49 88 29 / 0.35);
+  --shadow-green-lift:
+    0 2px 4px rgb(49 88 29 / 0.18),
+    0 12px 24px -8px rgb(49 88 29 / 0.40);
+
+  /* Light falls from above: every raised surface carries a faint warm top edge. */
+  --edge-top: inset 0 1px 0 rgb(255 255 255 / 0.9);
+
+  /* Easing with a touch of overshoot — movement that settles rather than stops. */
+  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-swift: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:root { --gutter: 1.25rem; }
+@media (min-width: 640px) { :root { --gutter: 2rem; } }
+@media (min-width: 1024px) { :root { --gutter: 2.5rem; } }
+
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+/* ── Surfaces ──────────────────────────────────────────────────────────────
+   A card is not a white rectangle with a line around it. It carries a barely
+   perceptible vertical gradient so the top catches light, a hairline that
+   deepens toward the bottom edge, and a white inner top edge. None of it is
+   individually visible; together it is the difference between a drawn box and
+   an object sitting on the page.                                              */
+
+.surface {
+  /* Carries its own radius so `.surface` alone is a complete card shell. */
+  border-radius: var(--radius-card);
+  background-image: linear-gradient(180deg, #ffffff 0%, #fdfdfb 100%);
+  border: 1px solid var(--color-line);
+  border-bottom-color: #dfe4ec;
+  box-shadow: var(--shadow-card), var(--edge-top);
+}
+
+.surface-i {
+  transition: transform 0.35s var(--ease-settle), box-shadow 0.35s var(--ease-settle), border-color 0.35s var(--ease-swift);
+}
+.surface-i:hover {
+  transform: translateY(-3px);
+  border-color: var(--color-green-200);
+  border-bottom-color: var(--color-green-300);
+  box-shadow: var(--shadow-lift), var(--edge-top);
+}
+
+/* The gold hairline that opens a section — the brand's second colour, used
+   once per section rather than sprinkled. */
+.rule-gold {
+  display: block;
+  width: 2rem;
+  height: 2px;
+  border-radius: 2px;
+  background-image: linear-gradient(90deg, var(--color-gold-300), var(--color-gold-400));
+}
+
+/* Alternating bands get a whisper of grain so a flat fill reads as paper. */
+.ground-texture {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgb(31 42 68 / 0.035) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-slate-500);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+::selection { background: var(--color-green-100); color: var(--color-green-800); }
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-green-600);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Keep the affordance consistent for every interactive element, including
+   links and native controls rendered outside the shared UI primitives. */
+:where(a, button, summary, [role='button']) { cursor: pointer; }
+:where(button:disabled, [aria-disabled='true']) { cursor: not-allowed; }
+
+/* ── Type scale ───────────────────────────────────────────────────────────── */
+
+.t-display {
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.028em;
+  font-size: clamp(2.1rem, 1.35rem + 3.4vw, 3.75rem);
+  color: var(--color-navy-800);
+  text-wrap: balance;
+}
+.t-h1 {
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.026em;
+  font-size: clamp(1.85rem, 1.3rem + 2.5vw, 3rem);
+  color: var(--color-navy-800);
+  text-wrap: balance;
+}
+.t-h2 {
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -0.022em;
+  font-size: clamp(1.55rem, 1.2rem + 1.6vw, 2.35rem);
+  color: var(--color-navy-800);
+  text-wrap: balance;
+}
+.t-h3 {
+  font-weight: 700;
+  line-height: 1.32;
+  letter-spacing: -0.012em;
+  font-size: clamp(1.06rem, 1rem + 0.35vw, 1.2rem);
+  color: var(--color-navy-800);
+  text-wrap: balance;
+}
+
+/* The small green section label above every heading. Set in a slightly heavier
+   weight than the old 700 and opened up further — at this size the extra
+   tracking is what stops it reading as shouted body copy. */
+.t-label {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-green-600);
+  font-feature-settings: 'ss01' 1;
+}
+
+.t-lead {
+  font-size: clamp(0.95rem, 0.92rem + 0.18vw, 1.0625rem);
+  line-height: 1.68;
+  color: var(--color-slate-500);
+  text-wrap: pretty;
+}
+
+.tnum { font-variant-numeric: tabular-nums lining-nums; font-feature-settings: 'tnum' 1, 'lnum' 1; }
+
+/* A published figure — a rate, a plafon, an angsuran. Tightened and optically
+   aligned so columns of rupiah line up and read as data, not as body copy. */
+.figure {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+/* ── Prose from the CMS ───────────────────────────────────────────────────── */
+
+.prose-ksp { color: var(--color-slate-500); line-height: 1.75; font-size: 1rem; }
+.prose-ksp > * + * { margin-top: 1.15em; }
+.prose-ksp h2 {
+  font-size: clamp(1.35rem, 1.15rem + 0.85vw, 1.7rem);
+  font-weight: 800; line-height: 1.25; letter-spacing: -0.02em;
+  color: var(--color-navy-800); margin-top: 2em; text-wrap: balance;
+}
+.prose-ksp h3 {
+  font-size: 1.18rem; font-weight: 700; line-height: 1.35;
+  color: var(--color-navy-800); margin-top: 1.6em; text-wrap: balance;
+}
+.prose-ksp p { text-wrap: pretty; }
+.prose-ksp a {
+  color: var(--color-green-700); font-weight: 600;
+  text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px;
+}
+.prose-ksp a:hover { color: var(--color-green-800); }
+.prose-ksp ul { list-style: none; padding-left: 0; }
+.prose-ksp ul > li { position: relative; padding-left: 1.65rem; }
+.prose-ksp ul > li::before {
+  content: '';
+  position: absolute; left: 0; top: 0.5em;
+  width: 1rem; height: 1rem; border-radius: 999px;
+  background: var(--color-green-100);
+}
+.prose-ksp ul > li::after {
+  content: '';
+  position: absolute; left: 0.3rem; top: 0.78em;
+  width: 0.34rem; height: 0.18rem;
+  border-left: 1.6px solid var(--color-green-600);
+  border-bottom: 1.6px solid var(--color-green-600);
+  transform: rotate(-45deg);
+}
+.prose-ksp ol { list-style: decimal; padding-left: 1.25rem; }
+.prose-ksp li + li { margin-top: 0.5em; }
+.prose-ksp strong { color: var(--color-navy-800); font-weight: 700; }
+.prose-ksp blockquote {
+  border-left: 3px solid var(--color-green-500);
+  background: var(--color-green-50);
+  padding: 1rem 1.25rem; border-radius: var(--radius-input);
+  color: var(--color-navy-700); font-style: italic;
+}
+
+/* ── Motion ───────────────────────────────────────────────────────────────── */
+
+@keyframes rise { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: none } }
+.rise { animation: rise 0.7s var(--ease-settle) both; }
+
+/* ── Entrance on scroll ────────────────────────────────────────────────────
+   Pure CSS via a view timeline: no JavaScript, no observer, and no cost where
+   the browser does not support it — those visitors simply see the section
+   already in place, which is the correct fallback.
+
+   Deliberately transform-only. An opacity fade driven by a scroll timeline can
+   strand a section at opacity 0 whenever the timeline never advances — a page
+   printed, captured full-height, or rendered in a container that does not
+   scroll. On a koperasi's public site the copy has to be readable in every one
+   of those cases, so the entrance moves the section into place and never
+   controls whether it can be seen at all.                                     */
+@keyframes settle-in { from { transform: translateY(18px) } to { transform: none } }
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: settle-in linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 20%;
+    }
+  }
+}
+.d-1 { animation-delay: .05s } .d-2 { animation-delay: .12s } .d-3 { animation-delay: .2s }
+.d-4 { animation-delay: .28s } .d-5 { animation-delay: .38s } .d-6 { animation-delay: .48s }
+
+/* Hide scrollbars on horizontal rails without disabling the scroll. */
+.rail { scrollbar-width: none; -ms-overflow-style: none; }
+.rail::-webkit-scrollbar { display: none; }
+
+/* Line clamps used by the cards. */
+.clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
