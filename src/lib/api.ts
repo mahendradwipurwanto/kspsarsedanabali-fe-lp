@@ -124,6 +124,9 @@ export interface Job {
 }
 
 export interface Block { id: string; type: string; props: Record<string, unknown>; isVisible: boolean }
+
+/** A page as it stands in the CMS editor right now, including unsaved changes. */
+export interface PreviewPage { title: string; slug: string; seo: Record<string, string>; blocks: Block[] }
 export interface Page { id: string; title: string; slug: string; seo: Record<string, string>; blocks: Block[]; updatedAt: string }
 export interface Stat { id: string; label: string; value: string; icon?: string | null }
 export interface Testimonial { id: string; name: string; role?: string | null; location?: string | null; quote: string; rating: number; avatar?: string }
@@ -191,6 +194,28 @@ export const getLegalPages = async () => {
   return data.pages
     .filter((pg) => !FIXED.has(pg.slug) && pg.slug in TITLES)
     .map((pg) => ({ slug: pg.slug, title: TITLES[pg.slug]! }))
+}
+
+/**
+ * Fetch an editor's unsaved draft by preview token.
+ *
+ * Deliberately uncached and never retried into a build failure: a preview is a
+ * short-lived, per-request thing, and an expired token is a normal outcome that
+ * the route turns into a "link expired" page rather than an error.
+ */
+export async function getPreview(token: string): Promise<PreviewPage | null> {
+  try {
+    const res = await fetch(`${API}/v1/public/preview/${encodeURIComponent(token)}`, {
+      cache: 'no-store',
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
+    })
+    if (!res.ok) return null
+    const body = (await res.json()) as Wrapped<PreviewPage>
+    return body?.data ?? null
+  } catch {
+    return null
+  }
 }
 
 export const apiBase = API
