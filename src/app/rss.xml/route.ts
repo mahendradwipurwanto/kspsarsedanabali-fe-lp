@@ -1,6 +1,6 @@
 import { getPosts } from '@/lib/api'
 import { absoluteUrl, SITE_URL } from '@/lib/seo'
-import { SITE } from '@mahendradwipurwanto/ksp-contracts'
+import { SITE } from '@/contracts'
 
 export const revalidate = 600
 

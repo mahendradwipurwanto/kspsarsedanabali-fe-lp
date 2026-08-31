@@ -1,4 +1,4 @@
-import { SITE } from '@mahendradwipurwanto/ksp-contracts'
+import { SITE } from '@/contracts'
 import { absoluteUrl, SITE_URL } from './seo'
 import type { Branch, Product, Post, Job } from './api'
 

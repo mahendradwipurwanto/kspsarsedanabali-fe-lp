@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { getBlock, telLink } from '@mahendradwipurwanto/ksp-contracts'
+import { getBlock, telLink } from '@/contracts'
 import type { Block, Branch, Product, Post, Stat, Testimonial, DocumentItem } from '@/lib/api'
 import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, iconByName } from '../ui'
 import { Media } from '../ui/Media'

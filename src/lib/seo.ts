@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { SITE } from '@mahendradwipurwanto/ksp-contracts'
+import { SITE } from '@/contracts'
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '')
 

@@ -32,9 +32,6 @@ const config: NextConfig = {
   turbopack: { root: lockfileRoot(here) },
   poweredByHeader: false,
 
-  // Contracts is consumed as a built workspace package; transpiling keeps source
-  // maps useful and avoids ESM/CJS interop surprises in the App Router.
-  transpilePackages: ['@mahendradwipurwanto/ksp-contracts'],
 
   images: {
     // AVIF first — the audit flagged mobile weight as the main speed problem.

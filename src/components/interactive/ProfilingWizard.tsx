@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { LEAD_PURPOSES, calculateInstallment, formatRupiah, formatRupiahShort, waLink } from '@mahendradwipurwanto/ksp-contracts'
+import { LEAD_PURPOSES, calculateInstallment, formatRupiah, formatRupiahShort, waLink } from '@/contracts'
 import type { Product, Branch } from '@/lib/api'
 import { apiPost, sessionId, track, API_BASE } from '@/lib/client'
 import { Action, Icon, Label } from '../ui'

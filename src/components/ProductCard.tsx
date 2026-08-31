@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { formatRupiahShort } from '@mahendradwipurwanto/ksp-contracts'
+import { formatRupiahShort } from '@/contracts'
 import type { Product } from '@/lib/api'
 import { Card, Pill, Icon } from './ui'
 import { Media } from './ui/Media'

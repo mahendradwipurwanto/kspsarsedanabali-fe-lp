@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { DAY_NAMES_ID, telLink, waLink, directionsLink } from '@mahendradwipurwanto/ksp-contracts'
+import { DAY_NAMES_ID, telLink, waLink, directionsLink } from '@/contracts'
 import { getBranch, getBranches, getProducts } from '@/lib/api'
 import { buildMetadata, describe, titleFor } from '@/lib/seo'
 import { breadcrumbLd, localBusinessLd } from '@/lib/jsonld'

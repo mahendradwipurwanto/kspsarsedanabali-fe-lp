@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { calculateInstallment, formatRupiah, formatRupiahShort } from '@mahendradwipurwanto/ksp-contracts'
+import { calculateInstallment, formatRupiah, formatRupiahShort } from '@/contracts'
 import type { Product } from '@/lib/api'
 import { track } from '@/lib/client'
 import { Action, Icon, Label } from '../ui'

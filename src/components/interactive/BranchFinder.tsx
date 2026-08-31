@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { distanceKm } from '@mahendradwipurwanto/ksp-contracts'
+import { distanceKm } from '@/contracts'
 import type { Branch } from '@/lib/api'
 import { track } from '@/lib/client'
 import { Action, Icon } from '../ui'

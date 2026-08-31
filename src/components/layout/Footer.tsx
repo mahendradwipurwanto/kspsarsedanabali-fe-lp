@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { SITE, telLink } from '@mahendradwipurwanto/ksp-contracts'
+import { SITE, telLink } from '@/contracts'
 import { Shell, Mark, Icon, Action } from '../ui'
 import type { Branch } from '@/lib/api'
 

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { getOpenState, telLink, waLink, directionsLink, DAY_NAMES_ID } from '@mahendradwipurwanto/ksp-contracts'
+import { getOpenState, telLink, waLink, directionsLink, DAY_NAMES_ID } from '@/contracts'
 import type { Branch } from '@/lib/api'
 import { Card, Action, Tile, Icon } from './ui'
 

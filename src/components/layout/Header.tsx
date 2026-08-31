@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { telLink } from '@mahendradwipurwanto/ksp-contracts'
+import { telLink } from '@/contracts'
 import { Shell, Wordmark, Action, Icon, Tile } from '../ui'
 
 interface NavItem { label: string; href: string; children?: { label: string; href: string }[] }

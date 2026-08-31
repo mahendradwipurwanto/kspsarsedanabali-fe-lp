@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Plus_Jakarta_Sans } from 'next/font/google'
 import { GoogleAnalytics } from '@next/third-parties/google'
-import { SITE, NAV_MAIN } from '@mahendradwipurwanto/ksp-contracts'
+import { SITE, NAV_MAIN } from '@/contracts'
 import { getBranches, getSettings, getLegalPages } from '@/lib/api'
 import { SITE_URL } from '@/lib/seo'
 import { organizationLd, websiteLd } from '@/lib/jsonld'

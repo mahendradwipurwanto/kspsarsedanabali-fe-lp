@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next'
-import { SITE } from '@mahendradwipurwanto/ksp-contracts'
+import { SITE } from '@/contracts'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {

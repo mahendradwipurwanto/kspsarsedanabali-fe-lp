@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { formatRupiahShort } from '@mahendradwipurwanto/ksp-contracts'
+import { formatRupiahShort } from '@/contracts'
 import { getProduct, getProducts, getBranches } from '@/lib/api'
 import { buildMetadata, describe, titleFor } from '@/lib/seo'
 import { breadcrumbLd, productLd } from '@/lib/jsonld'
