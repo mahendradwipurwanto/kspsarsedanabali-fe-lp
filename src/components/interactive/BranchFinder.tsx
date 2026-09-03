@@ -49,16 +49,16 @@ export function BranchFinder({ branches, showMap = true }: { branches: Branch[];
             id="branch-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)}
             placeholder="Cari kecamatan atau desa…" className={field}
           />
-          <Action type="button" onClick={useMyLocation} disabled={geoState === 'asking'} variant="primary">
+          <Action type="button" onClick={useMyLocation} disabled={geoState === 'asking'} variant="dark">
             <Icon.compass className="size-4" />
-            {geoState === 'asking' ? 'Mencari…' : 'Gunakan Lokasi Saya'}
+            {geoState === 'asking' ? 'Mencari…' : 'Gunakan lokasi saya'}
           </Action>
         </div>
 
-        <p aria-live="polite" className="mt-4 flex items-center gap-2.5 text-[13px] text-slate-500">
+        <p aria-live="polite" className="tnum mt-4 flex items-center gap-2.5 text-[13px] text-ink-500">
           <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-green-500" />
           {geoState === 'denied'
-            ? 'Izin lokasi tidak diberikan — ketik nama kecamatan Anda.'
+            ? 'Izin lokasi tidak diberikan. Ketik nama kecamatan Anda.'
             : geoState === 'unsupported'
               ? 'Peramban tidak mendukung deteksi lokasi. Ketik nama kecamatan.'
               : `${ranked.length} kantor${origin ? ', diurutkan dari yang terdekat' : ''}`}
@@ -69,15 +69,15 @@ export function BranchFinder({ branches, showMap = true }: { branches: Branch[];
             {ranked.map(({ branch, km }) => <BranchCard key={branch.id} branch={branch} distanceKm={km} />)}
           </ul>
         ) : (
-          <p className="mt-5 rounded-[var(--radius-card)] border border-dashed border-slate-200 bg-surface-alt px-5 py-10 text-center text-[14px] text-slate-500">
+          <p className="mt-5 rounded-[var(--radius-card)] border border-dashed border-line-strong bg-paper px-5 py-10 text-center text-[14px] text-ink-500">
             Tidak ada kantor yang cocok dengan “{query}”. Coba “Selat”, “Rendang”, atau “Karangasem”.
           </p>
         )}
       </div>
 
       {showMap ? (
-        <div className="relative overflow-hidden rounded-[var(--radius-card)] border border-line shadow-[var(--shadow-card)]">
-                    {/* Static embed keeps a paid Maps key and a third-party script off the
+        <div className="surface relative overflow-hidden">
+          {/* Static embed keeps a paid Maps key and a third-party script off the
               critical path. Each card still deep-links to turn-by-turn directions. */}
           <iframe
             title="Peta lokasi kantor KSP Sari Sedana Bali"

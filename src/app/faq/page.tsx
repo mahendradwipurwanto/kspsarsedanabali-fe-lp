@@ -50,17 +50,18 @@ export default async function FaqPage() {
             <div className="mx-auto max-w-3xl space-y-10">
               {Object.entries(grouped).map(([category, items]) => (
                 <div key={category}>
-                  <h2 className="mb-4 text-xl font-bold tracking-tight text-navy-800">{CATEGORY_LABELS[category] ?? category}</h2>
+                  <h2 className="t-h3 mb-4">{CATEGORY_LABELS[category] ?? category}</h2>
                   <Accordion items={items.map((f) => ({ title: f.question, body: `<p>${f.answer}</p>` }))} defaultOpen={-1} />
                 </div>
               ))}
 
-              <div className=" border border-green-200 bg-green-50 p-6 text-center">
-                <h2 className="t-h3 text-navy-800">Masih ada yang ingin ditanyakan?</h2>
-                <p className="mt-2 text-slate-600">Petugas kami siap membantu lewat telepon, WhatsApp, atau di kantor cabang terdekat.</p>
-                <div className="mt-5 flex flex-wrap justify-center gap-3">
-                  <Action href="/kontak">Hubungi Kami <Icon.arrow /></Action>
-                  <Action href="/lokasi" variant="outline">Lihat Kantor Terdekat</Action>
+              <div className="surface-dark relative overflow-hidden p-7 text-center text-white sm:p-8">
+                <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200/60 to-transparent" />
+                <h2 className="t-h3 !text-white">Masih ada yang ingin ditanyakan?</h2>
+                <p className="mt-2 text-[15px] text-white/65">Petugas kami siap membantu lewat telepon, WhatsApp, atau di kantor cabang terdekat.</p>
+                <div className="mt-6 flex flex-wrap justify-center gap-3">
+                  <Action href="/kontak" variant="light">Hubungi kami <Icon.arrow className="size-4" /></Action>
+                  <Action href="/lokasi" variant="ghostLight">Lihat kantor terdekat</Action>
                 </div>
               </div>
             </div>

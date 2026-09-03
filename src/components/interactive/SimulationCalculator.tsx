@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { calculateInstallment, formatRupiah, formatRupiahShort } from '@/contracts'
 import type { Product } from '@/lib/api'
 import { track } from '@/lib/client'
-import { Action, Icon, Label } from '../ui'
+import { Action, Icon } from '../ui'
 import { Field, Slider, Segments, Select } from '../ui/form'
 
 const RATE_LABELS: Record<string, string> = {
@@ -73,11 +73,11 @@ export function SimulationCalculator({
 
           <div>
             <div className="mb-1 flex items-baseline justify-between gap-4">
-              <label htmlFor="sim-amount" className="text-[12.5px] font-semibold text-navy-800">
+              <label htmlFor="sim-amount" className="text-[13px] font-semibold text-ink-700">
                 Nominal pinjaman
               </label>
             </div>
-            <output htmlFor="sim-amount" className="figure block text-[clamp(1.8rem,1.35rem+1.7vw,2.4rem)] text-navy-800">
+            <output htmlFor="sim-amount" className="figure block text-[clamp(1.8rem,1.35rem+1.7vw,2.4rem)] text-ink-900">
               {formatRupiah(clamped)}
             </output>
             <Slider
@@ -89,14 +89,14 @@ export function SimulationCalculator({
               onChange={(e) => setAmount(Number(e.target.value))}
               aria-describedby="sim-range"
             />
-            <p id="sim-range" className="tnum flex justify-between text-[12px] text-slate-400">
+            <p id="sim-range" className="tnum flex justify-between text-[12px] text-ink-400">
               <span>{formatRupiahShort(min)}</span>
               <span>{formatRupiahShort(max)}</span>
             </p>
           </div>
 
           <div>
-            <span className="mb-2.5 block text-[12.5px] font-semibold text-navy-800">Jangka waktu</span>
+            <span className="mb-2.5 block text-[13px] font-semibold text-ink-700">Jangka waktu</span>
             <Segments
               options={tenors}
               value={tenor}
@@ -108,23 +108,19 @@ export function SimulationCalculator({
         </div>
       </div>
 
-      {/* ── Result: the passbook page ── */}
-      <div className="relative overflow-hidden rounded-[var(--radius-card)] bg-gradient-to-br from-green-600 via-green-700 to-green-800 p-6 text-white shadow-[var(--shadow-lift)] sm:p-8">
-        <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-gold-300 via-gold-200 to-transparent" />
-        {/* A faint ruled ground, like the lined page of a passbook. */}
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.16] [background-image:repeating-linear-gradient(to_bottom,rgb(255_255_255/0.5)_0_1px,transparent_1px_28px)]"
-        />
+      {/* ── Result: the statement ── */}
+      <div className="surface-dark relative overflow-hidden p-6 text-white sm:p-8">
+        <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200 to-transparent" />
+        <span aria-hidden="true" className="grid-dark pointer-events-none absolute inset-0 opacity-70" />
 
         <div className="relative flex items-center justify-between gap-4">
           <p className="t-label !text-white/80">Estimasi</p>
-          <span className="text-[11px] font-semibold uppercase tracking-[0.13em] text-green-200/50">
+          <span className="tnum text-[12px] font-medium text-white/45">
             {RATE_LABELS[method] ?? '—'}
           </span>
         </div>
 
-        <p className="relative mt-7 text-[13px] text-green-200/70">Angsuran per bulan</p>
+        <p className="relative mt-7 text-[13px] text-white/60">Angsuran per bulan</p>
         <p className="figure relative mt-1.5 text-[clamp(2rem,1.4rem+2.4vw,2.9rem)] text-white">
           {result ? formatRupiah(result.monthly) : '—'}
         </p>
@@ -147,33 +143,33 @@ export function SimulationCalculator({
               ['Total bunga', formatRupiah(result.totalInterest)],
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between gap-4 border-b border-white/15 py-3">
-                <dt className="text-green-200/65">{k}</dt>
+                <dt className="text-white/55">{k}</dt>
                 <dd className="font-semibold text-white">{v}</dd>
               </div>
             ))}
             {/* The bottom line, ruled off the way a total is on paper. */}
             <div className="mt-1 flex items-baseline justify-between gap-4 border-t-2 border-double border-white/30 py-4">
-              <dt className="text-[12.5px] font-bold uppercase tracking-[0.13em] text-white/80">Total dibayar</dt>
-              <dd className="figure text-[19px] text-gold-200">{formatRupiah(result.total)}</dd>
+              <dt className="text-[13px] font-semibold text-white/80">Total dibayar</dt>
+              <dd className="figure text-[19px] text-gold-300">{formatRupiah(result.total)}</dd>
             </div>
           </dl>
         ) : (
-          <p className="relative mt-6 text-[14px] leading-relaxed text-green-200/70">
+          <p className="relative mt-6 text-[14px] leading-relaxed text-white/60">
             Produk ini tidak memakai perhitungan angsuran. Hubungi kami untuk penjelasan.
           </p>
         )}
 
         <div className="relative mt-8 grid gap-2.5">
           <Action href={`/kontak?produk=${product.slug}&nominal=${clamped}&tenor=${tenor}`} variant="light" size="lg" full>
-            Ajukan Sekarang
+            Ajukan sekarang
             <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
           </Action>
           <Action href={`/produk/${product.category}/${product.slug}`} variant="ghostLight" full>
-            Lihat Syarat &amp; Ketentuan
+            Lihat syarat dan ketentuan
           </Action>
         </div>
 
-        <p className="relative mt-6 border-t border-white/15 pt-5 text-[12px] leading-relaxed text-green-200/55">
+        <p className="relative mt-6 border-t border-white/15 pt-5 text-[12px] leading-relaxed text-white/45">
           *{disclaimer}
         </p>
       </div>

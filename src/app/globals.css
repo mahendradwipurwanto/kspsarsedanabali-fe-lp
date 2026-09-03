@@ -1,95 +1,94 @@
 @import 'tailwindcss';
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   KSP SARI SEDANA BALI — design system
+   KSP SARI SEDANA BALI — design system, second edition
 
-   Tokens sampled from the client's approved homepage design
-   (docs/homepage_v2_requirements.pdf) and from the logo:
+   The brief: corporate, finance, technical. The client's own material
+   (docs/homepage_v2_requirements.pdf, the leaf logo) fixes the hues — brand
+   green, a gold second colour, navy headings. What changes here is the
+   *register*: rules instead of shadows, numerals set as instruments, a deep
+   navy for the surfaces that carry weight (hero, footer), and gold reserved
+   for figures so that when a rate appears it is unmistakably the point.
 
-     · green   #5B9638 / #4E8B2C   — the logo leaf, and every primary action
-     · gold    #EFC15C             — branch names on the green strip
-     · navy    #1F2A44             — all headings
-     · slate   #64748B             — body copy
-     · ground  #FFFFFF / #F6F8FA   — page and alternating sections
+     ink     #0F1B2D   deep navy — hero, footer, headings
+     green   #4E8B2C   brand — every primary action, from the logo
+     gold    #EFC15C   figures on dark, one accent rule on light
+     paper   #F7F8F5   the light alternating band
+     line    #DCE1E6   every hairline
 
-   Cards are rounded 12px with a hairline cool-grey border and a whisper of
-   shadow. Buttons are full pills. Headings are bold geometric sans.
+   Nothing here is a gradient wash, a blur blob, or a soft grey shadow.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @theme {
-  /* ── Brand green ────────────────────────────────────────────────────────── */
-  --color-green-50:  #f1f7ec;
-  --color-green-100: #e4f2d9;
-  --color-green-200: #c9e5b5;
-  --color-green-300: #a5d287;
-  --color-green-400: #7cba57;
-  --color-green-500: #5b9638;  /* logo green */
-  --color-green-600: #4e8b2c;  /* buttons */
-  --color-green-700: #3d6f22;
-  --color-green-800: #31581d;
-  --color-green-900: #274818;
+  /* ── Ink: navy with a real hue, never tinted black ─────────────────────── */
+  --color-ink-950: #0a1220;
+  --color-ink-900: #0f1b2d;
+  --color-ink-800: #16263d;
+  --color-ink-700: #223452;
+  --color-ink-600: #3b4d68;
+  --color-ink-500: #5b6b82;
+  --color-ink-400: #8593a6;
+  --color-ink-300: #b7c0cc;
+  --color-ink-200: #d9dee5;
+  --color-ink-100: #eceff3;
+  --color-ink-50:  #f5f7f9;
 
-  /* ── Gold: the leaf beneath, and the branch-strip labels ────────────────── */
+  /* Aliases kept so existing components keep compiling: navy = ink dark,
+     slate = ink mid. Both now resolve into the single ink ramp above. */
+  --color-navy-900: #0f1b2d;
+  --color-navy-800: #16263d;
+  --color-navy-700: #223452;
+  --color-slate-600: #3b4d68;
+  --color-slate-500: #5b6b82;
+  --color-slate-400: #8593a6;
+  --color-slate-300: #b7c0cc;
+  --color-slate-200: #d9dee5;
+  --color-slate-100: #eceff3;
+  --color-slate-50:  #f5f7f9;
+
+  /* ── Brand green, from the logo ────────────────────────────────────────── */
+  --color-green-50:  #f1f7ec;
+  --color-green-100: #e2f0d6;
+  --color-green-200: #c5e2ae;
+  --color-green-300: #9fcf7d;
+  --color-green-400: #78b850;
+  --color-green-500: #5b9638;
+  --color-green-600: #4e8b2c;
+  --color-green-700: #3f7124;
+  --color-green-800: #32591e;
+  --color-green-900: #264618;
+
+  /* ── Gold: for figures. Used on dark surfaces and as one hairline on light. */
   --color-gold-50:  #fdf8e8;
   --color-gold-100: #faeec4;
   --color-gold-200: #f5df94;
-  --color-gold-300: #efc15c;  /* the strip label colour */
+  --color-gold-300: #efc15c;
   --color-gold-400: #dfae3c;
-  --color-gold-500: #b0a808;  /* logo gold */
-  --color-gold-600: #8f8906;
-  --color-gold-700: #6f6b05;  /* deep enough to set small caps on a light ground */
+  --color-gold-500: #c2911f;
+  --color-gold-600: #8f6a12;
+  --color-gold-700: #6b4f0d;
 
-  /* ── Navy / slate: headings and copy ────────────────────────────────────── */
-  --color-navy-900: #16203a;
-  --color-navy-800: #1f2a44;  /* headings */
-  --color-navy-700: #334155;
-  --color-slate-600: #52607a;
-  --color-slate-500: #64748b;  /* body */
-  --color-slate-400: #94a3b8;  /* muted */
-  --color-slate-300: #cbd5e1;
-  --color-slate-200: #e2e8f0;
-  /* The two lightest steps were falling through to Tailwind's own slate, which
-     is a hair cooler than this ramp. Pinned so the neutrals are all one family. */
-  --color-slate-100: #eef1f6;
-  --color-slate-50:  #f6f8fa;
-  --color-line: #e7eaf0;       /* hairline border */
-
+  --color-paper: #f7f8f5;
   --color-surface: #ffffff;
-  --color-surface-alt: #f6f8fa;
+  --color-surface-alt: #f7f8f5;
+  --color-line: #dce1e6;
+  --color-line-strong: #c4ccd5;
 
   --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, sans-serif;
 
-  --radius-card: 0.875rem;   /* 14px */
-  --radius-tile: 0.625rem;   /* 10px — icon tiles */
-  --radius-input: 0.625rem;
+  /* Sharper than before: a financial product, not a consumer app. */
+  --radius-card: 0.625rem;   /* 10px */
+  --radius-tile: 0.5rem;     /* 8px */
+  --radius-input: 0.5rem;
 
-  /* ── Elevation ────────────────────────────────────────────────────────────
-     Shadows are tinted with the brand's own navy rather than black. A neutral
-     black shadow greys the surface underneath and is the single clearest tell
-     of an untuned interface; a hue-matched one reads as depth instead of dirt.
-     Each level layers a tight contact shadow under a wider ambient one.        */
-  --shadow-card:
-    0 1px 1px rgb(31 42 68 / 0.04),
-    0 2px 6px -2px rgb(31 42 68 / 0.06);
-  --shadow-raised:
-    0 1px 2px rgb(31 42 68 / 0.05),
-    0 6px 14px -6px rgb(31 42 68 / 0.10),
-    0 14px 28px -14px rgb(31 42 68 / 0.08);
-  --shadow-lift:
-    0 2px 4px -2px rgb(31 42 68 / 0.07),
-    0 12px 24px -8px rgb(31 42 68 / 0.13),
-    0 28px 52px -18px rgb(31 42 68 / 0.11);
-  --shadow-green:
-    0 1px 2px rgb(49 88 29 / 0.20),
-    0 6px 14px -6px rgb(49 88 29 / 0.35);
-  --shadow-green-lift:
-    0 2px 4px rgb(49 88 29 / 0.18),
-    0 12px 24px -8px rgb(49 88 29 / 0.40);
-
-  /* Light falls from above: every raised surface carries a faint warm top edge. */
+  /* Elevation is a hairline first and a shadow second. */
+  --shadow-card: 0 1px 2px rgb(15 27 45 / 0.04);
+  --shadow-raised: 0 1px 2px rgb(15 27 45 / 0.05), 0 8px 24px -12px rgb(15 27 45 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(15 27 45 / 0.05), 0 16px 40px -16px rgb(15 27 45 / 0.18);
+  --shadow-green: 0 1px 2px rgb(50 89 30 / 0.2), 0 8px 20px -10px rgb(50 89 30 / 0.4);
+  --shadow-green-lift: 0 2px 4px rgb(50 89 30 / 0.2), 0 14px 28px -12px rgb(50 89 30 / 0.45);
   --edge-top: inset 0 1px 0 rgb(255 255 255 / 0.9);
 
-  /* Easing with a touch of overshoot — movement that settles rather than stops. */
   --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-swift: cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -100,52 +99,9 @@
 
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
-/* ── Surfaces ──────────────────────────────────────────────────────────────
-   A card is not a white rectangle with a line around it. It carries a barely
-   perceptible vertical gradient so the top catches light, a hairline that
-   deepens toward the bottom edge, and a white inner top edge. None of it is
-   individually visible; together it is the difference between a drawn box and
-   an object sitting on the page.                                              */
-
-.surface {
-  /* Carries its own radius so `.surface` alone is a complete card shell. */
-  border-radius: var(--radius-card);
-  background-image: linear-gradient(180deg, #ffffff 0%, #fdfdfb 100%);
-  border: 1px solid var(--color-line);
-  border-bottom-color: #dfe4ec;
-  box-shadow: var(--shadow-card), var(--edge-top);
-}
-
-.surface-i {
-  transition: transform 0.35s var(--ease-settle), box-shadow 0.35s var(--ease-settle), border-color 0.35s var(--ease-swift);
-}
-.surface-i:hover {
-  transform: translateY(-3px);
-  border-color: var(--color-green-200);
-  border-bottom-color: var(--color-green-300);
-  box-shadow: var(--shadow-lift), var(--edge-top);
-}
-
-/* The gold hairline that opens a section — the brand's second colour, used
-   once per section rather than sprinkled. */
-.rule-gold {
-  display: block;
-  width: 2rem;
-  height: 2px;
-  border-radius: 2px;
-  background-image: linear-gradient(90deg, var(--color-gold-300), var(--color-gold-400));
-}
-
-/* Alternating bands get a whisper of grain so a flat fill reads as paper. */
-.ground-texture {
-  background-image:
-    radial-gradient(circle at 1px 1px, rgb(31 42 68 / 0.035) 1px, transparent 0);
-  background-size: 22px 22px;
-}
-
 body {
   background-color: var(--color-surface);
-  color: var(--color-slate-500);
+  color: var(--color-ink-500);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -161,96 +117,140 @@ body {
   }
 }
 
-::selection { background: var(--color-green-100); color: var(--color-green-800); }
+::selection { background: var(--color-gold-200); color: var(--color-ink-900); }
 
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--color-green-600);
   outline-offset: 2px;
   border-radius: 4px;
 }
-
-/* Keep the affordance consistent for every interactive element, including
-   links and native controls rendered outside the shared UI primitives. */
 :where(a, button, summary, [role='button']) { cursor: pointer; }
 :where(button:disabled, [aria-disabled='true']) { cursor: not-allowed; }
+
+/* ── Surfaces ──────────────────────────────────────────────────────────────
+   A card is a bounded region, drawn with one hairline. The shadow is there
+   only so the card separates from a paper band; on white it is invisible.   */
+.surface {
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  box-shadow: var(--shadow-card);
+}
+.surface-i {
+  transition: border-color 0.25s var(--ease-swift), box-shadow 0.35s var(--ease-settle), transform 0.35s var(--ease-settle);
+}
+.surface-i:hover {
+  border-color: var(--color-line-strong);
+  box-shadow: var(--shadow-raised);
+  transform: translateY(-2px);
+}
+
+/* Dark surfaces: hero, footer, the rate card. */
+.surface-dark {
+  border-radius: var(--radius-card);
+  background: var(--color-ink-800);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
+/* The one gold hairline a light section may use. */
+.rule-gold {
+  display: block;
+  width: 2rem;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-gold-400);
+}
+
+/* Engineering grid on dark surfaces — what makes the hero read as an
+   instrument panel rather than a poster. Light enough to be felt, not read. */
+.grid-dark {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+/* The paper band gets a quieter version of the same grid. */
+.ground-texture {
+  background-image:
+    linear-gradient(to right, rgb(15 27 45 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(15 27 45 / 0.035) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
 
 /* ── Type scale ───────────────────────────────────────────────────────────── */
 
 .t-display {
   font-weight: 800;
-  line-height: 1.08;
-  letter-spacing: -0.028em;
-  font-size: clamp(2.1rem, 1.35rem + 3.4vw, 3.75rem);
-  color: var(--color-navy-800);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  font-size: clamp(2.4rem, 1.5rem + 3.8vw, 4.25rem);
+  color: var(--color-ink-900);
   text-wrap: balance;
 }
 .t-h1 {
   font-weight: 800;
-  line-height: 1.12;
-  letter-spacing: -0.026em;
-  font-size: clamp(1.85rem, 1.3rem + 2.5vw, 3rem);
-  color: var(--color-navy-800);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  font-size: clamp(2rem, 1.4rem + 2.6vw, 3.25rem);
+  color: var(--color-ink-900);
   text-wrap: balance;
 }
 .t-h2 {
   font-weight: 800;
-  line-height: 1.18;
-  letter-spacing: -0.022em;
-  font-size: clamp(1.55rem, 1.2rem + 1.6vw, 2.35rem);
-  color: var(--color-navy-800);
+  line-height: 1.14;
+  letter-spacing: -0.026em;
+  font-size: clamp(1.6rem, 1.25rem + 1.6vw, 2.5rem);
+  color: var(--color-ink-900);
   text-wrap: balance;
 }
 .t-h3 {
   font-weight: 700;
-  line-height: 1.32;
-  letter-spacing: -0.012em;
-  font-size: clamp(1.06rem, 1rem + 0.35vw, 1.2rem);
-  color: var(--color-navy-800);
+  line-height: 1.3;
+  letter-spacing: -0.014em;
+  font-size: clamp(1.08rem, 1rem + 0.4vw, 1.25rem);
+  color: var(--color-ink-900);
   text-wrap: balance;
 }
 
-/* The small green section label above every heading. Set in a slightly heavier
-   weight than the old 700 and opened up further — at this size the extra
-   tracking is what stops it reading as shouted body copy. */
+/* The small line above a heading. Sentence case, a weight step up, and a
+   hairline before it — a caption, not a shout. */
 .t-label {
-  font-size: 0.6875rem;
-  font-weight: 800;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--color-green-600);
-  font-feature-settings: 'ss01' 1;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--color-ink-500);
 }
 
 .t-lead {
-  font-size: clamp(0.95rem, 0.92rem + 0.18vw, 1.0625rem);
-  line-height: 1.68;
-  color: var(--color-slate-500);
+  font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  line-height: 1.65;
+  color: var(--color-ink-500);
   text-wrap: pretty;
 }
 
 .tnum { font-variant-numeric: tabular-nums lining-nums; font-feature-settings: 'tnum' 1, 'lnum' 1; }
 
-/* A published figure — a rate, a plafon, an angsuran. Tightened and optically
-   aligned so columns of rupiah line up and read as data, not as body copy. */
+/* A published figure — a rate, a plafon, an angsuran. */
 .figure {
   font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
   font-weight: 800;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.04em;
   line-height: 1;
 }
 
 /* ── Prose from the CMS ───────────────────────────────────────────────────── */
-
-.prose-ksp { color: var(--color-slate-500); line-height: 1.75; font-size: 1rem; }
+.prose-ksp { color: var(--color-ink-500); line-height: 1.75; font-size: 1rem; }
 .prose-ksp > * + * { margin-top: 1.15em; }
 .prose-ksp h2 {
   font-size: clamp(1.35rem, 1.15rem + 0.85vw, 1.7rem);
-  font-weight: 800; line-height: 1.25; letter-spacing: -0.02em;
-  color: var(--color-navy-800); margin-top: 2em; text-wrap: balance;
+  font-weight: 800; line-height: 1.22; letter-spacing: -0.024em;
+  color: var(--color-ink-900); margin-top: 2em; text-wrap: balance;
 }
 .prose-ksp h3 {
-  font-size: 1.18rem; font-weight: 700; line-height: 1.35;
-  color: var(--color-navy-800); margin-top: 1.6em; text-wrap: balance;
+  font-size: 1.18rem; font-weight: 700; line-height: 1.32; letter-spacing: -0.014em;
+  color: var(--color-ink-900); margin-top: 1.6em; text-wrap: balance;
 }
 .prose-ksp p { text-wrap: pretty; }
 .prose-ksp a {
@@ -259,65 +259,45 @@ body {
 }
 .prose-ksp a:hover { color: var(--color-green-800); }
 .prose-ksp ul { list-style: none; padding-left: 0; }
-.prose-ksp ul > li { position: relative; padding-left: 1.65rem; }
+.prose-ksp ul > li { position: relative; padding-left: 1.4rem; }
 .prose-ksp ul > li::before {
   content: '';
-  position: absolute; left: 0; top: 0.5em;
-  width: 1rem; height: 1rem; border-radius: 999px;
-  background: var(--color-green-100);
-}
-.prose-ksp ul > li::after {
-  content: '';
-  position: absolute; left: 0.3rem; top: 0.78em;
-  width: 0.34rem; height: 0.18rem;
-  border-left: 1.6px solid var(--color-green-600);
-  border-bottom: 1.6px solid var(--color-green-600);
-  transform: rotate(-45deg);
+  position: absolute; left: 0; top: 0.72em;
+  width: 0.6rem; height: 2px; border-radius: 1px;
+  background: var(--color-green-600);
 }
 .prose-ksp ol { list-style: decimal; padding-left: 1.25rem; }
 .prose-ksp li + li { margin-top: 0.5em; }
-.prose-ksp strong { color: var(--color-navy-800); font-weight: 700; }
+.prose-ksp strong { color: var(--color-ink-900); font-weight: 700; }
 .prose-ksp blockquote {
-  border-left: 3px solid var(--color-green-500);
-  background: var(--color-green-50);
-  padding: 1rem 1.25rem; border-radius: var(--radius-input);
-  color: var(--color-navy-700); font-style: italic;
+  border-left: 2px solid var(--color-gold-400);
+  padding: 0.25rem 0 0.25rem 1.25rem;
+  color: var(--color-ink-700);
 }
 
-/* ── Motion ───────────────────────────────────────────────────────────────── */
-
-@keyframes rise { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: none } }
+/* ── Motion: one entrance, on the hero, and a settle on scroll ────────────── */
+@keyframes rise { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
 .rise { animation: rise 0.7s var(--ease-settle) both; }
+.d-1 { animation-delay: .05s } .d-2 { animation-delay: .12s } .d-3 { animation-delay: .2s }
+.d-4 { animation-delay: .28s } .d-5 { animation-delay: .38s } .d-6 { animation-delay: .48s }
 
-/* ── Entrance on scroll ────────────────────────────────────────────────────
-   Pure CSS via a view timeline: no JavaScript, no observer, and no cost where
-   the browser does not support it — those visitors simply see the section
-   already in place, which is the correct fallback.
-
-   Deliberately transform-only. An opacity fade driven by a scroll timeline can
-   strand a section at opacity 0 whenever the timeline never advances — a page
-   printed, captured full-height, or rendered in a container that does not
-   scroll. On a koperasi's public site the copy has to be readable in every one
-   of those cases, so the entrance moves the section into place and never
-   controls whether it can be seen at all.                                     */
-@keyframes settle-in { from { transform: translateY(18px) } to { transform: none } }
-
+@keyframes settle-in { from { transform: translateY(14px) } to { transform: none } }
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
     .reveal {
       animation: settle-in linear both;
       animation-timeline: view();
-      animation-range: entry 0% cover 20%;
+      animation-range: entry 0% cover 18%;
     }
   }
 }
-.d-1 { animation-delay: .05s } .d-2 { animation-delay: .12s } .d-3 { animation-delay: .2s }
-.d-4 { animation-delay: .28s } .d-5 { animation-delay: .38s } .d-6 { animation-delay: .48s }
 
-/* Hide scrollbars on horizontal rails without disabling the scroll. */
+/* A slow ticker for the hero's ledger line. Decorative; disabled when the
+   visitor asks for reduced motion via the block above. */
+@keyframes ledger { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+.ledger { animation: ledger 48s linear infinite; }
+
 .rail { scrollbar-width: none; -ms-overflow-style: none; }
 .rail::-webkit-scrollbar { display: none; }
-
-/* Line clamps used by the cards. */
 .clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }

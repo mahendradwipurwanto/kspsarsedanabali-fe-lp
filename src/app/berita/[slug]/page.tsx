@@ -65,7 +65,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
                   <Pill tone="green">{post.categoryName}</Pill>
                 </div>
               ) : null}
-              <h1 className="t-h1 text-navy-800">{post.title}</h1>
+              <h1 className="t-h1 text-ink-900">{post.title}</h1>
             </header>
 
             {post.excerpt ? <p className="t-lead mt-6 max-w-[68ch]">{post.excerpt}</p> : null}
@@ -84,20 +84,20 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
               <aside className="lg:sticky lg:top-28 lg:self-start">
                 <dl className="surface p-5">
                   <dt className="t-label">Tentang artikel</dt>
-                  <dd className="mt-4 grid gap-3.5 text-[13.5px] text-slate-500">
+                  <dd className="mt-4 grid gap-3.5 text-[13.5px] text-ink-500">
                     {post.publishedAt ? (
                       <span className="flex items-center gap-2.5">
-                        <Icon.calendar className="size-4 shrink-0 text-slate-400" />
+                        <Icon.calendar className="size-4 shrink-0 text-ink-400" />
                         <time dateTime={post.publishedAt}>{dateFmt.format(new Date(post.publishedAt))}</time>
                       </span>
                     ) : null}
                     <span className="flex items-center gap-2.5">
-                      <Icon.clock className="size-4 shrink-0 text-slate-400" />
+                      <Icon.clock className="size-4 shrink-0 text-ink-400" />
                       {post.readMinutes} menit baca
                     </span>
                     {post.categoryName ? (
                       <span className="flex items-center gap-2.5">
-                        <Icon.spark className="size-4 shrink-0 text-slate-400" />
+                        <Icon.spark className="size-4 shrink-0 text-ink-400" />
                         {post.categoryName}
                       </span>
                     ) : null}
@@ -105,9 +105,9 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
                 </dl>
 
                 <div className="surface relative mt-4 overflow-hidden p-5">
-                  <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-gold-300 via-gold-200 to-transparent" />
-                  <h2 className="t-h3 text-navy-800">Tertarik menjadi anggota?</h2>
-                  <p className="mt-2 text-[13.5px] leading-relaxed text-slate-500">
+                  <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200 to-transparent" />
+                  <h2 className="t-h3 text-ink-900">Tertarik menjadi anggota?</h2>
+                  <p className="mt-2 text-[13.5px] leading-relaxed text-ink-500">
                     Jawab 4 pertanyaan singkat dan kami tunjukkan produk simpanan atau pinjaman yang paling sesuai.
                   </p>
                   <Action href="/profiling" size="sm" full className="mt-4">

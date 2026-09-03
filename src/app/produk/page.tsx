@@ -33,7 +33,7 @@ export default async function ProductsPage() {
       <Breadcrumbs trail={TRAIL} />
 
       <PageIntro
-        label="Layanan Kami"
+        label="Layanan kami"
         title="Produk Simpanan dan Pinjaman untuk Warga Karangasem"
         lead={<>Sembilan produk untuk kebutuhan menabung maupun pembiayaan usaha. Belum yakin yang mana?{' '}
               <Link href="/profiling" className="font-semibold text-green-700 underline underline-offset-4">
@@ -46,7 +46,7 @@ export default async function ProductsPage() {
         <Band id="pinjaman">
           <Shell>
             <Heading
-              label="PEMBIAYAAN"
+              label="Pembiayaan"
               title="Produk Pinjaman"
               lead="Pembiayaan untuk modal usaha, renovasi rumah, pendidikan, upacara adat, dan kebutuhan lainnya."
               action={
@@ -67,7 +67,7 @@ export default async function ProductsPage() {
       {simpanan.length ? (
         <Band tone="alt" id="simpanan">
           <Shell>
-            <Heading label="MENABUNG" title="Produk Simpanan" lead="Simpanan berjangka maupun harian, dengan imbal hasil yang kompetitif dan dana yang aman." />
+            <Heading label="Menabung" title="Produk Simpanan" lead="Simpanan berjangka maupun harian, dengan imbal hasil yang kompetitif dan dana yang aman." />
             <ul className="grid gap-3">
               {simpanan.map((p, i) => (
                 <ProductRow key={p.id} product={p} index={i + 1} />

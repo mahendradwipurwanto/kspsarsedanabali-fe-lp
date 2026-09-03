@@ -49,23 +49,23 @@ export default async function CareersPage() {
           {jobs.length ? (
             <ul className="grid gap-4">
               {jobs.map((job) => (
-                <Card as="li" key={job.id} className="group p-6 transition-shadow hover:shadow-md">
+                <Card as="li" key={job.id} hover className="group p-6">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <div className="mb-2.5 flex flex-wrap gap-2">
                         <Pill tone="green">{TYPE_LABELS[job.employmentType] ?? job.employmentType}</Pill>
                         {job.department ? <Pill tone="quiet">{job.department}</Pill> : null}
                       </div>
-                      <h2 className="text-xl font-bold tracking-tight text-navy-800">
-                        <Link href={`/karir/${job.slug}`} className="group-hover:text-green-700">{job.title}</Link>
+                      <h2 className="t-h3">
+                        <Link href={`/karir/${job.slug}`} className="transition-colors group-hover:text-green-700">{job.title}</Link>
                       </h2>
-                      <p className="mt-1.5 flex items-center gap-1.5 text-sm text-slate-600">
-                        <Icon.pin className="size-4 text-slate-400" />
+                      <p className="mt-1.5 flex items-center gap-1.5 text-sm text-ink-600">
+                        <Icon.pin className="size-4 text-ink-400" />
                         {job.location ?? job.branchName ?? 'Karangasem, Bali'}
                       </p>
                     </div>
                     <Action href={`/karir/${job.slug}`} variant="outline" className="shrink-0 self-start sm:self-auto">
-                      Lihat & Lamar <Icon.arrow />
+                      Lihat dan lamar <Icon.arrow className="size-4" />
                     </Action>
                   </div>
                 </Card>

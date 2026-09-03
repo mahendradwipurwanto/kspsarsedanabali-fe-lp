@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { getDocuments, getStats } from '@/lib/api'
 import { buildMetadata } from '@/lib/seo'
 import { breadcrumbLd } from '@/lib/jsonld'
-import { Shell, Band, Breadcrumbs, JsonLd, Card, Tile, Icon, Blank, Action, Heading , PageIntro } from '@/components/ui'
+import { Shell, Band, Breadcrumbs, JsonLd, Tile, Icon, Blank, Action, Heading, PageIntro, Stat } from '@/components/ui'
 
 export const revalidate = 3600
 
@@ -35,14 +35,15 @@ export default async function FinancialReportsPage() {
         <Band>
           <Shell>
             <Heading title="Ringkasan Kinerja" lead="Angka-angka pokok yang menggambarkan posisi koperasi saat ini." />
-            <dl className="grid grid-cols-2 gap-px border-y border-rule bg-rule sm:grid-cols-3 lg:grid-cols-6">
-              {stats.map((stat) => (
-                <div key={stat.id} className="bg-paper px-4 py-7">
-                  <dd className="t-figure text-[clamp(1.4rem,1.1rem+1.1vw,1.9rem)] text-green-800">{stat.value}</dd>
-                  <dt className="mt-2.5 text-[10.5px] font-bold uppercase tracking-[0.16em] text-slate-400">{stat.label}</dt>
-                </div>
-              ))}
-            </dl>
+            <div className="surface overflow-hidden">
+              <ul className="grid grid-cols-2 divide-y divide-line sm:grid-cols-3 lg:grid-cols-6 lg:divide-x lg:divide-y-0">
+                {stats.map((stat, i) => (
+                  <li key={stat.id} className={`p-5 lg:p-6 ${i % 2 === 1 ? 'border-l border-line sm:border-l-0' : ''}`}>
+                    <Stat value={stat.value} label={stat.label} />
+                  </li>
+                ))}
+              </ul>
+            </div>
           </Shell>
         </Band>
       ) : null}
@@ -57,15 +58,15 @@ export default async function FinancialReportsPage() {
                   <a href={doc.url} target="_blank" rel="noopener noreferrer"
                     className="surface surface-i group/doc flex items-center justify-between gap-4 p-4 sm:p-5">
                     <span className="flex min-w-0 items-center gap-4">
-                      <Tile tone="soft"><Icon.download className="size-5" /></Tile>
+                      <Tile tone="outline"><Icon.fileText className="size-5" /></Tile>
                       <span className="min-w-0">
-                        <span className="block truncate text-[15px] font-bold text-navy-800 transition-colors group-hover/doc:text-green-700">{doc.title}</span>
-                        {doc.year ? <span className="tnum mt-0.5 block text-[13px] text-slate-400">Tahun buku {doc.year}</span> : null}
+                        <span className="block truncate text-[15px] font-bold text-ink-900 transition-colors group-hover/doc:text-green-700">{doc.title}</span>
+                        {doc.year ? <span className="tnum mt-0.5 block text-[13px] text-ink-400">Tahun buku {doc.year}</span> : null}
                       </span>
                     </span>
                     <span className="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-semibold text-green-700">
                       Unduh PDF
-                      <Icon.arrow className="size-3.5 transition-transform duration-300 group-hover/doc:translate-x-0.5" />
+                      <Icon.download className="size-4" />
                     </span>
                   </a>
                 </li>

@@ -80,15 +80,15 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             <div className={hasArtwork ? 'lg:order-1' : 'max-w-[62ch]'}>
               <div className="flex flex-wrap items-center gap-4">
                 <Pill tone={isLoan ? 'gold' : 'green'}>{isLoan ? 'Pinjaman' : 'Simpanan'}</Pill>
-                {p.rateNote ? <span className="text-[12.5px] text-slate-500">{p.rateNote}</span> : null}
+                {p.rateNote ? <span className="text-[12.5px] text-ink-500">{p.rateNote}</span> : null}
               </div>
 
-              <h1 className="t-h1 mt-5 text-navy-800">{p.name}</h1>
-              {p.tagline ? <p className="mt-4 font-display text-[19px] italic text-green-700">{p.tagline}</p> : null}
+              <h1 className="t-h1 mt-5 text-ink-900">{p.name}</h1>
+              {p.tagline ? <p className="mt-4 text-[18px] font-medium text-green-700">{p.tagline}</p> : null}
               {p.summary ? <p className="t-lead mt-5">{p.summary}</p> : null}
 
               {/* Terms as a ruled rate sheet. */}
-              <dl className="tnum mt-9 border-t border-rule">
+              <dl className="tnum mt-9 border-t border-line">
                 {[
                   p.minAmount != null && p.maxAmount != null
                     ? ['Plafon', `${formatRupiahShort(p.minAmount)} – ${formatRupiahShort(p.maxAmount)}`]
@@ -104,9 +104,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   .map((row) => {
                     const [k, v] = row as [string, string]
                     return (
-                      <div key={k} className="flex items-baseline justify-between gap-6 border-b border-rule py-3.5">
-                        <dt className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">{k}</dt>
-                        <dd className="font-display text-[17px] text-navy-800">{v}</dd>
+                      <div key={k} className="flex items-baseline justify-between gap-6 border-b border-line py-3.5">
+                        <dt className="text-[13px] font-medium text-ink-400">{k}</dt>
+                        <dd className="text-[17px] font-bold text-ink-900">{v}</dd>
                       </div>
                     )
                   })}
@@ -114,13 +114,13 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
               <div className="mt-8 flex flex-wrap gap-3">
                 <Action href="#ajukan" size="lg">
-                  Ajukan Sekarang
+                  Ajukan sekarang
                   <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
                 </Action>
                 {isLoan ? (
                   <Action href="#simulasi" variant="outline" size="lg">
                     <Icon.calculator className="size-4" />
-                    Hitung Angsuran
+                    Hitung angsuran
                   </Action>
                 ) : null}
               </div>
@@ -152,16 +152,17 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
             <div>
               <Heading
-                label="LANGKAH BERIKUTNYA"
+                label="Langkah berikutnya"
                 title={`Tertarik dengan ${p.name}?`}
                 lead="Tinggalkan nama dan nomor WhatsApp Anda. Petugas cabang terdekat akan menghubungi dalam 1×24 jam kerja untuk menjelaskan detailnya."
               />
-              <div className="border-l-2 border-gold-500 bg-gold-50 p-5">
-                <p className="font-display text-[17px] text-navy-800">Lebih suka datang langsung?</p>
-                <p className="mt-1.5 text-[14px] leading-relaxed text-slate-600">
+              <div className="surface relative overflow-hidden p-5 pl-6">
+                <span aria-hidden="true" className="absolute inset-y-0 left-0 w-[3px] bg-gold-300" />
+                <p className="text-[16px] font-bold text-ink-900">Lebih suka datang langsung?</p>
+                <p className="mt-1.5 text-[14px] leading-relaxed text-ink-600">
                   Tiga kantor kami di Karangasem melayani Senin–Jumat 08.00–15.00 WITA.
                 </p>
-                <Link href="/lokasi" className="mt-4 inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.13em] text-green-700 hover:text-green-900">
+                <Link href="/lokasi" className="mt-4 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-green-700 hover:text-green-800">
                   Lihat kantor terdekat <Icon.arrow className="size-4" />
                 </Link>
               </div>
@@ -182,7 +183,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         <Band tone="alt">
           <Shell>
             <Heading title="Produk lain yang mungkin cocok" />
-            <ul className="grid gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 lg:gap-7">
+            <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {res.related.map((rp) => (
                 <ProductCard key={rp.id} product={rp} />
               ))}

@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react'
 import { apiPost, track, API_BASE } from '@/lib/client'
-import { Action, Icon, Label } from '../ui'
+import { Action, Icon } from '../ui'
 import { Field, Note, Check, field } from '../ui/form'
 
 const MAX_CV_BYTES = 5 * 1024 * 1024
@@ -70,11 +70,11 @@ export function JobApplicationForm({ jobId, jobTitle }: { jobId: string; jobTitl
 
   if (status === 'done') {
     return (
-      <div className="rounded-[var(--radius-card)] border border-green-200 bg-green-50 p-8 text-center">
-                <span className="mx-auto grid size-14 place-items-center rounded-full bg-green-600 text-white"><Icon.check className="size-7" /></span>
-        <h2 className="t-h2 mt-5 text-navy-800">Lamaran terkirim</h2>
-        <p className="mt-4 text-[15px] leading-relaxed text-slate-500">
-          Terima kasih. Lamaran Anda untuk posisi <strong className="font-semibold text-navy-800">{jobTitle}</strong> sudah kami terima.
+      <div className="surface p-8 text-center">
+                <span className="mx-auto grid size-14 place-items-center rounded-[var(--radius-tile)] bg-green-600 text-white"><Icon.check className="size-7" /></span>
+        <h2 className="t-h2 mt-5 text-ink-900">Lamaran terkirim</h2>
+        <p className="mt-4 text-[15px] leading-relaxed text-ink-500">
+          Terima kasih. Lamaran Anda untuk posisi <strong className="font-semibold text-ink-900">{jobTitle}</strong> sudah kami terima.
           Tim kami menghubungi jika berkas Anda sesuai kualifikasi.
         </p>
         <Action href="/karir" variant="outline" className="mt-6">Lihat lowongan lain</Action>
@@ -85,10 +85,10 @@ export function JobApplicationForm({ jobId, jobTitle }: { jobId: string; jobTitl
   const busy = status === 'uploading' || status === 'sending'
 
   return (
-    <div className="relative rounded-[var(--radius-card)] border border-line bg-white p-6 shadow-[var(--shadow-card)] sm:p-7">
+    <div className="surface relative p-6 sm:p-7">
       
       <p className="t-label mb-2">Lamar posisi ini</p>
-      <p className="text-[14px] text-slate-500">Isi data Anda dan unggah CV terbaru.</p>
+      <p className="text-[14px] text-ink-500">Isi data Anda dan unggah CV terbaru.</p>
 
       <form onSubmit={onSubmit} noValidate className="mt-6 grid gap-5">
         <Field label="Nama lengkap" htmlFor="job-name" required>
@@ -108,7 +108,7 @@ export function JobApplicationForm({ jobId, jobTitle }: { jobId: string; jobTitl
           <input
             id="job-cv" name="cv" type="file" required accept=".pdf,.doc,.docx"
             onChange={(e) => setFileName(e.target.files?.[0]?.name ?? '')}
-            className="w-full rounded-[var(--radius-input)] border border-dashed border-slate-300 bg-surface-alt px-4 py-3.5 text-[14px] text-slate-500 file:mr-4 file:rounded-full file:border-0 file:bg-green-600 file:px-4 file:py-2 file:text-[13px] file:font-semibold file:text-white hover:file:bg-green-700"
+            className="w-full rounded-[var(--radius-input)] border border-dashed border-line-strong bg-paper px-4 py-3.5 text-[14px] text-ink-500 file:mr-4 file:rounded-[6px] file:border-0 file:bg-ink-900 file:px-4 file:py-2 file:text-[13px] file:font-semibold file:text-white hover:file:bg-ink-800"
           />
         </Field>
 
@@ -123,9 +123,9 @@ export function JobApplicationForm({ jobId, jobTitle }: { jobId: string; jobTitl
         {error ? <Note>{error}</Note> : null}
 
         <Action type="submit" size="lg" disabled={busy} full>
-          {status === 'uploading' ? 'Mengunggah CV…' : status === 'sending' ? 'Mengirim…' : 'Kirim Lamaran'}
+          {status === 'uploading' ? 'Mengunggah CV…' : status === 'sending' ? 'Mengirim…' : 'Kirim lamaran'}
         </Action>
-        <p className="text-center text-[12px] leading-relaxed text-slate-400">
+        <p className="text-center text-[12px] leading-relaxed text-ink-400">
           Berkas lamaran disimpan privat dan dihapus otomatis setelah 12 bulan.
         </p>
       </form>

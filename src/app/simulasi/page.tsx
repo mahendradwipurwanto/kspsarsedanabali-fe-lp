@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { getProducts, getFaqs } from '@/lib/api'
 import { buildMetadata } from '@/lib/seo'
 import { breadcrumbLd, faqLd } from '@/lib/jsonld'
-import { Shell, Band, Breadcrumbs, JsonLd, Heading, Card, Icon, PageIntro, Blank, Action } from '@/components/ui'
+import { Shell, Band, Breadcrumbs, JsonLd, Heading, Card, Tile, Icon, PageIntro, Blank, Action } from '@/components/ui'
 import { SimulationCalculator } from '@/components/interactive/SimulationCalculator'
 import { Accordion } from '@/components/interactive/Accordion'
 
@@ -57,7 +57,7 @@ export default async function SimulationPage({ searchParams }: { searchParams: P
             <Blank
               title="Simulasi belum tersedia"
               body="Suku bunga terbaru sedang dikonfirmasi pengurus koperasi. Hubungi kantor terdekat dan petugas kami akan menghitungkan angsuran yang berlaku saat ini."
-              action={<Action href="/kontak">Hubungi Kami</Action>}
+              action={<Action href="/kontak">Hubungi kami</Action>}
             />
           )}
         </Shell>
@@ -78,22 +78,17 @@ export default async function SimulationPage({ searchParams }: { searchParams: P
               { n: '02', title: 'Anuitas', body: 'Angsuran bulanan tetap, tetapi porsi bunga mengecil dan porsi pokok membesar seiring waktu.' },
               { n: '03', title: 'Efektif menurun', body: 'Bunga dihitung dari sisa pokok, sehingga angsuran mengecil setiap bulan. Total bunga paling ringan.' },
             ].map((item) => (
-              <Card as="li" key={item.title} hover className="group/m relative overflow-hidden p-5 sm:p-6">
-                <span
-                  aria-hidden="true"
-                  className="absolute inset-y-0 left-0 w-[3px] origin-top scale-y-0 bg-gradient-to-b from-green-400 to-green-600 transition-transform duration-500 [transition-timing-function:var(--ease-settle)] group-hover/m:scale-y-100"
-                />
-                <span className="tnum text-[11px] font-bold tracking-[0.16em] text-slate-200 transition-colors duration-300 group-hover/m:text-gold-300">
-                  {item.n}
-                </span>
-                <h3 className="t-h3 mt-2">{item.title}</h3>
-                <p className="mt-2 text-[14.5px] leading-relaxed text-slate-500">{item.body}</p>
+              <Card as="li" key={item.title} hover className="p-5 sm:p-6">
+                <Tile tone="dark" size="sm"><span className="tnum text-[12px] font-bold text-gold-300">{item.n}</span></Tile>
+                <h3 className="t-h3 mt-4">{item.title}</h3>
+                <p className="mt-2 text-[14.5px] leading-relaxed text-ink-500">{item.body}</p>
               </Card>
             ))}
           </ul>
 
-          <Card tone="soft" className="mt-4 border-gold-200 !bg-gradient-to-b !from-gold-50 !to-[#faeed0] p-5">
-            <p className="flex items-start gap-2.5 text-[14px] leading-relaxed text-gold-700">
+          <Card className="relative mt-4 overflow-hidden p-5 pl-6">
+            <span aria-hidden="true" className="absolute inset-y-0 left-0 w-[3px] bg-gold-300" />
+            <p className="flex items-start gap-2.5 text-[14px] leading-relaxed text-ink-600">
               <Icon.info className="mt-0.5 size-4 shrink-0" />
               Hasil simulasi ini adalah perkiraan awal. Nominal angsuran resmi ditentukan setelah proses pengajuan, verifikasi berkas,
               dan survei oleh petugas koperasi.

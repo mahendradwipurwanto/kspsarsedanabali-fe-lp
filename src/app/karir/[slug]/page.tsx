@@ -54,10 +54,10 @@ export default async function JobPage({ params }: { params: Promise<{ slug: stri
                 {job.department ? <Pill tone="quiet">{job.department}</Pill> : null}
               </div>
 
-              <h1 className="t-h1 text-navy-800">{job.title}</h1>
+              <h1 className="t-h1 text-ink-900">{job.title}</h1>
 
-              <p className="mt-3 flex items-center gap-1.5 text-slate-600">
-                <Icon.pin className="size-4 text-slate-400" />
+              <p className="mt-3 flex items-center gap-1.5 text-ink-600">
+                <Icon.pin className="size-4 text-ink-400" />
                 {job.location ?? job.branchName ?? 'Karangasem, Bali'}
               </p>
 
@@ -67,11 +67,11 @@ export default async function JobPage({ params }: { params: Promise<{ slug: stri
 
               {job.requirements.length ? (
                 <div className="mt-8">
-                  <h2 className="text-xl font-bold tracking-tight text-navy-800">Kualifikasi</h2>
+                  <h2 className="t-h3">Kualifikasi</h2>
                   <ul className="mt-4 space-y-2.5">
                     {job.requirements.map((req, i) => (
-                      <li key={i} className="flex gap-3 text-navy-700">
-                        <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-green-100 text-green-700">
+                      <li key={i} className="flex gap-3 text-ink-700">
+                        <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-[5px] bg-ink-900 text-gold-300">
                           <Icon.check className="size-3.5" />
                         </span>
                         {req}
@@ -82,8 +82,9 @@ export default async function JobPage({ params }: { params: Promise<{ slug: stri
               ) : null}
 
               {job.closesAt ? (
-                <Card className="mt-8 bg-gold-100 p-4">
-                  <p className="flex items-center gap-2 text-sm font-medium text-[#7d5f0e]">
+                <Card className="relative mt-8 overflow-hidden p-4 pl-5">
+                  <span aria-hidden="true" className="absolute inset-y-0 left-0 w-[3px] bg-gold-300" />
+                  <p className="tnum flex items-center gap-2 text-[13.5px] font-medium text-ink-700">
                     <Icon.calendar className="size-4" />
                     Lamaran ditutup {new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(job.closesAt))}
                   </p>

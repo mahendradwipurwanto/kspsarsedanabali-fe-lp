@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import { getProducts, getBranches } from '@/lib/api'
 import { buildMetadata } from '@/lib/seo'
 import { breadcrumbLd } from '@/lib/jsonld'
-import { Shell, Band, Breadcrumbs, JsonLd } from '@/components/ui'
+import { Shell, Band, Breadcrumbs, JsonLd, PageIntro } from '@/components/ui'
 import { ProfilingWizard } from '@/components/interactive/ProfilingWizard'
 
 export const revalidate = 3600
@@ -25,19 +25,15 @@ export default async function ProfilingPage() {
       <JsonLd data={breadcrumbLd(TRAIL)} />
       <Breadcrumbs trail={TRAIL} />
 
+      <PageIntro
+        label="Panduan cepat"
+        title="Temukan Produk yang Paling Sesuai untuk Anda"
+        lead="Empat pertanyaan singkat, sekitar 30 detik. Kami tunjukkan produk yang cocok beserta perkiraan angsurannya."
+      />
+
       <Band tone="alt">
         <Shell>
-          <div className="mx-auto mb-10 max-w-2xl text-center">
-            <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-green-600">PANDUAN CEPAT</p>
-            <h1 className="t-h1 text-navy-800">
-              Temukan Produk yang Paling Sesuai untuk Anda
-            </h1>
-            <p className="t-lead mt-5">
-              Empat pertanyaan singkat, sekitar 30 detik. Kami tunjukkan produk yang cocok beserta perkiraan angsurannya.
-            </p>
-          </div>
-
-          <Suspense fallback={<div className="mx-auto h-96 max-w-2xl animate-pulse  bg-slate-200" />}>
+          <Suspense fallback={<div className="mx-auto h-96 max-w-2xl animate-pulse rounded-[var(--radius-card)] bg-ink-100" />}>
             <ProfilingWizard products={products} branches={branches} />
           </Suspense>
         </Shell>

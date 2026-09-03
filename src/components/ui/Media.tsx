@@ -31,7 +31,7 @@ export function Media({
   /** Shown inside the placeholder while the real artwork has not been uploaded. */
   fallbackLabel?: string
 }) {
-  const box = `relative overflow-hidden bg-surface-alt ${rounded ? 'rounded-[var(--radius-tile)]' : ''} ${className}`
+  const box = `relative overflow-hidden bg-paper ${rounded ? 'rounded-[var(--radius-tile)]' : ''} ${className}`
 
   if (!src) {
     return (

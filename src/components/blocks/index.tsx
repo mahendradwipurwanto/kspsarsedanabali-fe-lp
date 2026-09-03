@@ -1,7 +1,7 @@
 import Link from 'next/link'
-import { getBlock, telLink } from '@/contracts'
+import { getBlock, telLink, getOpenState } from '@/contracts'
 import type { Block, Branch, Product, Post, Stat, Testimonial, DocumentItem } from '@/lib/api'
-import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, iconByName } from '../ui'
+import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, Stat as Figure, iconByName } from '../ui'
 import { Media } from '../ui/Media'
 import { HeroCarousel, QuickAccess } from '../interactive/HeroCarousel'
 import { LeadForm } from '../interactive/LeadForm'
@@ -31,33 +31,36 @@ const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : [])
 
 export function BlockRenderer({ blocks, ctx }: { blocks: Block[]; ctx: BlockContext }) {
   const visible = blocks.filter((block) => block.isVisible && getBlock(block.type))
-  const hasHero = visible[0]?.type === 'hero_banner'
+  // Bands alternate white / paper, counting only the blocks that are bands —
+  // full-bleed openers and strips do not take a turn, or the rhythm breaks.
+  let bandIndex = 0
   return (
     <>
-      {visible.map((block, i) => (
-        <BlockSwitch key={block.id ?? i} block={block} ctx={ctx} index={i} />
-      ))}
-      {/* Quick access appears right after the banner on the homepage only. */}
-      {hasHero ? null : null}
+      {visible.map((block, i) => {
+        const isBand = !['hero_banner', 'quick_access', 'legality_bar', 'branch_contact_strip', 'page_header', 'cta_banner'].includes(block.type)
+        const tone = isBand ? (bandIndex++ % 2 === 1 ? 'alt' : 'default') : 'default'
+        return <BlockSwitch key={block.id ?? i} block={block} ctx={ctx} tone={tone} />
+      })}
     </>
   )
 }
 
-function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; index: number }) {
+function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; tone: 'default' | 'alt' }) {
   const p = block.props as P
-  const tone = index % 2 === 1 ? 'alt' : 'default'
 
   switch (block.type) {
     /* ─────────────────────────── page openers ─────────────────────────── */
     case 'page_header':
       return (
-        <div className="relative overflow-hidden border-b border-line bg-gradient-to-b from-green-50/70 to-white">
-          <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-green-100/40 blur-3xl" />
+        <div className="relative overflow-hidden bg-ink-900 text-white grid-dark">
+          <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-gold-400/60 to-transparent" />
           <Shell>
             <div className={`relative py-12 sm:py-16 lg:py-20 ${s(p.align) === 'center' ? 'mx-auto max-w-3xl text-center' : 'max-w-[56ch]'}`}>
-              {s(p.eyebrow) ? <Label>{s(p.eyebrow)}</Label> : null}
-              <h1 className="t-h1 mt-2.5">{s(p.heading)}</h1>
-              {s(p.subheading) ? <p className="t-lead mt-4">{s(p.subheading)}</p> : null}
+              {s(p.eyebrow) ? (
+                <div className={s(p.align) === 'center' ? 'flex justify-center' : ''}><Label tone="gold">{s(p.eyebrow)}</Label></div>
+              ) : null}
+              <h1 className="t-h1 mt-3 !text-white">{s(p.heading)}</h1>
+              {s(p.subheading) ? <p className="t-lead mt-4 text-white/70">{s(p.subheading)}</p> : null}
             </div>
           </Shell>
         </div>
@@ -65,12 +68,17 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
 
     case 'hero_banner':
       return (
-        <>
-          <HeroCarousel slides={arr(p.slides)} autoplay={b(p.autoplay, true)} />
-          {/* The two new features get a shortcut immediately below the banner. */}
-          <QuickAccess />
-        </>
+        <HeroCarousel
+          slides={arr(p.slides)}
+          autoplay={b(p.autoplay, true)}
+          interval={n(p.interval, 8)}
+          badge={s(p.badge)}
+          products={ctx.products}
+        />
       )
+
+    case 'quick_access':
+      return <QuickAccess items={arr(p.items)} />
 
     /* ─────────────────────────── trust devices ────────────────────────── */
     case 'legality_bar': {
@@ -78,30 +86,25 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       const logos = arr<{ image: string; alt: string }>(p.partnerLogos)
       if (!items.length && !logos.length) return null
       return (
-        <div className="bg-gradient-to-r from-green-50 via-[#f3f4e4] to-green-50">
+        <div className="border-b border-line bg-paper">
           <Shell>
             <div className="flex flex-col items-center gap-5 py-5 text-center md:flex-row md:gap-8 md:text-left lg:gap-10">
-              <div className="flex shrink-0 items-center gap-4">
-                <Mark className="h-11 w-auto sm:h-12" />
+              <div className="flex shrink-0 items-center gap-3">
+                <Mark className="h-10 w-auto" />
                 <span className="leading-tight">
-                  <span className="block text-[17px] font-extrabold tracking-[-0.02em] text-green-600 sm:text-[19px]">
-                    KSP Sari Sedana Bali
-                  </span>
-                  <span className="block text-[12px] font-medium tracking-[0.1em] text-slate-400">Untuk kita</span>
+                  <span className="block text-[16px] font-extrabold tracking-[-0.02em] text-ink-900">KSP Sari Sedana Bali</span>
+                  <span className="block text-[11.5px] font-medium text-ink-400">Untuk kita</span>
                 </span>
               </div>
-
-              <div aria-hidden="true" className="hidden h-12 w-px bg-green-200 md:block" />
-
-              <dl className="min-w-0 flex-1 space-y-0.5">
+              <div aria-hidden="true" className="hidden h-10 w-px bg-line md:block" />
+              <dl className="tnum min-w-0 flex-1 space-y-0.5">
                 {items.map((item, i) => (
                   <div key={i} className="flex flex-wrap items-baseline justify-center gap-x-2 md:justify-start">
-                    <dt className="text-[13px] font-semibold text-navy-800 sm:text-[14.5px]">{item.label} :</dt>
-                    <dd className="tnum text-[13px] text-navy-700 sm:text-[14.5px]">{item.value}</dd>
+                    <dt className="text-[13px] font-semibold text-ink-700">{item.label}</dt>
+                    <dd className="text-[13px] text-ink-500">{item.value}</dd>
                   </div>
                 ))}
               </dl>
-
               {logos.length ? (
                 <ul className="flex shrink-0 items-center gap-5">
                   {logos.map((logo, i) => (
@@ -120,25 +123,30 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       const list = chosen.length ? ctx.branches.filter((x) => chosen.includes(x.id)) : ctx.branches
       if (!list.length) return null
       return (
-        <div className="relative bg-gradient-to-b from-green-500 to-green-600 text-white">
-          <span aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold-300/70 to-transparent" />
+        <div className="border-b border-line bg-ink-900 text-white">
           <Shell>
-            <ul className="grid divide-y divide-white/15 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-              {list.map((branch, i) => (
-                <li key={branch.id} className={`py-5 ${i === 0 ? 'sm:pr-6' : i === list.length - 1 ? 'sm:pl-6' : 'sm:px-6'}`}>
-                  <p className="flex items-center gap-2 text-[15px] font-bold text-gold-300">
-                    <Icon.pin className="size-4 shrink-0" />
-                    {branch.name}
-                  </p>
-                  <p className="mt-1 text-[13.5px] leading-snug text-white/85">{branch.address}</p>
-                  {branch.phone ? (
-                    <a href={telLink(branch.phone)} className="tnum mt-2 inline-flex items-center gap-2 text-[15px] font-semibold text-white transition-colors hover:text-gold-200">
-                      <Icon.phone className="size-4 text-gold-300" />
-                      {branch.phone}
-                    </a>
-                  ) : null}
-                </li>
-              ))}
+            <ul className="grid divide-y divide-white/10 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+              {list.map((branch, i) => {
+                const state = getOpenState(branch.hours)
+                return (
+                  <li key={branch.id} className={`py-5 ${i === 0 ? 'sm:pr-6' : i === list.length - 1 ? 'sm:pl-6' : 'sm:px-6'}`}>
+                    <p className="flex items-center gap-2 text-[14.5px] font-bold text-white">
+                      <span aria-hidden="true" className={`size-1.5 rounded-full ${state.isOpen ? 'bg-green-400' : 'bg-gold-300'}`} />
+                      {branch.name}
+                    </p>
+                    <p className="mt-1 text-[13px] leading-snug text-white/55">{branch.address}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px]">
+                      <span className="text-white/50">{state.label}</span>
+                      {branch.phone ? (
+                        <a href={telLink(branch.phone)} className="tnum inline-flex items-center gap-1.5 font-semibold text-gold-300 hover:text-gold-200">
+                          <Icon.phone className="size-3.5" />
+                          {branch.phone}
+                        </a>
+                      ) : null}
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
           </Shell>
         </div>
@@ -150,32 +158,38 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       const custom = arr<{ icon?: string; value: string; label: string }>(p.items)
       const items = custom.length ? custom : ctx.stats.map((x) => ({ value: x.value, label: x.label, icon: x.icon ?? undefined }))
       if (!items.length) return null
+      const ledger = s(p.layout, 'ledger') === 'ledger'
       return (
         <Band tone={tone}>
           <Shell>
-            <Heading label={s(p.eyebrow, 'Pencapaian Kami')} title={s(p.heading)} lead={s(p.subtext)} align="center" />
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4 [&>li]:flex [&>li]:flex-col [&>li]:items-center">
-              {items.map((item, i) => {
-                const IconCmp = iconByName(item.icon)
-                return (
-                  <Card as="li" key={i} hover className="group/stat relative overflow-hidden p-5 text-center">
-                    {/* A gold seam along the top edge, revealed on hover — the
-                        only ornament on the card, and it earns attention. */}
-                    <span
-                      aria-hidden="true"
-                      className="absolute inset-x-0 top-0 h-[2px] origin-center scale-x-0 bg-gradient-to-r from-transparent via-gold-300 to-transparent transition-transform duration-500 [transition-timing-function:var(--ease-settle)] group-hover/stat:scale-x-100"
-                    />
-                    <span className="mx-auto">
-                      <Tile size="md" tone="soft">
-                        <IconCmp className="size-5" />
-                      </Tile>
-                    </span>
-                    <p className="figure mt-4 text-[19px] text-navy-800 sm:text-[21px]">{item.value}</p>
-                    <p className="mt-1.5 text-[10.5px] font-bold uppercase tracking-[0.13em] text-slate-400">{item.label}</p>
-                  </Card>
-                )
-              })}
-            </ul>
+            <Heading label={s(p.eyebrow)} title={s(p.heading)} lead={s(p.subtext)} />
+            {ledger ? (
+              /* A ledger row: figures on hairlines, no boxes. This is the
+                 shape a financial statement has, and it is the one place the
+                 site shows its numbers together. */
+              <div className="surface overflow-hidden">
+                <ul className="grid grid-cols-2 divide-y divide-line sm:grid-cols-3 lg:grid-cols-6 lg:divide-x lg:divide-y-0">
+                  {items.map((item, i) => (
+                    <li key={i} className={`p-5 lg:p-6 ${i % 2 === 1 ? 'border-l border-line sm:border-l-0' : ''} ${i >= 2 && i < 3 ? 'sm:border-l' : ''}`}>
+                      <Figure value={item.value} label={item.label} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
+                {items.map((item, i) => {
+                  const IconCmp = iconByName(item.icon)
+                  return (
+                    <Card as="li" key={i} className="p-5">
+                      <Tile size="sm" tone="soft"><IconCmp className="size-4" /></Tile>
+                      <p className="figure mt-4 text-[1.5rem] text-ink-900">{item.value}</p>
+                      <p className="mt-1.5 text-[12.5px] font-semibold text-ink-500">{item.label}</p>
+                    </Card>
+                  )
+                })}
+              </ul>
+            )}
           </Shell>
         </Band>
       )
@@ -194,15 +208,7 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
               label={s(p.eyebrow)}
               title={s(p.heading)}
               lead={s(p.subtext)}
-              alignAction="end"
-              action={
-                s(p.ctaLabel) ? (
-                  <Action href={s(p.ctaHref, '/produk')}>
-                    {s(p.ctaLabel)}
-                    <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
-                  </Action>
-                ) : undefined
-              }
+              action={s(p.ctaLabel) ? <Action href={s(p.ctaHref, '/produk')} variant="outline">{s(p.ctaLabel)}<Icon.arrow className="size-4" /></Action> : undefined}
             />
             <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {list.map((product, i) => <ProductCard key={product.id} product={product} priority={i < 3} />)}
@@ -213,20 +219,24 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
     }
 
     /* ─────────────────────────────── CTA ──────────────────────────────── */
-    case 'cta_banner':
+    case 'cta_banner': {
+      const solid = s(p.variant, 'image') === 'solid' || !s(p.image)
       return (
-        <section className="relative isolate overflow-hidden bg-green-700">
-          <div className="absolute inset-0 -z-10">
-            <Media src={s(p.image)} alt="" ratio="auto" rounded={false} sizes="100vw" className="!absolute inset-0 size-full [&>*]:!object-cover" />
-            <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-green-900/96 via-green-700/90 to-green-600/55" />
-            <Mark className="pointer-events-none absolute -right-10 -bottom-16 hidden h-[22rem] w-auto opacity-[0.07] lg:block" />
-          </div>
+        <section className={`relative isolate overflow-hidden text-white ${solid ? 'bg-ink-900 grid-dark' : 'bg-ink-900'}`}>
+          {!solid ? (
+            <div className="absolute inset-0 -z-10">
+              <Media src={s(p.image)} alt="" ratio="auto" rounded={false} sizes="100vw" className="!absolute inset-0 size-full !rounded-none [&>*]:!object-cover" />
+              <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-ink-900 via-ink-900/90 to-ink-900/50" />
+            </div>
+          ) : (
+            <Mark className="pointer-events-none absolute -right-10 -bottom-16 hidden h-[22rem] w-auto opacity-[0.06] lg:block" />
+          )}
           <Shell>
-            <div className="flex flex-col gap-7 py-14 sm:py-18 lg:flex-row lg:items-center lg:justify-between lg:py-20">
+            <div className="flex flex-col gap-7 py-14 lg:flex-row lg:items-center lg:justify-between lg:py-20">
               <div className="max-w-[44ch]">
                 {s(p.eyebrow) ? <Label tone="gold">{s(p.eyebrow)}</Label> : null}
-                <h2 className="t-h1 mt-2.5 !text-white">{s(p.heading)}</h2>
-                {s(p.body) ? <p className="mt-4 text-[16px] leading-relaxed text-white/85">{s(p.body)}</p> : null}
+                <h2 className="t-h1 mt-3 !text-white">{s(p.heading)}</h2>
+                {s(p.body) ? <p className="mt-4 text-[16px] leading-relaxed text-white/70">{s(p.body)}</p> : null}
               </div>
               <div className="flex shrink-0 flex-wrap gap-3">
                 {s(p.ctaLabel) ? (
@@ -235,15 +245,16 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
                     <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
                   </Action>
                 ) : null}
-                <Action href="/profiling" variant="ghostLight" size="lg">
-                  <Icon.spark className="size-4" />
-                  Cari Produk
-                </Action>
+                {s(p.secondaryLabel) ? (
+                  <Action href={s(p.secondaryHref, '/profiling')} variant="ghostLight" size="lg">{s(p.secondaryLabel)}</Action>
+                ) : null}
               </div>
             </div>
           </Shell>
+          <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-gold-400/60 to-transparent" />
         </section>
       )
+    }
 
     /* ──────────────────────────────  news  ────────────────────────────── */
     case 'news_list': {
@@ -256,13 +267,7 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
               label={s(p.eyebrow)}
               title={s(p.heading)}
               lead={s(p.subtext)}
-              alignAction="end"
-              action={
-                <Action href="/berita">
-                  {s(p.ctaLabel, 'Lihat Semua Berita')}
-                  <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
-                </Action>
-              }
+              action={<Action href={s(p.ctaHref, '/berita')} variant="outline">{s(p.ctaLabel, 'Lihat Semua Berita')}<Icon.arrow className="size-4" /></Action>}
             />
             <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {list.map((post, i) => <PostCard key={post.id} post={post} priority={i === 0} />)}
@@ -278,7 +283,7 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       return (
         <Band tone={tone}>
           <Shell>
-            <Heading label={s(p.eyebrow)} title={s(p.heading)} lead={s(p.subtext)} align="center" />
+            <Heading label={s(p.eyebrow)} title={s(p.heading)} lead={s(p.subtext)} />
             <TestimonialSlider items={list} />
           </Shell>
         </Band>
@@ -298,19 +303,10 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
               {items.map((item, i) => {
                 const IconCmp = iconByName(item.icon)
                 return (
-                  <Card as="li" key={i} hover className="group/feat relative overflow-hidden p-6">
-                    <span
-                      aria-hidden="true"
-                      className="absolute inset-y-0 left-0 w-[3px] origin-top scale-y-0 bg-gradient-to-b from-green-400 to-green-600 transition-transform duration-500 [transition-timing-function:var(--ease-settle)] group-hover/feat:scale-y-100"
-                    />
-                    <div className="flex items-start justify-between gap-4">
-                      <Tile tone="soft"><IconCmp className="size-5" /></Tile>
-                      <span className="tnum text-[11px] font-bold tracking-[0.16em] text-slate-200 transition-colors duration-300 group-hover/feat:text-gold-300">
-                        {String(i + 1).padStart(2, '0')}
-                      </span>
-                    </div>
-                    <h3 className="t-h3 mt-4">{item.title}</h3>
-                    {item.body ? <p className="mt-2 text-[14.5px] leading-relaxed text-slate-500">{item.body}</p> : null}
+                  <Card as="li" key={i} className="p-6">
+                    <Tile tone="dark"><IconCmp className="size-5" /></Tile>
+                    <h3 className="t-h3 mt-5">{item.title}</h3>
+                    {item.body ? <p className="mt-2 text-[14.5px] leading-relaxed text-ink-500">{item.body}</p> : null}
                   </Card>
                 )
               })}
@@ -352,26 +348,23 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       return (
         <Band tone={tone}>
           <Shell>
-            <Heading label="Tata Kelola" title={s(p.heading, 'Struktur Organisasi')} align="center" />
-            {/* Structured text rather than a flat image — readable by Google and
-                by a phone, unlike the JPEG on the old site. */}
-            <div className="grid gap-5 lg:grid-cols-3">
-              {groups.map((group, i) => (
-                <Card key={i} className="p-6">
-                  <div className="flex items-center gap-3">
-                    <Tile size="sm" tone="soft"><Icon.users className="size-4" /></Tile>
-                    <h3 className="text-[13px] font-bold uppercase tracking-[0.11em] text-green-700">{group.title}</h3>
+            <Heading label={s(p.eyebrow, 'Tata kelola')} title={s(p.heading, 'Struktur Organisasi')} />
+            <div className="surface overflow-hidden">
+              <div className="grid divide-y divide-line lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+                {groups.map((group, i) => (
+                  <div key={i} className="p-6">
+                    <h3 className="text-[13px] font-semibold text-green-700">{group.title}</h3>
+                    <ul className="mt-4 space-y-3.5">
+                      {group.members.map((m, j) => (
+                        <li key={j}>
+                          <p className="text-[15px] font-bold text-ink-900">{m.name}</p>
+                          {m.role ? <p className="mt-0.5 text-[12.5px] text-ink-400">{m.role}</p> : null}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <ul className="mt-5 space-y-4">
-                    {group.members.map((m, j) => (
-                      <li key={j} className="border-l-2 border-green-100 pl-3.5">
-                        <p className="text-[15.5px] font-bold text-navy-800">{m.name}</p>
-                        {m.role ? <p className="mt-0.5 text-[12.5px] text-slate-400">{m.role}</p> : null}
-                      </li>
-                    ))}
-                  </ul>
-                </Card>
-              ))}
+                ))}
+              </div>
             </div>
           </Shell>
         </Band>
@@ -390,7 +383,7 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
                 <li key={i}>
                   <figure>
                     <Media src={img.image} alt={img.caption ?? ''} ratio="4/3" sizes="(max-width: 640px) 100vw, 33vw" />
-                    {img.caption ? <figcaption className="mt-2.5 text-[13px] text-slate-400">{img.caption}</figcaption> : null}
+                    {img.caption ? <figcaption className="mt-2.5 text-[13px] text-ink-400">{img.caption}</figcaption> : null}
                   </figure>
                 </li>
               ))}
@@ -405,21 +398,19 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       return (
         <Band tone={tone}>
           <Shell>
-            {s(p.heading) ? <Heading label="Unduhan" title={s(p.heading)} /> : null}
+            {s(p.heading) ? <Heading label={s(p.eyebrow, 'Unduhan')} title={s(p.heading)} /> : null}
             {list.length ? (
-              <ul className="grid gap-3">
+              <ul className="surface divide-y divide-line overflow-hidden">
                 {list.map((doc) => (
                   <li key={doc.id}>
-                    <a href={doc.url} target="_blank" rel="noopener noreferrer"
-                      className="surface surface-i group/doc flex items-center gap-4 p-4 sm:p-5">
-                      <Tile tone="soft"><Icon.download className="size-5" /></Tile>
+                    <a href={doc.url} target="_blank" rel="noopener noreferrer" className="group/doc flex items-center gap-4 p-4 transition-colors hover:bg-paper sm:p-5">
+                      <Tile tone="outline"><Icon.fileText className="size-5" /></Tile>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[15px] font-bold text-navy-800 transition-colors group-hover/doc:text-green-700">{doc.title}</span>
-                        {doc.year ? <span className="tnum mt-0.5 block text-[13px] text-slate-400">Tahun buku {doc.year}</span> : null}
+                        <span className="block truncate text-[15px] font-bold text-ink-900 transition-colors group-hover/doc:text-green-700">{doc.title}</span>
+                        {doc.year ? <span className="tnum mt-0.5 block text-[13px] text-ink-400">Tahun buku {doc.year}</span> : null}
                       </span>
                       <span className="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-semibold text-green-700">
-                        Unduh
-                        <Icon.arrow className="size-3.5 transition-transform duration-300 group-hover/doc:translate-x-0.5" />
+                        Unduh <Icon.download className="size-4" />
                       </span>
                     </a>
                   </li>
@@ -438,26 +429,24 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       return (
         <Band tone={tone} className="!py-10 sm:!py-14">
           <Shell>
-            <Card tone="soft" className="relative overflow-hidden p-7 sm:p-9">
-              <div aria-hidden="true" className="pointer-events-none absolute -right-14 -top-14 size-52 rounded-full bg-green-100/70 blur-2xl" />
+            <div className="surface-dark relative overflow-hidden p-7 text-white sm:p-9">
+              <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200/60 to-transparent" />
+              <div className="grid-dark absolute inset-0 -z-0 opacity-60" aria-hidden="true" />
               <div className="relative flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
                 <div className="max-w-[48ch]">
-                  <div className="flex items-center gap-3">
-                    <Tile><Icon.spark className="size-5" /></Tile>
-                    <Label>Panduan Cepat</Label>
-                  </div>
-                  <h2 className="t-h2 mt-4">{s(p.heading)}</h2>
-                  {s(p.body) ? <p className="t-lead mt-3">{s(p.body)}</p> : null}
+                  {s(p.eyebrow) ? <Label tone="gold">{s(p.eyebrow)}</Label> : null}
+                  <h2 className="t-h2 mt-3 !text-white">{s(p.heading)}</h2>
+                  {s(p.body) ? <p className="mt-3 text-[16px] leading-relaxed text-white/70">{s(p.body)}</p> : null}
                 </div>
                 <div className="shrink-0">
-                  <Action href="/profiling" size="lg" className="w-full sm:w-auto">
+                  <Action href={s(p.ctaHref, '/profiling')} variant="light" size="lg" className="w-full sm:w-auto">
                     {s(p.ctaLabel, 'Mulai')}
                     <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
                   </Action>
-                  {s(p.note) ? <p className="mt-2.5 text-center text-[12.5px] text-slate-400">{s(p.note)}</p> : null}
+                  {s(p.note) ? <p className="mt-2.5 text-center text-[12.5px] text-white/50">{s(p.note)}</p> : null}
                 </div>
               </div>
-            </Card>
+            </div>
           </Shell>
         </Band>
       )
@@ -469,34 +458,32 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
             <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-16">
               <div>
                 {s(p.eyebrow) ? <Label>{s(p.eyebrow)}</Label> : null}
-                <h2 className="t-h2 mt-2.5">
+                <h2 className="t-h2 mt-3">
                   {s(p.heading)}
-                  {s(p.headingAccent) ? <> <span className="text-green-600">{s(p.headingAccent)}</span></> : null}
+                  {s(p.headingAccent) ? <> <span className="text-green-700">{s(p.headingAccent)}</span></> : null}
                 </h2>
-                {s(p.body) ? <p className="t-lead mt-3.5 max-w-[46ch]">{s(p.body)}</p> : null}
+                {s(p.body) ? <p className="t-lead mt-4 max-w-[46ch]">{s(p.body)}</p> : null}
 
-                <ul className="mt-8 grid gap-3">
-                  {arr<{ title: string; body?: string }>(p.benefits).map((benefit, i) => (
-                    <Card as="li" key={i} className="flex items-start gap-3.5 p-4">
-                      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-green-50 text-green-600">
-                        <Icon.checkCircle className="size-5" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-[14.5px] font-bold text-navy-800">{benefit.title}</span>
-                        {benefit.body ? <span className="mt-0.5 block text-[13.5px] leading-relaxed text-slate-500">{benefit.body}</span> : null}
-                      </span>
-                    </Card>
-                  ))}
-                </ul>
+                {arr(p.benefits).length ? (
+                  <ul className="mt-8 divide-y divide-line border-y border-line">
+                    {arr<{ title: string; body?: string }>(p.benefits).map((benefit, i) => (
+                      <li key={i} className="flex items-start gap-3.5 py-4">
+                        <Icon.checkCircle className="mt-0.5 size-5 shrink-0 text-green-600" />
+                        <span className="min-w-0">
+                          <span className="block text-[14.5px] font-bold text-ink-900">{benefit.title}</span>
+                          {benefit.body ? <span className="mt-0.5 block text-[13.5px] leading-relaxed text-ink-500">{benefit.body}</span> : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
 
-                {/* The green figure card from the design — social proof beside the form. */}
                 {s(p.statValue) ? (
-                  <div className="relative mt-4 overflow-hidden rounded-[var(--radius-card)] bg-green-600 p-6 text-white">
-                    <div aria-hidden="true" className="pointer-events-none absolute -bottom-10 -right-8 size-40 rounded-full bg-white/10" />
-                    <Icon.quote className="relative size-7 text-white/70" />
-                    <p className="tnum relative mt-4 text-[26px] font-extrabold tracking-[-0.02em]">{s(p.statValue)}</p>
-                    <p className="relative mt-0.5 text-[14.5px] font-semibold">{s(p.statLabel)}</p>
-                    {s(p.statNote) ? <p className="relative mt-1.5 max-w-[36ch] text-[12.5px] leading-relaxed text-white/75">{s(p.statNote)}</p> : null}
+                  <div className="surface-dark relative mt-6 overflow-hidden p-6 text-white">
+                    <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200/60 to-transparent" />
+                    <p className="figure text-[2.25rem] text-gold-300">{s(p.statValue)}</p>
+                    <p className="mt-2 text-[14.5px] font-semibold">{s(p.statLabel)}</p>
+                    {s(p.statNote) ? <p className="mt-1 max-w-[36ch] text-[12.5px] leading-relaxed text-white/55">{s(p.statNote)}</p> : null}
                   </div>
                 ) : null}
               </div>
@@ -518,7 +505,7 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       return (
         <Band tone={tone} id="lokasi">
           <Shell>
-            <Heading label="Kantor Kami" title={s(p.heading, 'Kantor Terdekat dari Anda')} lead={s(p.body)} />
+            <Heading label={s(p.eyebrow, 'Kantor kami')} title={s(p.heading, 'Kantor Terdekat dari Anda')} lead={s(p.body)} />
             <BranchFinder branches={ctx.branches} showMap={b(p.showMap, true)} />
           </Shell>
         </Band>
@@ -528,7 +515,7 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       return (
         <Band tone={tone}>
           <Shell>
-            <Heading label="Kontak" title={s(p.heading, 'Hubungi Kantor Kami')} />
+            <Heading label={s(p.eyebrow, 'Kontak')} title={s(p.heading, 'Hubungi Kantor Kami')} />
             <ul className="grid gap-5 lg:grid-cols-3">
               {ctx.branches.map((branch) => <BranchCard key={branch.id} branch={branch} showHours={b(p.showHours, true)} />)}
             </ul>
@@ -538,13 +525,12 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
 
     case 'simulation_calculator': {
       const chosen = s(p.product)
-      // Only products whose figures the koperasi has confirmed may be calculated.
-      const loans = ctx.products.filter((x) => x.category === 'pinjaman' && x.isVerified && x.ratePercent != null)
+      const loans = ctx.products.filter((x) => x.category === 'pinjaman' && (x.ratePercent ?? x.ratePercentIndicative) != null)
       const preselected = loans.find((x) => x.id === chosen)
       return (
         <Band tone={tone} id="simulasi">
           <Shell>
-            <Heading label="Kalkulator" title={s(p.heading, 'Simulasi Angsuran')} lead={s(p.body)} />
+            <Heading label={s(p.eyebrow, 'Kalkulator')} title={s(p.heading, 'Simulasi Angsuran')} lead={s(p.body)} />
             {loans.length ? (
               <SimulationCalculator products={loans} initialProductId={preselected?.id} disclaimer={s(p.disclaimer, 'Simulasi awal, bukan penawaran final.')} />
             ) : (
@@ -564,4 +550,4 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
   }
 }
 
-export { Link, More, Pill, Card }
+export { Link, More, Pill, Card, Rule }

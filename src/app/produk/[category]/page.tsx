@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { getProducts } from '@/lib/api'
 import { buildMetadata } from '@/lib/seo'
 import { breadcrumbLd, itemListLd } from '@/lib/jsonld'
-import { Shell, Band, Breadcrumbs, JsonLd, Action, Blank } from '@/components/ui'
+import { Shell, Band, Breadcrumbs, JsonLd, Action, Blank, PageIntro } from '@/components/ui'
 import { ProductRow } from '@/components/ProductCard'
 
 export const revalidate = 600
@@ -57,15 +57,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ categ
       />
       <Breadcrumbs trail={trail} />
 
-      <div className="border-b border-slate-200 bg-gradient-to-b from-green-50/60 to-white py-12 sm:py-16">
-        <Shell>
-          <div className="max-w-3xl">
-            <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-green-600">PRODUK {meta.label.toUpperCase()}</p>
-            <h1 className="text-balance text-3xl font-bold tracking-tight text-navy-800 sm:text-4xl lg:text-[2.6rem] lg:leading-[1.12]">{meta.h1}</h1>
-            <p className="mt-5 text-pretty text-lg leading-relaxed text-slate-600">{meta.intro}</p>
-          </div>
-        </Shell>
-      </div>
+      <PageIntro label={`Produk ${meta.label.toLowerCase()}`} title={meta.h1} lead={meta.intro} />
 
       <Band>
         <Shell>

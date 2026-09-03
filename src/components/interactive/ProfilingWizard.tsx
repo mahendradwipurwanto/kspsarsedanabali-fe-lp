@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { LEAD_PURPOSES, calculateInstallment, formatRupiah, formatRupiahShort, waLink } from '@/contracts'
 import type { Product, Branch } from '@/lib/api'
 import { apiPost, sessionId, track, API_BASE } from '@/lib/client'
-import { Action, Icon, Label } from '../ui'
+import { Action, Icon } from '../ui'
 import { Field, Slider, Segments, Check, Note, Select, field } from '../ui/form'
 
 interface Answers { need?: 'pinjaman' | 'simpanan'; purposes: string[]; amount: number; tenorMonths: number }
@@ -120,18 +120,14 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
               <span
                 aria-hidden="true"
                 className={`block h-1.5 rounded-full transition-colors duration-500 [transition-timing-function:var(--ease-settle)] ${
-                  state === 'now'
-                    ? 'bg-gradient-to-r from-green-500 to-green-700 shadow-[var(--shadow-green)]'
-                    : state === 'done'
-                      ? 'bg-green-300'
-                      : 'bg-slate-200'
+                  state === 'now' ? 'bg-ink-900' : state === 'done' ? 'bg-green-500' : 'bg-ink-100'
                 }`}
               />
               <span className="mt-2.5 block pb-1">
-                <span className={`tnum block text-[10.5px] font-bold tracking-[0.16em] ${state === 'todo' ? 'text-slate-300' : 'text-green-600'}`}>
+                <span className={`tnum block text-[10.5px] font-bold tracking-[0.16em] ${state === 'todo' ? 'text-ink-300' : state === 'now' ? 'text-ink-900' : 'text-green-600'}`}>
                   {String(n).padStart(2, '0')}
                 </span>
-                <span className={`mt-0.5 hidden text-[12.5px] font-semibold sm:block ${state === 'now' ? 'text-navy-800' : 'text-slate-400'}`}>
+                <span className={`mt-0.5 hidden text-[12.5px] font-semibold sm:block ${state === 'now' ? 'text-ink-900' : 'text-ink-400'}`}>
                   {title}
                 </span>
               </span>
@@ -140,12 +136,12 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
         })}
       </ol>
 
-      <div className="surface relative !rounded-[1.25rem] p-5 !shadow-[var(--shadow-lift)] sm:p-9">
+      <div className="surface relative p-5 sm:p-9">
         
         {step === 1 ? (
           <fieldset>
-            <legend className="t-h2 text-navy-800">Apa yang Anda butuhkan hari ini?</legend>
-            <p className="mt-3 text-[14.5px] text-slate-500">Pilih salah satu.</p>
+            <legend className="t-h2 text-ink-900">Apa yang Anda butuhkan hari ini?</legend>
+            <p className="mt-3 text-[14.5px] text-ink-500">Pilih salah satu.</p>
 
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               {[
@@ -157,27 +153,25 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
                   <label
                     key={opt.value}
                     className={`group relative flex cursor-pointer flex-col gap-4 rounded-[var(--radius-card)] border p-5 transition-all duration-200 sm:min-h-[240px] sm:p-6 ${
-                      active
-                        ? 'border-green-600 bg-gradient-to-b from-green-50 to-[#eaf2e4] shadow-[inset_0_1px_0_rgb(255_255_255/0.8),var(--shadow-lift)]'
-                        : 'border-line bg-gradient-to-b from-white to-[#fbfcfa] hover:-translate-y-0.5 hover:border-green-200 hover:shadow-[var(--shadow-raised)]'
+                      active ? 'border-ink-900 bg-paper' : 'border-line bg-white hover:border-ink-900'
                     }`}
                   >
                     <input type="radio" name="need" value={opt.value} checked={active}
                       onChange={() => setAnswers((a) => ({ ...a, need: opt.value }))} className="sr-only" />
                     <span className="flex items-center justify-between">
-                      <span className={`grid size-14 place-items-center rounded-2xl shadow-[var(--edge-top)] transition-all duration-300 ${active ? 'bg-gradient-to-b from-green-500 to-green-700 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.22),var(--shadow-green)]' : 'bg-gradient-to-b from-green-50 to-[#e8f0e2] text-green-600 group-hover:from-green-100 group-hover:to-green-100'}`}>
+                      <span className={`grid size-14 place-items-center rounded-[var(--radius-tile)] border transition-colors duration-300 ${active ? 'border-ink-900 bg-ink-900 text-gold-300' : 'border-line bg-paper text-ink-700 group-hover:border-ink-900'}`}>
                         <opt.IconCmp className="size-7" />
                       </span>
-                      <span className={`tnum text-[11px] font-bold tracking-[0.16em] ${active ? 'text-green-600' : 'text-slate-300'}`}>{opt.n}</span>
+                      <span className={`tnum text-[11px] font-bold tracking-[0.16em] ${active ? 'text-ink-900' : 'text-ink-300'}`}>{opt.n}</span>
                     </span>
                     <span className="flex-1">
-                      <span className={`block text-[17px] font-bold ${active ? 'text-green-700' : 'text-navy-800'}`}>{opt.title}</span>
-                      <span className="mt-1.5 block text-[14px] leading-relaxed text-slate-500">{opt.body}</span>
+                      <span className={`block text-[17px] font-bold text-ink-900`}>{opt.title}</span>
+                      <span className="mt-1.5 block text-[14px] leading-relaxed text-ink-500">{opt.body}</span>
                     </span>
                     <span
                       aria-hidden="true"
                       className={`absolute right-5 top-5 grid size-5 place-items-center rounded-full border-2 transition-colors ${
-                        active ? 'border-green-600 bg-green-600 text-white' : 'border-slate-300'
+                        active ? 'border-ink-900 bg-ink-900 text-gold-300' : 'border-line-strong'
                       }`}
                     >
                       {active ? <Icon.check className="size-3.5" /> : null}
@@ -192,17 +186,17 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
                 Lanjut
                 <Icon.arrow className="size-4" />
               </Action>
-              <p className="mt-3.5 text-center text-[12px] text-slate-400">± 30 detik · tanpa perlu daftar akun</p>
+              <p className="mt-3.5 text-center text-[12px] text-ink-400">± 30 detik · tanpa perlu daftar akun</p>
             </div>
           </fieldset>
         ) : null}
 
         {step === 2 ? (
           <fieldset>
-            <legend className="t-h2 text-navy-800">
+            <legend className="t-h2 text-ink-900">
               {answers.need === 'simpanan' ? 'Menabung untuk keperluan apa?' : 'Dana ini untuk keperluan apa?'}
             </legend>
-            <p className="mt-3 text-[14.5px] text-slate-500">Boleh pilih lebih dari satu.</p>
+            <p className="mt-3 text-[14.5px] text-ink-500">Boleh pilih lebih dari satu.</p>
 
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               {LEAD_PURPOSES.map((purpose) => {
@@ -212,7 +206,7 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
                   <label
                     key={purpose.value}
                     className={`group flex min-h-[76px] cursor-pointer items-center justify-between gap-3 rounded-[var(--radius-card)] border px-4 py-3.5 text-[15px] transition-all duration-200 ${
-                      active ? 'border-green-600 bg-green-50 font-semibold text-green-700 shadow-[var(--shadow-card)]' : 'border-line bg-white text-slate-600 hover:-translate-y-0.5 hover:border-green-200 hover:bg-green-50/50 hover:shadow-[var(--shadow-card)]'
+                      active ? 'border-ink-900 bg-paper font-semibold text-ink-900' : 'border-line bg-white text-ink-600 hover:border-ink-900'
                     }`}
                   >
                     <input
@@ -225,12 +219,12 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
                       }
                     />
                     <span className="flex min-w-0 items-center gap-3">
-                      <span className={`grid size-10 shrink-0 place-items-center rounded-xl shadow-[var(--edge-top)] transition-colors duration-300 ${active ? 'bg-gradient-to-b from-green-500 to-green-700 text-white' : 'bg-gradient-to-b from-green-50 to-[#e8f0e2] text-green-600 group-hover:from-green-100 group-hover:to-green-100'}`}>
+                      <span className={`grid size-10 shrink-0 place-items-center rounded-[var(--radius-tile)] border transition-colors duration-300 ${active ? 'border-ink-900 bg-ink-900 text-gold-300' : 'border-line bg-paper text-ink-700'}`}>
                         <PurposeIcon className="size-5" />
                       </span>
                       <span className="leading-snug">{purpose.label}</span>
                     </span>
-                    <span aria-hidden="true" className={`grid size-5 shrink-0 place-items-center rounded-full border-2 transition-colors ${active ? 'border-green-600 bg-green-600 text-white' : 'border-slate-300'}`}>
+                    <span aria-hidden="true" className={`grid size-5 shrink-0 place-items-center rounded-full border-2 transition-colors ${active ? 'border-ink-900 bg-ink-900 text-gold-300' : 'border-line-strong'}`}>
                       {active ? <Icon.check className="size-3.5" /> : null}
                     </span>
                   </label>
@@ -254,37 +248,37 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
 
         {step === 3 ? (
           <fieldset>
-            <legend className="t-h2 text-navy-800">
+            <legend className="t-h2 text-ink-900">
               {answers.need === 'simpanan' ? 'Berapa dana yang ingin Anda tabung?' : 'Berapa dana yang Anda butuhkan?'}
             </legend>
 
             <div className="mt-8">
-              <label htmlFor="wiz-amount" className="text-[12.5px] font-semibold text-navy-800">
+              <label htmlFor="wiz-amount" className="text-[13px] font-semibold text-ink-700">
                 {answers.need === 'simpanan' ? 'Target simpanan' : 'Nominal pinjaman'}
               </label>
-              <output htmlFor="wiz-amount" className="figure mt-1.5 block text-[clamp(1.9rem,1.45rem+2vw,2.7rem)] text-navy-800">
+              <output htmlFor="wiz-amount" className="figure mt-1.5 block text-[clamp(1.9rem,1.45rem+2vw,2.7rem)] text-ink-900">
                 {formatRupiah(answers.amount)}
               </output>
               <Slider id="wiz-amount" min={bounds.min} max={bounds.max} step={1_000_000} value={answers.amount}
                 onChange={(e) => setAnswers((a) => ({ ...a, amount: Number(e.target.value) }))} />
-              <p className="tnum flex justify-between text-[12px] text-slate-400">
+              <p className="tnum flex justify-between text-[12px] text-ink-400">
                 <span>{formatRupiahShort(bounds.min)}</span>
                 <span>{formatRupiahShort(bounds.max)}</span>
               </p>
             </div>
 
             <div className="mt-8">
-              <span className="mb-2.5 block text-[12.5px] font-semibold text-navy-800">Jangka waktu</span>
+              <span className="mb-2.5 block text-[13px] font-semibold text-ink-700">Jangka waktu</span>
               <Segments options={[12, 24, 36, 48]} value={answers.tenorMonths} suffix=" bln" ariaLabel="Jangka waktu"
                 onChange={(t) => setAnswers((a) => ({ ...a, tenorMonths: t }))} />
             </div>
 
             {liveEstimate ? (
-              <div className="relative mt-8 overflow-hidden rounded-[var(--radius-card)] border border-green-100 bg-gradient-to-br from-green-50 to-[#eaf2e4] p-5 shadow-[var(--edge-top)]">
-                <span aria-hidden="true" className="absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-gold-300 to-gold-200" />
-                <p className="text-[12px] font-bold uppercase tracking-[0.12em] text-gold-700">Estimasi angsuran per bulan</p>
-                <p className="figure mt-2 text-[clamp(1.6rem,1.25rem+1.5vw,2.1rem)] text-green-700">{formatRupiah(liveEstimate.monthly)}</p>
-                <p className="mt-2.5 text-[12px] text-slate-500">*Simulasi awal, bukan penawaran final.</p>
+              <div className="surface-dark relative mt-8 overflow-hidden p-5 text-white">
+                <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200/60 to-transparent" />
+                <p className="text-[12.5px] font-medium text-white/55">Estimasi angsuran per bulan</p>
+                <p className="figure mt-2 text-[clamp(1.6rem,1.25rem+1.5vw,2.1rem)] text-gold-300">{formatRupiah(liveEstimate.monthly)}</p>
+                <p className="mt-2.5 text-[12px] text-white/45">Simulasi awal, bukan penawaran final.</p>
               </div>
             ) : null}
 
@@ -297,8 +291,8 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
 
         {step === 4 ? (
           <form onSubmit={onSubmitContact} noValidate>
-            <h2 className="t-h2 text-navy-800">Ke mana kami bisa menghubungi Anda?</h2>
-            <p className="mt-3 text-[14.5px] text-slate-500">Data hanya dipakai untuk menghubungi Anda.</p>
+            <h2 className="t-h2 text-ink-900">Ke mana kami bisa menghubungi Anda?</h2>
+            <p className="mt-3 text-[14.5px] text-ink-500">Data hanya dipakai untuk menghubungi Anda.</p>
 
             <div className="mt-7 grid gap-5">
               <Field label="Nama lengkap" htmlFor="wiz-name" required>
@@ -326,8 +320,8 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
 
             <div className="mt-8 flex gap-3">
               <Action type="button" variant="outline" onClick={() => setStep(3)} size="lg" className="flex-1">Kembali</Action>
-              <Action type="submit" variant="gold" size="lg" disabled={submitting} className="flex-[2]">
-                {submitting ? 'Memproses…' : 'Lihat Rekomendasi'}
+              <Action type="submit" size="lg" disabled={submitting} className="flex-[2]">
+                {submitting ? 'Memproses…' : 'Lihat rekomendasi'}
               </Action>
             </div>
           </form>
@@ -343,24 +337,21 @@ function ResultPanel({ result, answers, branches }: { result: Recommendation | n
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="relative z-0 overflow-hidden rounded-[var(--radius-card)] border border-line bg-white shadow-[var(--shadow-lift)]">
-        <span aria-hidden="true" className="absolute -right-px -top-px size-7 border-r-2 border-t-2 border-gold-300" />
-        <span aria-hidden="true" className="absolute -bottom-px -left-px size-7 border-b-2 border-l-2 border-gold-300" />
-
-        <div className="relative bg-gradient-to-br from-green-600 via-green-700 to-green-800 p-7 text-white sm:p-9">
-          <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-gold-300 via-gold-200 to-transparent" />
+      <div className="surface relative z-0 overflow-hidden">
+        <div className="grid-dark relative bg-ink-900 p-7 text-white sm:p-9">
+          <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200 to-transparent" />
           <div className="flex items-start justify-between gap-5">
             <div>
-              <p className="t-label !text-white/85">Rekomendasi untuk Anda</p>
-              <h2 className="t-h2 mt-3 text-white">
+              <p className="text-[13px] font-medium text-white/60">Rekomendasi untuk Anda</p>
+              <h2 className="t-h2 mt-3 !text-white">
                 {best ? best.product.name : 'Data Anda sudah kami terima'}
               </h2>
-              {best?.product.tagline ? <p className="mt-2 text-[14.5px] text-white/80">{best.product.tagline}</p> : null}
+              {best?.product.tagline ? <p className="mt-2 text-[14.5px] text-white/65">{best.product.tagline}</p> : null}
             </div>
             {best ? (
               <div className="shrink-0 text-right">
-                <p className="figure text-[2.2rem] text-white">{best.score}%</p>
-                <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-green-200/55">cocok</p>
+                <p className="figure text-[2.2rem] text-gold-300">{best.score}%</p>
+                <p className="text-[12px] font-medium text-white/50">cocok</p>
               </div>
             ) : null}
           </div>
@@ -376,13 +367,13 @@ function ResultPanel({ result, answers, branches }: { result: Recommendation | n
                     ['Tenor', `${answers.tenorMonths} bulan`],
                   ].map(([k, v]) => (
                     <div key={k} className="flex justify-between gap-4 border-b border-line py-3.5">
-                      <dt className="text-slate-500">{k}</dt>
-                      <dd className="font-medium text-navy-800">{v}</dd>
+                      <dt className="text-ink-500">{k}</dt>
+                      <dd className="font-medium text-ink-900">{v}</dd>
                     </div>
                   ))}
                   {best.estimate ? (
                     <div className="flex items-baseline justify-between gap-4 py-4">
-                      <dt className="font-semibold text-slate-600">Estimasi angsuran</dt>
+                      <dt className="font-semibold text-ink-600">Estimasi angsuran</dt>
                       <dd className="figure text-[20px] text-green-700">{formatRupiah(best.estimate.monthly)}</dd>
                     </div>
                   ) : null}
@@ -392,7 +383,7 @@ function ResultPanel({ result, answers, branches }: { result: Recommendation | n
               {best.reasons.length ? (
                 <ul className="mt-6 space-y-2.5 border-t border-line pt-6">
                   {best.reasons.map((reason, i) => (
-                    <li key={i} className="flex gap-3 text-[14px] leading-relaxed text-slate-500">
+                    <li key={i} className="flex gap-3 text-[14px] leading-relaxed text-ink-500">
                       <Icon.check className="mt-0.5 size-4 shrink-0 text-gold-400" />
                       {reason}
                     </li>
@@ -414,10 +405,10 @@ function ResultPanel({ result, answers, branches }: { result: Recommendation | n
                 </Action>
                 <Action href={`/simulasi?produk=${best.product.slug}&nominal=${answers.amount}&tenor=${answers.tenorMonths}`} variant="outline" full>
                   <Icon.calculator className="size-4" />
-                  Buka Kalkulator Simulasi
+                  Buka kalkulator simulasi
                 </Action>
                 <Action href={`/produk/${best.product.category}/${best.product.slug}`} variant="quiet" full>
-                  Lihat Syarat &amp; Ketentuan
+                  Lihat syarat dan ketentuan
                 </Action>
               </div>
 
@@ -427,10 +418,10 @@ function ResultPanel({ result, answers, branches }: { result: Recommendation | n
                   <ul className="mt-3.5 divide-y divide-line">
                     {result.alternatives.map((alt) => (
                       <li key={alt.product.id} className="flex items-center justify-between gap-4 py-3">
-                        <a href={`/produk/${alt.product.category}/${alt.product.slug}`} className="text-[16px] text-navy-800 hover:text-green-700">
+                        <a href={`/produk/${alt.product.category}/${alt.product.slug}`} className="text-[16px] text-ink-900 hover:text-green-700">
                           {alt.product.name}
                         </a>
-                        <span className="tnum shrink-0 text-[12px] font-semibold text-slate-400">cocok {alt.score}%</span>
+                        <span className="tnum shrink-0 text-[12px] font-semibold text-ink-400">cocok {alt.score}%</span>
                       </li>
                     ))}
                   </ul>
@@ -444,10 +435,9 @@ function ResultPanel({ result, answers, branches }: { result: Recommendation | n
             </>
           )}
 
-          <p className="mt-8 border-t border-line pt-5 text-center text-[14.5px] font-semibold text-green-700">
-            Nasabah dapat jawabannya. Kami dapat datanya.
+          <p className="mt-8 border-t border-line pt-5 text-center text-[12.5px] text-ink-400">
+            Angka di atas adalah simulasi awal, bukan penawaran final. Petugas kami akan menghubungi Anda untuk langkah berikutnya.
           </p>
-          <p className="mt-1.5 text-center text-[12px] text-slate-400">*Angka di atas adalah simulasi awal, bukan penawaran final.</p>
         </div>
       </div>
     </div>

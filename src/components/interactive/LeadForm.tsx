@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react'
 import type { Product, Branch } from '@/lib/api'
 import { apiPost, sessionId, track } from '@/lib/client'
-import { Action, Icon, Label } from '../ui'
+import { Action, Icon } from '../ui'
 import { Field, Note, Check, Select, field } from '../ui/form'
 
 export function LeadForm({
@@ -59,15 +59,15 @@ export function LeadForm({
 
   if (status === 'done') {
     return (
-      <div className="relative overflow-hidden rounded-[var(--radius-card)] border border-green-200 bg-gradient-to-b from-green-50 to-[#eaf2e4] p-8 text-center shadow-[var(--edge-top)] sm:p-10">
+      <div className="surface relative overflow-hidden p-8 text-center sm:p-10">
         <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-gold-300 to-transparent" />
                 
-        <span className="mx-auto grid size-14 place-items-center rounded-full bg-gradient-to-b from-green-500 to-green-700 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25),var(--shadow-green)]"><Icon.check className="size-7" /></span>
-        <h3 className="t-h2 mt-5 text-navy-800">Pesan Anda sudah kami terima</h3>
+        <span className="mx-auto grid size-14 place-items-center rounded-[var(--radius-tile)] bg-green-600 text-white"><Icon.check className="size-7" /></span>
+        <h3 className="t-h2 mt-5 text-ink-900">Pesan Anda sudah kami terima</h3>
         <p className="t-lead mt-4">{successMessage}</p>
 
-        <div className="mt-8 border-t border-green-200 pt-6">
-          <p className="text-[13.5px] text-slate-500">Butuh lebih cepat? Hubungi kantor terdekat langsung.</p>
+        <div className="mt-8 border-t border-line pt-6">
+          <p className="text-[13.5px] text-ink-500">Butuh lebih cepat? Hubungi kantor terdekat langsung.</p>
           <Action href="/lokasi" variant="outline" className="mt-4">
             Lihat kantor terdekat
             <Icon.arrow className="size-4" />
@@ -78,10 +78,10 @@ export function LeadForm({
   }
 
   return (
-    <div className="surface relative overflow-hidden p-6 !shadow-[var(--shadow-lift)] sm:p-8 lg:sticky lg:top-24">
-      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-green-500 via-green-400 to-gold-300" />
+    <div className="surface relative overflow-hidden p-6 sm:p-8 lg:sticky lg:top-24">
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200 to-transparent" />
             
-      <h3 className="mb-6 text-[18px] font-extrabold tracking-[-0.02em] text-navy-800">{title}</h3>
+      <h3 className="mb-6 t-h3">{title}</h3>
 
 
       <form onSubmit={onSubmit} noValidate className="grid gap-5">
@@ -152,11 +152,11 @@ export function LeadForm({
         {error ? <Note>{error}</Note> : null}
 
         <Action type="submit" size="lg" shape="rect" disabled={status === 'sending'} full className="mt-1">
-          {status === 'sending' ? 'Mengirim…' : 'Kirim & Minta Dihubungi'}
+          {status === 'sending' ? 'Mengirim…' : 'Kirim dan minta dihubungi'}
           {status === 'idle' ? <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" /> : null}
         </Action>
 
-        <p className="text-center text-[12px] leading-relaxed text-slate-400">
+        <p className="text-center text-[12px] leading-relaxed text-ink-400">
           Data Anda hanya dipakai untuk menghubungi Anda dan tidak dibagikan ke pihak lain.
         </p>
       </form>

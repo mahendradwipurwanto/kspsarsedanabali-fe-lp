@@ -3,25 +3,19 @@
 import { useState } from 'react'
 import { Icon } from '../ui'
 
-/** Rounded disclosure cards, matching the design's card language. */
+/** Ruled disclosure list. One open at a time; the open row carries a gold seam. */
 export function Accordion({ items, defaultOpen = 0 }: { items: { title: string; body: string }[]; defaultOpen?: number }) {
   const [open, setOpen] = useState<number | null>(defaultOpen)
 
   return (
-    <div className="grid gap-3">
+    <div className="surface divide-y divide-line overflow-hidden">
       {items.map((item, i) => {
         const isOpen = open === i
         return (
-          <div
-            key={i}
-            className={`relative overflow-hidden rounded-[var(--radius-card)] border bg-gradient-to-b from-white to-[#fbfcfa] transition-all duration-300 [transition-timing-function:var(--ease-swift)] ${
-              isOpen ? 'border-green-200 shadow-[var(--shadow-raised)]' : 'border-line shadow-[var(--shadow-card)]'
-            }`}
-          >
-            {/* Gold seam marks the open panel — the same device as the cards. */}
+          <div key={i} className={`relative transition-colors duration-300 ${isOpen ? 'bg-paper' : 'bg-white'}`}>
             <span
               aria-hidden="true"
-              className={`absolute inset-y-0 left-0 w-[3px] origin-top bg-gradient-to-b from-gold-300 to-gold-200 transition-transform duration-500 [transition-timing-function:var(--ease-settle)] ${
+              className={`absolute inset-y-0 left-0 w-[3px] origin-top bg-gradient-to-b from-gold-300 to-gold-400 transition-transform duration-500 [transition-timing-function:var(--ease-settle)] ${
                 isOpen ? 'scale-y-100' : 'scale-y-0'
               }`}
             />
@@ -31,17 +25,15 @@ export function Accordion({ items, defaultOpen = 0 }: { items: { title: string; 
                 onClick={() => setOpen(isOpen ? null : i)}
                 aria-expanded={isOpen}
                 aria-controls={`acc-${i}`}
-                className="group/acc flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-green-50/60 sm:px-6"
+                className="group/acc flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-paper sm:px-6"
               >
-                <span className={`flex-1 text-[15px] font-bold transition-colors sm:text-[16px] ${isOpen ? 'text-green-700' : 'text-navy-800 group-hover/acc:text-green-700'}`}>
+                <span className={`flex-1 text-[15px] font-bold transition-colors sm:text-[16px] ${isOpen ? 'text-ink-900' : 'text-ink-800 group-hover/acc:text-ink-900'}`}>
                   {item.title}
                 </span>
                 <span
                   aria-hidden="true"
-                  className={`grid size-7 shrink-0 place-items-center rounded-full shadow-[var(--edge-top)] transition-all duration-300 [transition-timing-function:var(--ease-settle)] ${
-                    isOpen
-                      ? 'rotate-180 bg-gradient-to-b from-green-500 to-green-700 text-white shadow-[var(--shadow-green)]'
-                      : 'bg-gradient-to-b from-green-50 to-[#e8f0e2] text-green-600'
+                  className={`grid size-7 shrink-0 place-items-center rounded-[var(--radius-tile)] border transition-all duration-300 [transition-timing-function:var(--ease-settle)] ${
+                    isOpen ? 'rotate-180 border-ink-900 bg-ink-900 text-gold-300' : 'border-line bg-white text-ink-500 group-hover/acc:border-ink-900 group-hover/acc:text-ink-900'
                   }`}
                 >
                   <Icon.chevron className="size-4" />
@@ -51,7 +43,7 @@ export function Accordion({ items, defaultOpen = 0 }: { items: { title: string; 
             <div
               id={`acc-${i}`}
               hidden={!isOpen}
-              className="prose-ksp border-t border-line px-5 py-5 text-[14.5px] sm:px-6"
+              className="prose-ksp px-5 pb-6 text-[14.5px] sm:px-6"
               dangerouslySetInnerHTML={{ __html: item.body }}
             />
           </div>

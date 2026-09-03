@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from 'next'
 import { Plus_Jakarta_Sans } from 'next/font/google'
 import { GoogleAnalytics } from '@next/third-parties/google'
-import { SITE, NAV_MAIN } from '@/contracts'
-import { getBranches, getSettings, getLegalPages } from '@/lib/api'
+import {
+  SITE, NAV_MAIN, DEFAULT_HEADER, DEFAULT_FOOTER, DEFAULT_BRAND, DEFAULT_FOOTER_MENU,
+  type MenuItem, type HeaderSettings, type FooterSettings, type BrandSettings,
+} from '@/contracts'
+import { getBranches, getSettings, getLegalPages, getMenu } from '@/lib/api'
 import { SITE_URL } from '@/lib/seo'
 import { organizationLd, websiteLd } from '@/lib/jsonld'
 import { JsonLd } from '@/components/ui'
@@ -12,12 +15,9 @@ import { PageViewTracker } from '@/components/interactive/PageViewTracker'
 import './globals.css'
 
 /**
- * Plus Jakarta Sans — commissioned for the DKI Jakarta city identity, and the
- * closest match to the geometric wordmark in the cooperative's logo and to the
- * approved homepage design. Used for everything, headings included.
- *
- * next/font self-hosts it at build time: no runtime request to a font CDN, no
- * render-blocking stylesheet, and no layout shift from a fallback swap.
+ * Plus Jakarta Sans — the closest match to the geometric wordmark in the
+ * cooperative's logo. One family for everything, headings included; the
+ * figures are the same face with tabular numerals turned on.
  */
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -50,15 +50,35 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#4e8b2c',
+  themeColor: '#0f1b2d',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
 }
 
+/** A settings group merged over its defaults, so a half-filled form never blanks the site. */
+const group = <T extends object>(raw: unknown, defaults: T): T =>
+  ({ ...defaults, ...((raw && typeof raw === 'object' ? raw : {}) as Partial<T>) })
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [branches, settings, legalPages] = await Promise.all([getBranches(), getSettings(), getLegalPages()])
+  const [branches, settings, legalPages, mainMenu, footerMenu] = await Promise.all([
+    getBranches(),
+    getSettings(),
+    getLegalPages(),
+    getMenu('main'),
+    getMenu('footer'),
+  ])
+
   const site = (settings.site ?? {}) as Record<string, string>
+  const header = group<HeaderSettings>(settings.header, DEFAULT_HEADER)
+  const footer = group<FooterSettings>(settings.footer, DEFAULT_FOOTER)
+  const brand = group<BrandSettings>(settings.brand, { ...DEFAULT_BRAND, name: site.name || DEFAULT_BRAND.name, tagline: site.tagline || DEFAULT_BRAND.tagline })
+  const legal = (Array.isArray(settings.legal) ? settings.legal : SITE.legal) as { label: string; value: string; date: string }[]
+  const social = (settings.social ?? {}) as Record<string, string>
+  // Menus fall back to the shipped defaults only when nothing has ever been saved.
+  const nav = (mainMenu.length ? mainMenu : NAV_MAIN) as MenuItem[]
+  const footerLinks = (footerMenu.length ? footerMenu : DEFAULT_FOOTER_MENU) as MenuItem[]
+
   const whatsapp = (site.whatsapp ?? '081337168194').replace(/\D/g, '').replace(/^0/, '62')
   const gaId = process.env.NEXT_PUBLIC_GA4_ID
 
@@ -76,12 +96,23 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           Langsung ke isi halaman
         </a>
         <Header
-          nav={NAV_MAIN as unknown as { label: string; href: string; children?: { label: string; href: string }[] }[]}
+          nav={nav}
+          header={header}
+          brand={brand}
           whatsapp={whatsapp}
           branches={branches.map((b) => ({ name: b.name, phone: b.phone ?? '' }))}
         />
         <main id="konten" className="flex-1">{children}</main>
-        <Footer branches={branches} settings={settings} legalPages={legalPages} />
+        <Footer
+          branches={branches}
+          menu={footerLinks}
+          footer={footer}
+          brand={brand}
+          site={site}
+          legal={legal}
+          social={social}
+          legalPages={legalPages}
+        />
         <PageViewTracker />
         {gaId ? <GoogleAnalytics gaId={gaId} /> : null}
       </body>
