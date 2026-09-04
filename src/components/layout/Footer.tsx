@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { SITE, telLink, type MenuItem, type FooterSettings, type BrandSettings } from '@/contracts'
+import { SITE, telLink, mediaSrc, type MenuItem, type FooterSettings, type BrandSettings } from '@/contracts'
 import { Shell, Mark, Icon, Action } from '../ui'
 import type { Branch } from '@/lib/api'
 
@@ -70,7 +70,7 @@ export function Footer({
               <div className="flex items-center gap-3">
                 {brand.logoLight || brand.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={brand.logoLight || brand.logo} alt="" className="h-11 w-auto" />
+                  <img src={mediaSrc(brand.logoLight || brand.logo)} alt="" className="h-11 w-auto" />
                 ) : (
                   <Mark className="h-11 w-auto" />
                 )}

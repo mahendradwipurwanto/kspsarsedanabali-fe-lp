@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import { mediaSrc } from '@/contracts'
 
 /**
  * Image wrapper with a deterministic placeholder.
@@ -32,8 +33,10 @@ export function Media({
   fallbackLabel?: string
 }) {
   const box = `relative overflow-hidden bg-paper ${rounded ? 'rounded-[var(--radius-tile)]' : ''} ${className}`
+  // Image fields store object keys; resolve to the proxy path or the public URL.
+  const resolved = mediaSrc(src, { publicBase: process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL })
 
-  if (!src) {
+  if (!resolved) {
     return (
       <div className={box} style={{ aspectRatio: ratio }}>
         <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-green-100 via-green-50 to-white p-5 text-center">
@@ -51,16 +54,16 @@ export function Media({
     )
   }
 
-  const isProxied = src.startsWith('/api/media/')
+  const isProxied = resolved.startsWith('/api/media/')
   return (
     <div className={box} style={{ aspectRatio: ratio }}>
       {isProxied ? (
         // Proxy route streams from a signed URL; Next cannot optimise it, so it
         // is served as-is with lazy loading.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={alt} className="absolute inset-0 size-full object-cover" loading={priority ? 'eager' : 'lazy'} decoding="async" />
+        <img src={resolved} alt={alt} className="absolute inset-0 size-full object-cover" loading={priority ? 'eager' : 'lazy'} decoding="async" />
       ) : (
-        <Image src={src} alt={alt} fill sizes={sizes} priority={priority} className="object-cover" />
+        <Image src={resolved} alt={alt} fill sizes={sizes} priority={priority} className="object-cover" />
       )}
     </div>
   )

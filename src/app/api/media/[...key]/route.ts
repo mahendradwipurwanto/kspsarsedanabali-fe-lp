@@ -31,14 +31,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ key:
     const upstream = await fetch(data.url, { signal: AbortSignal.timeout(15000) })
     if (!upstream.ok || !upstream.body) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    return new NextResponse(upstream.body, {
-      headers: {
-        'content-type': upstream.headers.get('content-type') ?? 'application/octet-stream',
-        'content-length': upstream.headers.get('content-length') ?? '',
-        // The object key contains a ULID, so content at a given key never changes.
-        'cache-control': 'public, max-age=31536000, immutable',
-      },
-    })
+    // Storage answers with chunked transfer and no content-length; an empty
+    // content-length header made Node drop the body, so only forward it when set.
+    const headers: Record<string, string> = {
+      'content-type': upstream.headers.get('content-type') ?? 'application/octet-stream',
+      // The object key contains a ULID, so content at a given key never changes.
+      'cache-control': 'public, max-age=31536000, immutable',
+    }
+    const length = upstream.headers.get('content-length')
+    if (length) headers['content-length'] = length
+    return new NextResponse(upstream.body, { headers })
   } catch {
     return NextResponse.json({ error: 'Upstream error' }, { status: 502 })
   }

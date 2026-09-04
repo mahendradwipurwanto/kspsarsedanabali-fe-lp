@@ -57,7 +57,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   ].filter(Boolean) as { title: string; body: string }[]
 
   const isLoan = p.category === 'pinjaman'
-  // No brochure artwork uploaded yet: a 420px 4:5 placeholder is a large piece
+  // No brochure artwork uploaded yet: a 420px square placeholder is a large piece
   // of nothing beside the terms, so the column collapses and the copy runs at a
   // readable measure instead.
   const hasArtwork = Boolean(p.image)
@@ -73,7 +73,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           <div className={`grid gap-10 lg:gap-14 ${hasArtwork ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]' : ''}`}>
             {hasArtwork ? (
               <div className="lg:order-2">
-                <Media src={p.image} alt={`Brosur produk ${p.name}`} ratio="4/5" priority sizes="(max-width: 1024px) 100vw, 420px" rounded={false} />
+                <Media src={p.image} alt={`Brosur produk ${p.name}`} ratio="1/1" priority sizes="(max-width: 1024px) 100vw, 420px" rounded={false} />
               </div>
             ) : null}
 

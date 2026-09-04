@@ -70,7 +70,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
           <Media
             src={product.image}
             alt={`Brosur produk ${product.name}`}
-            ratio="4/3"
+            ratio="1/1"
             priority={priority}
             rounded={false}
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
@@ -119,8 +119,8 @@ export function ProductRow({ product, index }: { product: Product; index: number
     <li className="group/row">
       <Link href={href} className="surface surface-i flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-6 sm:p-5">
         {product.image ? (
-          <span className="w-full shrink-0 overflow-hidden rounded-[var(--radius-tile)] sm:w-40">
-            <Media src={product.image} alt="" ratio="4/3" rounded={false} sizes="160px" />
+          <span className="w-full shrink-0 overflow-hidden rounded-[var(--radius-tile)] sm:w-28">
+            <Media src={product.image} alt="" ratio="1/1" rounded={false} sizes="112px" />
           </span>
         ) : (
           <span

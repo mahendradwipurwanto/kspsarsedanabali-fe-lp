@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { telLink, type MenuItem, type HeaderSettings, type BrandSettings } from '@/contracts'
+import { telLink, mediaSrc, type MenuItem, type HeaderSettings, type BrandSettings } from '@/contracts'
 import { Shell, Wordmark, Action, Icon, Tile } from '../ui'
 
 /**
@@ -63,7 +63,7 @@ export function Header({
         <Shell>
           <div className="flex h-[66px] items-center justify-between gap-4 lg:h-[74px]">
             <Link href="/" aria-label={`${brand.name} — Beranda`} className="min-w-0 flex-1 xl:flex-none">
-              <Wordmark name={brand.name} tagline={brand.tagline} logo={brand.logo || undefined} />
+              <Wordmark name={brand.name} tagline={brand.tagline} logo={brand.logo ? mediaSrc(brand.logo) : undefined} />
             </Link>
 
             <nav aria-label="Navigasi utama" className="hidden items-center xl:flex">
