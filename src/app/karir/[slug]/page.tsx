@@ -20,9 +20,9 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
   const job = await getJob(slug)
-  if (!job) return buildMetadata({ title: 'Lowongan tidak ditemukan', description: 'Lowongan yang Anda cari tidak tersedia.', path: `/karir/${slug}`, noindex: true })
+  if (!job) return await buildMetadata({ title: 'Lowongan tidak ditemukan', description: 'Lowongan yang Anda cari tidak tersedia.', path: `/karir/${slug}`, noindex: true })
 
-  return buildMetadata({
+  return await buildMetadata({
     title: job.seo?.metaTitle || titleFor(`Lowongan ${job.title}`, `${job.location ?? 'Karangasem'} — KSP Sari Sedana Bali`),
     description: describe(
       job.seo?.metaDescription,

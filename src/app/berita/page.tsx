@@ -10,12 +10,14 @@ export const revalidate = 300
 
 const TRAIL = [{ name: 'Beranda', path: '/' }, { name: 'Berita', path: '/berita' }]
 
-export const metadata: Metadata = buildMetadata({
+export async function generateMetadata(): Promise<Metadata> {
+  return await buildMetadata({
   title: 'Berita & Informasi Terbaru KSP Sari Sedana Bali',
   description:
     'Kabar terbaru dari KSP Sari Sedana Bali: pengumuman koperasi, produk baru, prestasi, laporan kinerja, dan kegiatan di Karangasem.',
   path: '/berita',
-})
+  })
+}
 
 export default async function NewsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const { page: pageParam } = await searchParams

@@ -10,12 +10,14 @@ export const revalidate = 600
 
 const TRAIL = [{ name: 'Beranda', path: '/' }, { name: 'Produk', path: '/produk' }]
 
-export const metadata: Metadata = buildMetadata({
+export async function generateMetadata(): Promise<Metadata> {
+  return await buildMetadata({
   title: 'Produk Simpanan & Pinjaman KSP Sari Sedana Bali',
   description:
     'Lihat seluruh produk KSP Sari Sedana Bali: simpanan berjangka SIJAKOP, SIMAPAN, SIPURA, SIGEMAS, serta pinjaman bunga murah, mikro, pensiunan, dan Pinjaman 1 Pohon.',
   path: '/produk',
-})
+  })
+}
 
 export default async function ProductsPage() {
   const products = await getProducts()

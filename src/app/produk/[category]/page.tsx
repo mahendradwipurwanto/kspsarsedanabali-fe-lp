@@ -38,8 +38,8 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ category: string }> }): Promise<Metadata> {
   const { category } = await params
   const meta = CATEGORIES[category as Category]
-  if (!meta) return buildMetadata({ title: 'Produk tidak ditemukan', description: 'Halaman produk yang Anda cari tidak tersedia.', path: '/produk', noindex: true })
-  return buildMetadata({ title: meta.title, description: meta.description, path: `/produk/${category}` })
+  if (!meta) return await buildMetadata({ title: 'Produk tidak ditemukan', description: 'Halaman produk yang Anda cari tidak tersedia.', path: '/produk', noindex: true })
+  return await buildMetadata({ title: meta.title, description: meta.description, path: `/produk/${category}` })
 }
 
 export default async function CategoryPage({ params }: { params: Promise<{ category: string }> }) {

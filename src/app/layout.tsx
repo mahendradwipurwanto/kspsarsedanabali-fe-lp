@@ -26,27 +26,40 @@ const jakarta = Plus_Jakarta_Sans({
   variable: '--font-jakarta',
 })
 
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title: {
-    default: 'KSP Sari Sedana Bali — Koperasi Simpan Pinjam di Karangasem',
-    template: '%s | KSP Sari Sedana Bali',
-  },
-  description: SITE.description,
-  applicationName: SITE.shortName,
-  icons: { icon: '/favicon.svg', shortcut: '/favicon.svg', apple: '/favicon.svg' },
-  authors: [{ name: SITE.legalName }],
-  creator: SITE.legalName,
-  publisher: SITE.legalName,
-  formatDetection: { telephone: true, address: true, email: true },
-  alternates: { canonical: '/', types: { 'application/rss+xml': `${SITE_URL}/rss.xml` } },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 },
-  },
-  verification: { google: process.env.NEXT_PUBLIC_GSC_VERIFICATION || undefined },
-  category: 'finance',
+/**
+ * Site-wide metadata from the CMS: the koperasi's name, description and SEO
+ * defaults are editable, so this is generated per request rather than frozen
+ * into a constant at build time.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSettings()
+  const site = (settings.site ?? {}) as Record<string, string>
+  const seo = (settings.seoDefaults ?? {}) as Record<string, string>
+  const name = site.name || SITE.shortName
+  const legalName = site.legalName || SITE.legalName
+
+  return {
+    metadataBase: new URL(SITE_URL),
+    title: {
+      default: seo.defaultTitle || `${name} — Koperasi Simpan Pinjam di Karangasem`,
+      template: seo.titleTemplate || `%s | ${name}`,
+    },
+    description: seo.defaultDescription || site.description || SITE.description,
+    applicationName: name,
+    icons: { icon: '/favicon.svg', shortcut: '/favicon.svg', apple: '/favicon.svg' },
+    authors: [{ name: legalName }],
+    creator: legalName,
+    publisher: legalName,
+    formatDetection: { telephone: true, address: true, email: true },
+    alternates: { canonical: '/', types: { 'application/rss+xml': `${SITE_URL}/rss.xml` } },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 },
+    },
+    verification: { google: process.env.NEXT_PUBLIC_GSC_VERIFICATION || undefined },
+    category: 'finance',
+  }
 }
 
 export const viewport: Viewport = {

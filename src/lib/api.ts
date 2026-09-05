@@ -137,7 +137,10 @@ type Wrapped<T> = { data: T }
 type Paged<T> = { data: T; meta: { page: number; limit: number; total: number; totalPages: number } }
 
 export const getPage = (slug: string) =>
-  apiGet<Wrapped<Page>>(`/pages/${slug}`, { tags: [`page:${slug}`] }).then((r) => r?.data ?? null)
+  // Tagged with `pages` as well as the slug: the home page is fetched as
+  // "home" but stored with slug "/", so a slug-only tag never matched it and
+  // publishing the home page left the cached copy in place.
+  apiGet<Wrapped<Page>>(`/pages/${slug}`, { tags: [`page:${slug}`, 'pages'] }).then((r) => r?.data ?? null)
 
 export const getProducts = (category?: string, limit = 50) =>
   apiGet<Wrapped<Product[]>>(`/products?category=${category ?? 'all'}&limit=${limit}`, { tags: ['products'] }).then((r) => r?.data ?? [])

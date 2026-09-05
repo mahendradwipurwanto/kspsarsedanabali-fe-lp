@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { SITE } from '@/contracts'
+import { getSettings } from './api'
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '')
 
@@ -12,7 +13,25 @@ export const absoluteUrl = (path = '/') => `${SITE_URL}${path.startsWith('/') ? 
  * canonicals. Routing every page through here means those three cannot regress:
  * a missing title falls back to a descriptive default rather than to nothing.
  */
-const BRAND = 'KSP Sari Sedana Bali'
+const BRAND_FALLBACK = 'KSP Sari Sedana Bali'
+
+/**
+ * The brand shown in page titles and og:site_name comes from the CMS, so
+ * renaming the koperasi renames it everywhere. `getSettings` is a tagged,
+ * cached fetch, so this costs nothing per page.
+ */
+async function titleSettings(): Promise<{ brand: string; template: string }> {
+  try {
+    const settings = await getSettings()
+    const site = (settings.site ?? {}) as Record<string, string>
+    const brand = (settings.brand ?? {}) as Record<string, string>
+    const seo = (settings.seoDefaults ?? {}) as Record<string, string>
+    const name = brand.name || site.name || BRAND_FALLBACK
+    return { brand: name, template: seo.titleTemplate || `%s | ${name}` }
+  } catch {
+    return { brand: BRAND_FALLBACK, template: `%s | ${BRAND_FALLBACK}` }
+  }
+}
 const TITLE_MAX = 65
 const DESC_MAX = 158
 
@@ -25,11 +44,14 @@ const DESC_MAX = 158
  * truncation limit. Returning an absolute title bypasses the template, and the
  * brand is appended here only when it is genuinely missing and there is room.
  */
-function composeTitle(raw: string): string {
+function composeTitle(raw: string, brand: string, template: string): string {
   const t = raw.trim().replace(/\s*[|·]\s*$/, '')
-  if (t.toLowerCase().includes(BRAND.toLowerCase())) return t
-  const withBrand = `${t} | ${BRAND}`
-  return withBrand.length <= TITLE_MAX + BRAND.length ? withBrand : t
+  if (t.toLowerCase().includes(brand.toLowerCase())) return t
+  // The koperasi's own pattern from Pengaturan → SEO, applied here rather than
+  // by the layout: composing the title twice is what produced
+  // "… | KSP Sari Sedana Bali | KSP Sari Sedana Bali".
+  const composed = template.includes('%s') ? template.replace('%s', t) : `${t} | ${template}`
+  return composed.length <= TITLE_MAX + brand.length ? composed : t
 }
 
 /** Hard clamp so no page can ship a description Google will cut mid-sentence. */
@@ -41,7 +63,7 @@ function clampDescription(raw: string): string {
   return `${cut.slice(0, lastBreak > DESC_MAX * 0.6 ? lastBreak : cut.length).trimEnd()}…`
 }
 
-export function buildMetadata(input: {
+export async function buildMetadata(input: {
   title: string
   description: string
   path: string
@@ -50,10 +72,11 @@ export function buildMetadata(input: {
   type?: 'website' | 'article'
   publishedTime?: string | null
   modifiedTime?: string | null
-}): Metadata {
+}): Promise<Metadata> {
   const url = absoluteUrl(input.path)
   const image = input.image || absoluteUrl('/opengraph-image')
-  const title = composeTitle(input.title)
+  const { brand, template } = await titleSettings()
+  const title = composeTitle(input.title, brand, template)
   const description = clampDescription(input.description)
 
   return {
@@ -67,7 +90,7 @@ export function buildMetadata(input: {
     openGraph: {
       type: input.type ?? 'website',
       url,
-      siteName: SITE.shortName,
+      siteName: brand,
       title,
       description,
       locale: 'id_ID',

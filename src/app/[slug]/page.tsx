@@ -17,9 +17,9 @@ export const revalidate = 300
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
   const page = await getPage(slug)
-  if (!page) return buildMetadata({ title: 'Halaman tidak ditemukan', description: 'Halaman yang Anda cari tidak tersedia.', path: `/${slug}`, noindex: true })
+  if (!page) return await buildMetadata({ title: 'Halaman tidak ditemukan', description: 'Halaman yang Anda cari tidak tersedia.', path: `/${slug}`, noindex: true })
 
-  return buildMetadata({
+  return await buildMetadata({
     title: page.seo?.metaTitle || page.title,
     description: describe(page.seo?.metaDescription),
     path: `/${page.slug}`,

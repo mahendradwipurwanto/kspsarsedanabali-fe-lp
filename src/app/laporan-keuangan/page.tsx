@@ -8,12 +8,14 @@ export const revalidate = 3600
 
 const TRAIL = [{ name: 'Beranda', path: '/' }, { name: 'Laporan Keuangan', path: '/laporan-keuangan' }]
 
-export const metadata: Metadata = buildMetadata({
+export async function generateMetadata(): Promise<Metadata> {
+  return await buildMetadata({
   title: 'Laporan Keuangan & Kinerja KSP Sari Sedana Bali',
   description:
     'Transparansi kinerja KSP Sari Sedana Bali: laporan keuangan tahunan, hasil Rapat Anggota Tahunan, dan ringkasan pencapaian koperasi di Karangasem.',
   path: '/laporan-keuangan',
-})
+  })
+}
 
 export default async function FinancialReportsPage() {
   const [documents, stats] = await Promise.all([getDocuments(), getStats()])

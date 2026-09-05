@@ -22,10 +22,10 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ category: string; slug: string }> }): Promise<Metadata> {
   const { category, slug } = await params
   const res = await getProduct(slug)
-  if (!res) return buildMetadata({ title: 'Produk tidak ditemukan', description: 'Produk yang Anda cari tidak tersedia.', path: `/produk/${category}/${slug}`, noindex: true })
+  if (!res) return await buildMetadata({ title: 'Produk tidak ditemukan', description: 'Produk yang Anda cari tidak tersedia.', path: `/produk/${category}/${slug}`, noindex: true })
 
   const p = res.data
-  return buildMetadata({
+  return await buildMetadata({
     title: p.seo?.metaTitle || titleFor(p.name, `${p.tagline ?? 'KSP Sari Sedana Bali'}`),
     description: describe(p.seo?.metaDescription, p.summary, p.tagline),
     path: `/produk/${p.category}/${p.slug}`,

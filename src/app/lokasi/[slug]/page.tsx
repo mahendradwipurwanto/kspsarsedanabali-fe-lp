@@ -18,9 +18,9 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
   const branch = await getBranch(slug)
-  if (!branch) return buildMetadata({ title: 'Kantor tidak ditemukan', description: 'Kantor yang Anda cari tidak tersedia.', path: `/lokasi/${slug}`, noindex: true })
+  if (!branch) return await buildMetadata({ title: 'Kantor tidak ditemukan', description: 'Kantor yang Anda cari tidak tersedia.', path: `/lokasi/${slug}`, noindex: true })
 
-  return buildMetadata({
+  return await buildMetadata({
     title: branch.seo?.metaTitle || titleFor(branch.name, `KSP Sari Sedana Bali ${branch.district ?? branch.regency}`),
     description: describe(
       branch.seo?.metaDescription,

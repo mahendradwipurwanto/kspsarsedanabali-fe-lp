@@ -12,12 +12,14 @@ export const revalidate = 600
 
 const TRAIL = [{ name: 'Beranda', path: '/' }, { name: 'Simulasi Angsuran', path: '/simulasi' }]
 
-export const metadata: Metadata = buildMetadata({
+export async function generateMetadata(): Promise<Metadata> {
+  return await buildMetadata({
   title: 'Simulasi Angsuran & Hasil Simpanan Koperasi',
   description:
     'Hitung angsuran pinjaman dan hasil simpanan KSP Sari Sedana Bali. Tabel resmi SIGEMAS, SIMAPAN, dan SIPURA, lengkap dengan bunga dan reward yang berlaku.',
   path: '/simulasi',
-})
+  })
+}
 
 export default async function SimulationPage({
   searchParams,

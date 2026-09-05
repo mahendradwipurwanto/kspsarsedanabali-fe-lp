@@ -9,12 +9,14 @@ export const revalidate = 3600
 
 const TRAIL = [{ name: 'Beranda', path: '/' }, { name: 'Lokasi Kantor', path: '/lokasi' }]
 
-export const metadata: Metadata = buildMetadata({
+export async function generateMetadata(): Promise<Metadata> {
+  return await buildMetadata({
   title: 'Lokasi Kantor KSP Sari Sedana Bali di Karangasem',
   description:
     'Tiga kantor KSP Sari Sedana Bali di Karangasem: Kantor Pusat Selat, Cabang Rendang, dan Cabang Karangasem. Lihat alamat, jam buka, nomor telepon, dan petunjuk arah.',
   path: '/lokasi',
-})
+  })
+}
 
 export default async function LocationsPage() {
   const branches = await getBranches()

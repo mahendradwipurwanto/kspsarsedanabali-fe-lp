@@ -16,12 +16,14 @@ const TYPE_LABELS: Record<string, string> = {
   internship: 'Magang',
 }
 
-export const metadata: Metadata = buildMetadata({
+export async function generateMetadata(): Promise<Metadata> {
+  return await buildMetadata({
   title: 'Lowongan Kerja KSP Sari Sedana Bali di Karangasem',
   description:
     'Peluang karir di KSP Sari Sedana Bali, koperasi simpan pinjam di Karangasem. Lihat lowongan yang tersedia dan kirim lamaran Anda secara online.',
   path: '/karir',
-})
+  })
+}
 
 export default async function CareersPage() {
   const jobs = await getJobs()

@@ -16,12 +16,14 @@ const CATEGORY_LABELS: Record<string, string> = {
   pinjaman: 'Pinjaman',
 }
 
-export const metadata: Metadata = buildMetadata({
+export async function generateMetadata(): Promise<Metadata> {
+  return await buildMetadata({
   title: 'Tanya Jawab Seputar KSP Sari Sedana Bali',
   description:
     'Jawaban atas pertanyaan yang paling sering diajukan: cara menjadi anggota, syarat pinjaman, lama proses pencairan, keamanan simpanan, jam buka, dan lokasi kantor.',
   path: '/faq',
-})
+  })
+}
 
 export default async function FaqPage() {
   const faqs = await getFaqs()

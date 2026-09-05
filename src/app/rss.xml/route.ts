@@ -1,4 +1,4 @@
-import { getPosts } from '@/lib/api'
+import { getPosts, getSettings } from '@/lib/api'
 import { absoluteUrl, SITE_URL } from '@/lib/seo'
 import { SITE } from '@/contracts'
 
@@ -30,12 +30,17 @@ export async function GET() {
     })
     .join('\n')
 
+  const settings = await getSettings()
+  const site = (settings.site ?? {}) as Record<string, string>
+  const name = site.name || SITE.shortName
+  const description = site.description || SITE.description
+
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>${escape(SITE.shortName)} — Berita</title>
+    <title>${escape(name)} — Berita</title>
     <link>${SITE_URL}</link>
-    <description>${escape(SITE.description)}</description>
+    <description>${escape(description)}</description>
     <language>id-ID</language>
     <lastBuildDate>${new Date(updated).toUTCString()}</lastBuildDate>
     <atom:link href="${absoluteUrl('/rss.xml')}" rel="self" type="application/rss+xml" />

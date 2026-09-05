@@ -8,7 +8,7 @@ export const revalidate = 300
 
 export async function generateMetadata(): Promise<Metadata> {
   const page = await getPage('home')
-  return buildMetadata({
+  return await buildMetadata({
     title: page?.seo?.metaTitle || 'KSP Sari Sedana Bali — Koperasi Simpan Pinjam di Karangasem',
     description: describe(page?.seo?.metaDescription),
     path: '/',
