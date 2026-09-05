@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { telLink, mediaSrc, type MenuItem, type HeaderSettings, type BrandSettings } from '@/contracts'
+import { telLink, mediaSrc, isMenuGroup, type MenuItem, type HeaderSettings, type BrandSettings } from '@/contracts'
 import { Shell, Wordmark, Action, Icon, Tile } from '../ui'
 
 /**
@@ -68,7 +68,19 @@ export function Header({
 
             <nav aria-label="Navigasi utama" className="hidden items-center xl:flex">
               {nav.map((item) => (
-                <div key={item.href} className="group relative">
+                <div key={item.href || item.label} className="group relative">
+                  {/* A group without an address opens its dropdown and leads
+                      nowhere itself, so it is a button rather than a link. */}
+                  {isMenuGroup(item) ? (
+                    <button
+                      type="button"
+                      aria-expanded={false}
+                      className="relative flex items-center gap-1 whitespace-nowrap px-3 py-2.5 text-[13.5px] font-medium text-ink-600 transition-colors hover:text-ink-900"
+                    >
+                      {item.label}
+                      <Icon.chevron className="size-3.5 text-ink-400 transition-transform group-hover:rotate-180" />
+                    </button>
+                  ) : (
                   <Link
                     href={item.href}
                     aria-current={isActive(item.href) ? 'page' : undefined}
@@ -79,12 +91,13 @@ export function Header({
                     {item.label}
                     {item.children?.length ? <Icon.chevron className="size-3.5 text-ink-400 transition-transform group-hover:rotate-180" /> : null}
                   </Link>
+                  )}
 
                   {item.children?.length ? (
                     <div className="invisible absolute left-0 top-full z-10 w-60 pt-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
                       <div className="surface p-1.5 shadow-[var(--shadow-lift)]">
                         {item.children.map((child) => (
-                          <Link key={child.href} href={child.href}
+                          <Link key={child.href || child.label} href={child.href}
                             className="flex items-center justify-between rounded-md px-3 py-2.5 text-[14px] text-ink-700 transition-colors hover:bg-paper hover:text-ink-900">
                             {child.label}
                             <Icon.arrowUpRight className="size-3.5 text-ink-300" />
@@ -153,16 +166,20 @@ export function Header({
 
           <nav aria-label="Navigasi utama seluler" className="mt-6 divide-y divide-line border-y border-line">
             {nav.map((item, i) => (
-              <div key={item.href} style={{ animationDelay: `${i * 35}ms` }} className={open ? 'rise' : ''}>
+              <div key={item.href || item.label} style={{ animationDelay: `${i * 35}ms` }} className={open ? 'rise' : ''}>
+                {isMenuGroup(item) ? (
+                  <p className="py-3.5 text-[16px] font-semibold text-ink-900">{item.label}</p>
+                ) : (
                 <Link href={item.href}
                   className={`flex items-center justify-between gap-4 py-3.5 text-[16px] font-semibold ${isActive(item.href) ? 'text-green-700' : 'text-ink-900'}`}>
                   {item.label}
                   <Icon.arrow className="size-4 text-ink-300" />
                 </Link>
+                )}
                 {item.children?.length ? (
                   <div className="flex flex-wrap gap-2 pb-3.5">
                     {item.children.map((child) => (
-                      <Link key={child.href} href={child.href}
+                      <Link key={child.href || child.label} href={child.href}
                         className="rounded-full bg-paper px-3.5 py-2 text-[13px] font-medium text-ink-700 ring-1 ring-inset ring-line">
                         {child.label}
                       </Link>
