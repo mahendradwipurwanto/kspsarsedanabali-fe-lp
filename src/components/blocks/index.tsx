@@ -451,7 +451,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                 </div>
                 <div className="shrink-0">
                   <Action href={s(p.ctaHref, '/profiling')} variant="light" size="lg" className="w-full sm:w-auto">
-                    {s(p.ctaLabel, 'Mulai')}
+                    {s(p.ctaLabel, 'Mulai, ±30 detik')}
                     <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
                   </Action>
                   {s(p.note) ? <p className="mt-2.5 text-center text-[12.5px] text-white/50">{s(p.note)}</p> : null}
@@ -500,10 +500,10 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
               </div>
 
               <LeadForm
-                title={s(p.formTitle, 'Kirim Permintaan')}
+                title={s(p.formTitle, 'Kirim Masukan')}
                 askProduct={b(p.askProduct, true)}
                 askBranch={b(p.askBranch, true)}
-                successMessage={s(p.successMessage, 'Terima kasih. Petugas kami akan menghubungi Anda.')}
+                successMessage={s(p.successMessage, 'Terima kasih. Petugas kami akan menghubungi Anda dalam 1×24 jam kerja.')}
                 products={ctx.products}
                 branches={ctx.branches}
               />
@@ -619,7 +619,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
             ) : (
               <Blank
                 title={s(p.emptyTitle, 'Belum ada lowongan saat ini')}
-                body={s(p.emptyBody, 'Silakan cek kembali secara berkala atau kirim lamaran spontan ke kantor kami.')}
+                body={s(p.emptyBody, 'Belum ada posisi yang dibuka. Silakan cek kembali secara berkala atau kirim lamaran spontan ke kantor kami.')}
                 action={<Action href="/kontak">Hubungi kami</Action>}
               />
             )}

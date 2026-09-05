@@ -26,7 +26,12 @@ export async function POST(req: NextRequest) {
   const tags = body.tags ?? []
   const paths = body.paths ?? []
 
-  for (const tag of tags) revalidateTag(tag, 'max')
+  // Expire now, not stale-while-revalidate. With the 'max' profile the site
+  // kept answering the old copy (x-nextjs-cache: STALE) until a background
+  // render finished — two seconds when idle, half a minute on a busy machine —
+  // so an editor saved a menu, opened the website and saw nothing change. With
+  // an immediate expiry the next request renders fresh and waits for it.
+  for (const tag of tags) revalidateTag(tag, { expire: 0 })
   for (const path of paths) revalidatePath(path)
 
   // A page's own route is revalidated by path as well as by tag.
