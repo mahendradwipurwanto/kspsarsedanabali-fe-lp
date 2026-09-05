@@ -1,9 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import {
-  getPreview, getProducts, getBranches, getPosts, getStats,
-  getTestimonials, getDocuments, getSettings,
-} from '@/lib/api'
+import { getPreview } from '@/lib/api'
+import { getBlockContext } from '@/lib/blocks-data'
 import { Shell } from '@/components/ui'
 import { BlockRenderer } from '@/components/blocks'
 
@@ -48,15 +46,7 @@ export default async function PreviewPage({ params }: { params: Promise<{ token:
   const page = await getPreview(token)
   if (!page) return <Expired />
 
-  const [products, branches, postsRes, stats, testimonials, documents, settings] = await Promise.all([
-    getProducts(),
-    getBranches(),
-    getPosts({ limit: 3 }),
-    getStats(),
-    getTestimonials(6),
-    getDocuments(),
-    getSettings(),
-  ])
+  const ctx = await getBlockContext(page.blocks)
 
   return (
     <>
@@ -68,7 +58,7 @@ export default async function PreviewPage({ params }: { params: Promise<{ token:
 
       <BlockRenderer
         blocks={page.blocks}
-        ctx={{ products, branches, posts: postsRes?.data ?? [], stats, testimonials, documents, settings }}
+        ctx={ctx}
       />
     </>
   )

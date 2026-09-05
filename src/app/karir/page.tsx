@@ -1,32 +1,39 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
-import { getJobs } from '@/lib/api'
-import { buildMetadata } from '@/lib/seo'
+import { getPage } from '@/lib/api'
+import { getBlockContext } from '@/lib/blocks-data'
+import { buildMetadata, describe } from '@/lib/seo'
 import { breadcrumbLd, itemListLd, jobPostingLd } from '@/lib/jsonld'
-import { Shell, Band, Breadcrumbs, JsonLd, Card, Pill, Icon, Blank, Action , PageIntro } from '@/components/ui'
+import { Shell, Band, Breadcrumbs, JsonLd, Blank, Action } from '@/components/ui'
+import { BlockRenderer } from '@/components/blocks'
 
 export const revalidate = 600
 
+const SLUG = 'karir'
 const TRAIL = [{ name: 'Beranda', path: '/' }, { name: 'Karir', path: '/karir' }]
 
-const TYPE_LABELS: Record<string, string> = {
-  full_time: 'Penuh Waktu',
-  part_time: 'Paruh Waktu',
-  contract: 'Kontrak',
-  internship: 'Magang',
-}
-
 export async function generateMetadata(): Promise<Metadata> {
-  return await buildMetadata({
-  title: 'Lowongan Kerja KSP Sari Sedana Bali di Karangasem',
-  description:
-    'Peluang karir di KSP Sari Sedana Bali, koperasi simpan pinjam di Karangasem. Lihat lowongan yang tersedia dan kirim lamaran Anda secara online.',
-  path: '/karir',
+  const page = await getPage(SLUG)
+  return buildMetadata({
+    title: page?.seo?.metaTitle || page?.title || 'Lowongan Kerja KSP Sari Sedana Bali di Karangasem',
+    description: describe(page?.seo?.metaDescription),
+    path: '/karir',
   })
 }
 
 export default async function CareersPage() {
-  const jobs = await getJobs()
+  const page = await getPage(SLUG)
+  if (!page) {
+    return (
+      <Band>
+        <Shell>
+          <Blank title="Halaman karir belum tersedia" body="Halaman ini dikelola dari konsol dan akan tampil setelah diterbitkan." action={<Action href="/kontak">Hubungi kami</Action>} />
+        </Shell>
+      </Band>
+    )
+  }
+
+  const ctx = await getBlockContext(page.blocks, { basePath: '/karir' })
+  const jobs = ctx.jobs ?? []
 
   return (
     <>
@@ -38,50 +45,7 @@ export default async function CareersPage() {
         ]}
       />
       <Breadcrumbs trail={TRAIL} />
-
-      <PageIntro
-        label="Karir"
-        title="Bergabung dan Bertumbuh Bersama Kami"
-        lead="KSP Sari Sedana Bali telah melayani anggota di Karangasem sejak 2002. Kami mencari orang-orang yang ingin ikut membangun
-              ekonomi kerakyatan di daerahnya sendiri."
-      />
-
-      <Band>
-        <Shell>
-          {jobs.length ? (
-            <ul className="grid gap-4">
-              {jobs.map((job) => (
-                <Card as="li" key={job.id} hover className="group p-6">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <div className="mb-2.5 flex flex-wrap gap-2">
-                        <Pill tone="green">{TYPE_LABELS[job.employmentType] ?? job.employmentType}</Pill>
-                        {job.department ? <Pill tone="quiet">{job.department}</Pill> : null}
-                      </div>
-                      <h2 className="t-h3">
-                        <Link href={`/karir/${job.slug}`} className="transition-colors group-hover:text-green-700">{job.title}</Link>
-                      </h2>
-                      <p className="mt-1.5 flex items-center gap-1.5 text-sm text-ink-600">
-                        <Icon.pin className="size-4 text-ink-400" />
-                        {job.location ?? job.branchName ?? 'Karangasem, Bali'}
-                      </p>
-                    </div>
-                    <Action href={`/karir/${job.slug}`} variant="outline" className="shrink-0 self-start sm:self-auto">
-                      Lihat dan lamar <Icon.arrow className="size-4" />
-                    </Action>
-                  </div>
-                </Card>
-              ))}
-            </ul>
-          ) : (
-            <Blank
-              title="Belum ada lowongan saat ini"
-              body="Belum ada posisi yang dibuka. Silakan cek kembali secara berkala atau kirim lamaran spontan ke kantor kami."
-              action={<Action href="/kontak">Hubungi kami</Action>}
-            />
-          )}
-        </Shell>
-      </Band>
+      <BlockRenderer blocks={page.blocks} ctx={ctx} />
     </>
   )
 }

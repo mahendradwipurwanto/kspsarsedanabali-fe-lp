@@ -1,6 +1,7 @@
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { getBlock, telLink, getOpenState } from '@/contracts'
-import type { Block, Branch, Product, Post, Stat, Testimonial, DocumentItem } from '@/lib/api'
+import type { Block, Branch, Product, Post, Stat, Testimonial, DocumentItem, Job, Faq } from '@/lib/api'
 import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, Stat as Figure, iconByName } from '../ui'
 import { Media } from '../ui/Media'
 import { HeroCarousel, QuickAccess } from '../interactive/HeroCarousel'
@@ -9,9 +10,12 @@ import { BranchFinder } from '../interactive/BranchFinder'
 import { SimulationCalculator } from '../interactive/SimulationCalculator'
 import { TestimonialSlider } from '../interactive/TestimonialSlider'
 import { Accordion } from '../interactive/Accordion'
-import { ProductCard } from '../ProductCard'
+import { SimulationTabs } from '../interactive/SimulationTabs'
+import { ProfilingWizard } from '../interactive/ProfilingWizard'
+import { ProductCard, ProductRow } from '../ProductCard'
 import { PostCard } from '../PostCard'
 import { BranchCard } from '../BranchCard'
+import { Pagination } from '../Pagination'
 
 export interface BlockContext {
   branches: Branch[]
@@ -21,6 +25,14 @@ export interface BlockContext {
   testimonials: Testimonial[]
   documents: DocumentItem[]
   settings: Record<string, unknown>
+  /** Only the pages that render them fetch these. */
+  jobs?: Job[]
+  faqs?: Faq[]
+  /** Paging state for the news index, owned by the route that reads the URL. */
+  postsMeta?: { page: number; totalPages: number }
+  basePath?: string
+  /** Query string the route was opened with, for blocks that preselect from it. */
+  query?: { produk?: string; nominal?: string; tenor?: string; jenis?: string }
 }
 
 type P = Record<string, unknown>
@@ -210,9 +222,15 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
               lead={s(p.subtext)}
               action={s(p.ctaLabel) ? <Action href={s(p.ctaHref, '/produk')} variant="outline">{s(p.ctaLabel)}<Icon.arrow className="size-4" /></Action> : undefined}
             />
-            <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {list.map((product, i) => <ProductCard key={product.id} product={product} priority={i < 3} />)}
-            </ul>
+            {s(p.layout, 'cards') === 'rows' ? (
+              <ul className="grid gap-3">
+                {list.map((product, i) => <ProductRow key={product.id} product={product} index={i + 1} />)}
+              </ul>
+            ) : (
+              <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {list.map((product, i) => <ProductCard key={product.id} product={product} priority={i < 3} />)}
+              </ul>
+            )}
           </Shell>
         </Band>
       )
@@ -394,7 +412,8 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
     }
 
     case 'document_list': {
-      const list = ctx.documents.filter((d) => !s(p.category) || d.category === s(p.category))
+      const category = s(p.category, 'all')
+      const list = ctx.documents.filter((d) => category === 'all' || d.category === category)
       return (
         <Band tone={tone}>
           <Shell>
@@ -544,6 +563,162 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
         </Band>
       )
     }
+
+    /* ────────────────────── full-page section blocks ───────────────────── */
+    case 'post_index': {
+      const list = ctx.posts
+      return (
+        <Band tone={tone}>
+          <Shell>
+            {s(p.heading) || s(p.eyebrow) ? <Heading label={s(p.eyebrow)} title={s(p.heading)} lead={s(p.subtext)} /> : null}
+            {list.length ? (
+              <>
+                <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {list.map((post, i) => <PostCard key={post.id} post={post} priority={i < 3} />)}
+                </ul>
+                {ctx.postsMeta && ctx.postsMeta.totalPages > 1 ? (
+                  <Pagination page={ctx.postsMeta.page} totalPages={ctx.postsMeta.totalPages} basePath={ctx.basePath ?? '/berita'} />
+                ) : null}
+              </>
+            ) : (
+              <Blank
+                title={s(p.emptyTitle, 'Belum ada berita')}
+                body={s(p.emptyBody, 'Berita dan informasi terbaru akan tampil di sini.')}
+                action={<Action href="/">Kembali ke beranda</Action>}
+              />
+            )}
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'job_list': {
+      const jobs = ctx.jobs ?? []
+      const TYPES: Record<string, string> = { full_time: 'Penuh Waktu', part_time: 'Paruh Waktu', contract: 'Kontrak', internship: 'Magang' }
+      return (
+        <Band tone={tone}>
+          <Shell>
+            {s(p.heading) || s(p.eyebrow) ? <Heading label={s(p.eyebrow)} title={s(p.heading)} lead={s(p.subtext)} /> : null}
+            {jobs.length ? (
+              <ul className="grid gap-4">
+                {jobs.map((job) => (
+                  <Card as="li" key={job.id} hover className="group p-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="mb-2.5 flex flex-wrap gap-2">
+                          <Pill tone="green">{TYPES[job.employmentType] ?? job.employmentType}</Pill>
+                          {job.department ? <Pill tone="quiet">{job.department}</Pill> : null}
+                        </div>
+                        <h3 className="t-h3">
+                          <Link href={`/karir/${job.slug}`} className="transition-colors group-hover:text-green-700">{job.title}</Link>
+                        </h3>
+                        <p className="mt-1.5 flex items-center gap-1.5 text-[13.5px] text-ink-600">
+                          <Icon.pin className="size-4 text-ink-400" />
+                          {job.location ?? job.branchName ?? 'Karangasem, Bali'}
+                        </p>
+                      </div>
+                      <Action href={`/karir/${job.slug}`} variant="outline" className="shrink-0 self-start sm:self-auto">
+                        Lihat dan lamar <Icon.arrow className="size-4" />
+                      </Action>
+                    </div>
+                  </Card>
+                ))}
+              </ul>
+            ) : (
+              <Blank
+                title={s(p.emptyTitle, 'Belum ada lowongan saat ini')}
+                body={s(p.emptyBody, 'Silakan cek kembali secara berkala atau kirim lamaran spontan ke kantor kami.')}
+                action={<Action href="/kontak">Hubungi kami</Action>}
+              />
+            )}
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'faq_index': {
+      const category = s(p.category, 'all')
+      const faqs = (ctx.faqs ?? []).filter((f) => category === 'all' || f.category === category)
+      if (!faqs.length) return null
+      const LABELS: Record<string, string> = { umum: 'Umum', keanggotaan: 'Keanggotaan', simpanan: 'Simpanan', pinjaman: 'Pinjaman' }
+      const groups = b(p.grouped, true)
+        ? Object.entries(faqs.reduce<Record<string, typeof faqs>>((acc, f) => {
+            const key = f.category ?? 'umum'
+            ;(acc[key] ??= []).push(f)
+            return acc
+          }, {}))
+        : [['', faqs] as [string, typeof faqs]]
+
+      return (
+        <Band tone={tone}>
+          <Shell>
+            <div className="mx-auto max-w-3xl">
+              {s(p.heading) || s(p.eyebrow) ? <Heading label={s(p.eyebrow)} title={s(p.heading)} align="center" /> : null}
+              <div className="grid gap-10">
+                {groups.map(([key, items]) => (
+                  <div key={key || 'all'}>
+                    {key ? <h3 className="t-h3 mb-4">{LABELS[key] ?? key}</h3> : null}
+                    <Accordion items={items.map((f) => ({ title: f.question, body: `<p>${f.answer}</p>` }))} defaultOpen={-1} />
+                  </div>
+                ))}
+
+                {s(p.ctaHeading) ? (
+                  <div className="surface-dark relative overflow-hidden p-7 text-center text-white sm:p-8">
+                    <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200/60 to-transparent" />
+                    <h3 className="t-h3 !text-white">{s(p.ctaHeading)}</h3>
+                    {s(p.ctaBody) ? <p className="mt-2 text-[15px] text-white/65">{s(p.ctaBody)}</p> : null}
+                    <div className="mt-6 flex flex-wrap justify-center gap-3">
+                      {s(p.primaryLabel) ? (
+                        <Action href={s(p.primaryHref, '/kontak')} variant="light">{s(p.primaryLabel)}<Icon.arrow className="size-4" /></Action>
+                      ) : null}
+                      {s(p.secondaryLabel) ? (
+                        <Action href={s(p.secondaryHref, '/lokasi')} variant="ghostLight">{s(p.secondaryLabel)}</Action>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'simulation_tabs': {
+      const loans = ctx.products.filter((x) => x.category === 'pinjaman' && (x.ratePercent ?? x.ratePercentIndicative) != null)
+      const savings = ctx.products.filter((x) => x.category === 'simpanan')
+      const preselected = loans.find((x) => x.slug === ctx.query?.produk)
+      const plan = ['sigemas', 'simapan', 'sipura'].find((slug) => slug === ctx.query?.produk)
+      return (
+        <Band tone={tone} id="simulasi">
+          <Shell>
+            <SimulationTabs
+              loanProducts={loans}
+              savingsProducts={savings}
+              initialTab={plan || ctx.query?.jenis === 'simpanan' ? 'simpanan' : (s(p.defaultTab, 'pinjaman') as 'pinjaman' | 'simpanan')}
+              initialPlan={plan as 'sigemas' | 'simapan' | 'sipura' | undefined}
+              initialProductId={preselected?.id}
+              initialAmount={ctx.query?.nominal ? Number(ctx.query.nominal) : undefined}
+              initialTenor={ctx.query?.tenor ? Number(ctx.query.tenor) : undefined}
+              disclaimer={s(p.disclaimer, 'Simulasi awal, bukan penawaran final.')}
+            />
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'profiling_wizard':
+      return (
+        <Band tone={tone}>
+          <Shell>
+            {/* The wizard keeps its step in the URL, so it needs a boundary to
+                prerender the page around it. */}
+            <Suspense fallback={<div className="mx-auto h-96 max-w-2xl animate-pulse rounded-[var(--radius-card)] bg-ink-100" />}>
+              <ProfilingWizard products={ctx.products} branches={ctx.branches} />
+            </Suspense>
+          </Shell>
+        </Band>
+      )
 
     default:
       return null

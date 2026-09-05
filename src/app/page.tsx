@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import { getPage, getProducts, getBranches, getPosts, getStats, getTestimonials, getDocuments, getSettings } from '@/lib/api'
+import { getPage } from '@/lib/api'
+import { getBlockContext } from '@/lib/blocks-data'
 import { buildMetadata, describe } from '@/lib/seo'
 import { BlockRenderer } from '@/components/blocks'
 import { Blank, Shell, Band } from '@/components/ui'
@@ -16,16 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  const [page, products, branches, postsRes, stats, testimonials, documents, settings] = await Promise.all([
-    getPage('home'),
-    getProducts(),
-    getBranches(),
-    getPosts({ limit: 3 }),
-    getStats(),
-    getTestimonials(6),
-    getDocuments(),
-    getSettings(),
-  ])
+  const page = await getPage('home')
 
   if (!page) {
     return (
@@ -40,10 +32,7 @@ export default async function HomePage() {
     )
   }
 
-  return (
-    <BlockRenderer
-      blocks={page.blocks}
-      ctx={{ products, branches, posts: postsRes?.data ?? [], stats, testimonials, documents, settings }}
-    />
-  )
+  const ctx = await getBlockContext(page.blocks)
+
+  return <BlockRenderer blocks={page.blocks} ctx={ctx} />
 }

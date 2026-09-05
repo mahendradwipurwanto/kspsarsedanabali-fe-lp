@@ -1,91 +1,58 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
-import { getProducts } from '@/lib/api'
-import { buildMetadata } from '@/lib/seo'
+import { getPage } from '@/lib/api'
+import { getBlockContext } from '@/lib/blocks-data'
+import { buildMetadata, describe } from '@/lib/seo'
 import { breadcrumbLd, itemListLd } from '@/lib/jsonld'
-import { Shell, Band, Heading, Breadcrumbs, JsonLd, Action, Icon, Blank , PageIntro } from '@/components/ui'
-import { ProductRow } from '@/components/ProductCard'
+import { Shell, Band, Breadcrumbs, JsonLd, Blank, Action } from '@/components/ui'
+import { BlockRenderer } from '@/components/blocks'
 
 export const revalidate = 600
 
+const SLUG = 'produk'
 const TRAIL = [{ name: 'Beranda', path: '/' }, { name: 'Produk', path: '/produk' }]
 
 export async function generateMetadata(): Promise<Metadata> {
-  return await buildMetadata({
-  title: 'Produk Simpanan & Pinjaman KSP Sari Sedana Bali',
-  description:
-    'Lihat seluruh produk KSP Sari Sedana Bali: simpanan berjangka SIJAKOP, SIMAPAN, SIPURA, SIGEMAS, serta pinjaman bunga murah, mikro, pensiunan, dan Pinjaman 1 Pohon.',
-  path: '/produk',
+  const page = await getPage(SLUG)
+  return buildMetadata({
+    title: page?.seo?.metaTitle || page?.title || 'Produk Simpanan & Pinjaman KSP Sari Sedana Bali',
+    description: describe(page?.seo?.metaDescription),
+    path: '/produk',
   })
 }
 
+/**
+ * The product index is a CMS page like any other: its sections, order and copy
+ * are edited in Halaman → Produk. The route only supplies the data those blocks
+ * ask for, the breadcrumb and the structured data.
+ */
 export default async function ProductsPage() {
-  const products = await getProducts()
-  const simpanan = products.filter((p) => p.category === 'simpanan')
-  const pinjaman = products.filter((p) => p.category === 'pinjaman')
+  const page = await getPage(SLUG)
+  if (!page) {
+    return (
+      <Band>
+        <Shell>
+          <Blank
+            title="Halaman produk belum tersedia"
+            body="Halaman ini dikelola dari konsol dan akan tampil setelah diterbitkan."
+            action={<Action href="/kontak">Hubungi kami</Action>}
+          />
+        </Shell>
+      </Band>
+    )
+  }
+
+  const ctx = await getBlockContext(page.blocks, { basePath: '/produk' })
 
   return (
     <>
       <JsonLd
         data={[
           breadcrumbLd(TRAIL),
-          itemListLd(products.map((p) => ({ name: p.name, path: `/produk/${p.category}/${p.slug}` })), 'Produk KSP Sari Sedana Bali'),
+          itemListLd(ctx.products.map((p) => ({ name: p.name, path: `/produk/${p.category}/${p.slug}` })), 'Produk KSP Sari Sedana Bali'),
         ]}
       />
       <Breadcrumbs trail={TRAIL} />
-
-      <PageIntro
-        label="Layanan kami"
-        title="Produk Simpanan dan Pinjaman untuk Warga Karangasem"
-        lead={<>Sembilan produk untuk kebutuhan menabung maupun pembiayaan usaha. Belum yakin yang mana?{' '}
-              <Link href="/profiling" className="font-semibold text-green-700 underline underline-offset-4">
-                Jawab 4 pertanyaan singkat
-              </Link>{' '}
-              dan kami tunjukkan yang paling sesuai.</>}
-      />
-
-      {pinjaman.length ? (
-        <Band id="pinjaman">
-          <Shell>
-            <Heading
-              label="Pembiayaan"
-              title="Produk Pinjaman"
-              lead="Pembiayaan untuk modal usaha, renovasi rumah, pendidikan, upacara adat, dan kebutuhan lainnya."
-              action={
-                <Action href="/simulasi" variant="outline" className="self-start sm:self-auto">
-                  Hitung simulasi angsuran <Icon.arrow />
-                </Action>
-              }
-            />
-            <ul className="grid gap-3">
-              {pinjaman.map((p, i) => (
-                <ProductRow key={p.id} product={p} index={i + 1} />
-              ))}
-            </ul>
-          </Shell>
-        </Band>
-      ) : null}
-
-      {simpanan.length ? (
-        <Band tone="alt" id="simpanan">
-          <Shell>
-            <Heading label="Menabung" title="Produk Simpanan" lead="Simpanan berjangka maupun harian, dengan imbal hasil yang kompetitif dan dana yang aman." />
-            <ul className="grid gap-3">
-              {simpanan.map((p, i) => (
-                <ProductRow key={p.id} product={p} index={i + 1} />
-              ))}
-            </ul>
-          </Shell>
-        </Band>
-      ) : null}
-
-      {!products.length ? (
-        <Band>
-          <Shell>
-            <Blank title="Produk belum tersedia" body="Daftar produk sedang diperbarui oleh tim koperasi." action={<Action href="/kontak">Hubungi kami</Action>} />
-          </Shell>
-        </Band>
-      ) : null}
+      <BlockRenderer blocks={page.blocks} ctx={ctx} />
     </>
   )
 }

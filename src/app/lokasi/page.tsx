@@ -1,49 +1,50 @@
 import type { Metadata } from 'next'
-import { getBranches } from '@/lib/api'
-import { buildMetadata } from '@/lib/seo'
+import { getPage } from '@/lib/api'
+import { getBlockContext } from '@/lib/blocks-data'
+import { buildMetadata, describe } from '@/lib/seo'
 import { breadcrumbLd, localBusinessLd, itemListLd } from '@/lib/jsonld'
-import { Shell, Band, Breadcrumbs, JsonLd , PageIntro } from '@/components/ui'
-import { BranchFinder } from '@/components/interactive/BranchFinder'
+import { Shell, Band, Breadcrumbs, JsonLd, Blank, Action } from '@/components/ui'
+import { BlockRenderer } from '@/components/blocks'
 
 export const revalidate = 3600
 
+const SLUG = 'lokasi'
 const TRAIL = [{ name: 'Beranda', path: '/' }, { name: 'Lokasi Kantor', path: '/lokasi' }]
 
 export async function generateMetadata(): Promise<Metadata> {
-  return await buildMetadata({
-  title: 'Lokasi Kantor KSP Sari Sedana Bali di Karangasem',
-  description:
-    'Tiga kantor KSP Sari Sedana Bali di Karangasem: Kantor Pusat Selat, Cabang Rendang, dan Cabang Karangasem. Lihat alamat, jam buka, nomor telepon, dan petunjuk arah.',
-  path: '/lokasi',
+  const page = await getPage(SLUG)
+  return buildMetadata({
+    title: page?.seo?.metaTitle || page?.title || 'Lokasi Kantor KSP Sari Sedana Bali di Karangasem',
+    description: describe(page?.seo?.metaDescription),
+    path: '/lokasi',
   })
 }
 
 export default async function LocationsPage() {
-  const branches = await getBranches()
+  const page = await getPage(SLUG)
+  if (!page) {
+    return (
+      <Band>
+        <Shell>
+          <Blank title="Halaman lokasi belum tersedia" body="Halaman ini dikelola dari konsol dan akan tampil setelah diterbitkan." action={<Action href="/kontak">Hubungi kami</Action>} />
+        </Shell>
+      </Band>
+    )
+  }
+
+  const ctx = await getBlockContext(page.blocks, { basePath: '/lokasi' })
 
   return (
     <>
       <JsonLd
         data={[
           breadcrumbLd(TRAIL),
-          itemListLd(branches.map((b) => ({ name: b.name, path: `/lokasi/${b.slug}` })), 'Kantor KSP Sari Sedana Bali'),
-          ...branches.map(localBusinessLd),
+          itemListLd(ctx.branches.map((b) => ({ name: b.name, path: `/lokasi/${b.slug}` })), 'Kantor KSP Sari Sedana Bali'),
+          ...ctx.branches.map(localBusinessLd),
         ]}
       />
       <Breadcrumbs trail={TRAIL} />
-
-      <PageIntro
-        label="Lokasi Kantor"
-        title="Temukan Kantor KSP Sari Sedana Bali Terdekat"
-        lead="Tiga kantor kami tersebar di Kabupaten Karangasem. Izinkan lokasi Anda dan kami urutkan dari yang paling dekat, lengkap dengan
-              status buka-tutup dan petunjuk arah."
-      />
-
-      <Band>
-        <Shell>
-          <BranchFinder branches={branches} />
-        </Shell>
-      </Band>
+      <BlockRenderer blocks={page.blocks} ctx={ctx} />
     </>
   )
 }

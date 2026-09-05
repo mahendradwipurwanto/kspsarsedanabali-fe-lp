@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { getPage, getProducts, getBranches, getPosts, getStats, getTestimonials, getDocuments, getSettings } from '@/lib/api'
+import { getPage } from '@/lib/api'
+import { getBlockContext } from '@/lib/blocks-data'
 import { buildMetadata, describe } from '@/lib/seo'
 import { breadcrumbLd } from '@/lib/jsonld'
 import { Breadcrumbs, JsonLd } from '@/components/ui'
@@ -32,15 +33,7 @@ export default async function CmsPage({ params }: { params: Promise<{ slug: stri
   const page = await getPage(slug)
   if (!page) notFound()
 
-  const [products, branches, postsRes, stats, testimonials, documents, settings] = await Promise.all([
-    getProducts(),
-    getBranches(),
-    getPosts({ limit: 3 }),
-    getStats(),
-    getTestimonials(6),
-    getDocuments(),
-    getSettings(),
-  ])
+  const ctx = await getBlockContext(page.blocks)
 
   const trail = [{ name: 'Beranda', path: '/' }, { name: page.title, path: `/${page.slug}` }]
 
@@ -48,7 +41,7 @@ export default async function CmsPage({ params }: { params: Promise<{ slug: stri
     <>
       <JsonLd data={breadcrumbLd(trail)} />
       <Breadcrumbs trail={trail} />
-      <BlockRenderer blocks={page.blocks} ctx={{ products, branches, posts: postsRes?.data ?? [], stats, testimonials, documents, settings }} />
+      <BlockRenderer blocks={page.blocks} ctx={ctx} />
     </>
   )
 }
