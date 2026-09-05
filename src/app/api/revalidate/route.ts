@@ -8,6 +8,14 @@ import { revalidateTag, revalidatePath } from 'next/cache'
  * stays statically cached — the koperasi's team sees their edit live within
  * seconds, without the site paying a per-request rendering cost.
  */
+/** CMS pages whose route is not `/<slug>`. */
+const PAGE_ROUTES: Record<string, string> = {
+  '/': '/',
+  home: '/',
+  'produk-simpanan': '/produk/simpanan',
+  'produk-pinjaman': '/produk/pinjaman',
+}
+
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('x-revalidate-secret')
   if (!process.env.REVALIDATE_SECRET || secret !== process.env.REVALIDATE_SECRET) {
@@ -21,14 +29,19 @@ export async function POST(req: NextRequest) {
   for (const tag of tags) revalidateTag(tag, 'max')
   for (const path of paths) revalidatePath(path)
 
-  // Tags alone were not enough. A page deleted in the console went on being
-  // served from the data cache — the API answered 404 while the site still
-  // rendered the page at its own URL — because the tagged fetch entry survived
-  // `revalidateTag`, and Next 16 has no single-argument form to fall back on.
-  // Revalidating the root layout expires every route under it, which is correct
-  // whatever changed; on a site of this size the cost is one re-render per page
-  // on its next visit, and only when an editor actually saves something.
-  if (tags.length) revalidatePath('/', 'layout')
+  // A page's own route is revalidated by path as well as by tag.
+  //
+  // Tags reach the routes that were rendered ahead of time, but a page an
+  // editor created is rendered on demand, and there the tagged fetch entry
+  // survived `revalidateTag` — the API answered 404 for a deleted page while
+  // the site went on serving it from cache. Only the affected route is named:
+  // revalidating the whole layout instead fixed that case and made every other
+  // edit slower to appear, which is the thing this hook exists to prevent.
+  for (const tag of tags) {
+    if (!tag.startsWith('page:')) continue
+    const slug = tag.slice(5)
+    revalidatePath(PAGE_ROUTES[slug] ?? `/${slug}`)
+  }
 
   // A page publish should also refresh the homepage lists that embed it.
   if (tags.some((t) => t.startsWith('post:') || t === 'posts')) revalidatePath('/')
