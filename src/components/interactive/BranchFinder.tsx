@@ -25,6 +25,12 @@ export function BranchFinder({ branches, showMap = true }: { branches: Branch[];
       .sort((a, b) => (a.km ?? 0) - (b.km ?? 0))
   }, [branches, origin, query])
 
+  /** Districts a search would actually match, rather than three names fixed in the code. */
+  const examples = useMemo(() => {
+    const names = [...new Set(branches.map((b) => b.district || b.regency).filter(Boolean))].slice(0, 3)
+    return names.map((n) => `“${n}”`).join(', ')
+  }, [branches])
+
   function useMyLocation() {
     if (!('geolocation' in navigator)) return setGeoState('unsupported')
     setGeoState('asking')
@@ -70,7 +76,7 @@ export function BranchFinder({ branches, showMap = true }: { branches: Branch[];
           </ul>
         ) : (
           <p className="mt-5 rounded-[var(--radius-card)] border border-dashed border-line-strong bg-paper px-5 py-10 text-center text-[14px] text-ink-500">
-            Tidak ada kantor yang cocok dengan “{query}”. Coba “Selat”, “Rendang”, atau “Karangasem”.
+            Tidak ada kantor yang cocok dengan “{query}”.{examples ? ` Coba ${examples}.` : ''}
           </p>
         )}
       </div>

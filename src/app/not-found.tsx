@@ -17,7 +17,7 @@ export default function NotFound() {
     { label: 'Produk Simpanan', href: '/produk/simpanan', desc: 'SIJAKOP, SIMAPAN, SIPURA, SIGEMAS' },
     { label: 'Produk Pinjaman', href: '/produk/pinjaman', desc: 'Bunga Murah, Mikro, Pensiunan, 1 Pohon' },
     { label: 'Simulasi Angsuran', href: '/simulasi', desc: 'Hitung perkiraan cicilan bulanan' },
-    { label: 'Lokasi Kantor', href: '/lokasi', desc: 'Tiga kantor di Karangasem' },
+    { label: 'Lokasi Kantor', href: '/lokasi', desc: 'Alamat dan jam layanan tiap kantor' },
     { label: 'Berita', href: '/berita', desc: 'Kabar terbaru dari koperasi' },
     { label: 'Kontak Kami', href: '/kontak', desc: 'Telepon, WhatsApp, dan alamat' },
   ]

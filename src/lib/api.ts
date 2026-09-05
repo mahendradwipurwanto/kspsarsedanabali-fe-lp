@@ -175,28 +175,33 @@ export const getMenu = (key: string) => apiGet<Wrapped<unknown[]>>(`/menus/${key
 
 export const getSitemapData = () =>
   apiGet<Wrapped<{
-    pages: { slug: string; updatedAt: string }[]
+    pages: { slug: string; title: string; isSystem: boolean; updatedAt: string }[]
     products: { slug: string; category: string; updatedAt: string }[]
     posts: { slug: string; updatedAt: string }[]
     branches: { slug: string; updatedAt: string }[]
     jobs: { slug: string; updatedAt: string }[]
-  }>>('/sitemap-data', { revalidate: 600 }).then((r) => r?.data ?? null)
+  }>>('/sitemap-data', {
+    revalidate: 600,
+    // Tagged, because the footer's page row is built from this: publishing a
+    // page revalidated the pages that render it while this list stayed cached,
+    // so a new page reached its own URL and the sitemap but not the footer.
+    tags: ['pages', 'sitemap', 'products', 'posts'],
+  }).then((r) => r?.data ?? null)
 
 /**
- * Published CMS pages that are not backed by a fixed route — the footer's legal
- * row is built from these, so a link only appears once the page really exists.
+ * Published pages an editor created, for the footer's bottom row.
+ *
+ * Every page that is not one of the site's fixed routes belongs here, under the
+ * title it carries in the console. It used to be filtered against two slugs
+ * written into this file, so a third page — a cookie policy, a members' notice —
+ * could be written and published and still never appear anywhere on the site.
  */
 export const getLegalPages = async () => {
   const data = await getSitemapData()
   if (!data) return []
-  const FIXED = new Set(['/', 'tentang-kami', 'kontak'])
-  const TITLES: Record<string, string> = {
-    'kebijakan-privasi': 'Kebijakan Privasi',
-    'syarat-ketentuan': 'Syarat & Ketentuan',
-  }
   return data.pages
-    .filter((pg) => !FIXED.has(pg.slug) && pg.slug in TITLES)
-    .map((pg) => ({ slug: pg.slug, title: TITLES[pg.slug]! }))
+    .filter((pg) => !pg.isSystem)
+    .map((pg) => ({ slug: pg.slug, title: pg.title }))
 }
 
 /**

@@ -18,10 +18,17 @@ export async function POST(req: NextRequest) {
   const tags = body.tags ?? []
   const paths = body.paths ?? []
 
-  // Next 16 requires a cacheLife profile; `max` expires the entry immediately
-  // rather than waiting out the remaining ISR window.
   for (const tag of tags) revalidateTag(tag, 'max')
   for (const path of paths) revalidatePath(path)
+
+  // Tags alone were not enough. A page deleted in the console went on being
+  // served from the data cache — the API answered 404 while the site still
+  // rendered the page at its own URL — because the tagged fetch entry survived
+  // `revalidateTag`, and Next 16 has no single-argument form to fall back on.
+  // Revalidating the root layout expires every route under it, which is correct
+  // whatever changed; on a site of this size the cost is one re-render per page
+  // on its next visit, and only when an editor actually saves something.
+  if (tags.length) revalidatePath('/', 'layout')
 
   // A page publish should also refresh the homepage lists that embed it.
   if (tags.some((t) => t.startsWith('post:') || t === 'posts')) revalidatePath('/')

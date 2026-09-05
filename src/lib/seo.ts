@@ -35,22 +35,28 @@ async function titleSettings(): Promise<{ brand: string; template: string }> {
 const TITLE_MAX = 65
 const DESC_MAX = 158
 
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
 /**
  * Compose the final title exactly once.
  *
- * The root layout defines a `%s | KSP Sari Sedana Bali` template. CMS-authored
- * titles often already end in the brand, which would produce
- * "… | KSP Sari Sedana Bali | KSP Sari Sedana Bali" and blow past the SERP
- * truncation limit. Returning an absolute title bypasses the template, and the
- * brand is appended here only when it is genuinely missing and there is room.
+ * The pattern comes from Pengaturan → SEO and is applied here rather than by
+ * the layout, because composing twice is what produced
+ * "… | KSP Sari Sedana Bali | KSP Sari Sedana Bali"; the route returns an
+ * absolute title, which opts out of the layout's own template.
+ *
+ * A CMS title usually ends in the brand already. That trailing brand is removed
+ * before the pattern is applied, so the pattern still governs the title instead
+ * of being skipped — skipping it meant an editor could change the pattern in the
+ * console and see nothing happen on the pages that needed it most.
  */
 function composeTitle(raw: string, brand: string, template: string): string {
   const t = raw.trim().replace(/\s*[|·]\s*$/, '')
-  if (t.toLowerCase().includes(brand.toLowerCase())) return t
-  // The koperasi's own pattern from Pengaturan → SEO, applied here rather than
-  // by the layout: composing the title twice is what produced
-  // "… | KSP Sari Sedana Bali | KSP Sari Sedana Bali".
-  const composed = template.includes('%s') ? template.replace('%s', t) : `${t} | ${template}`
+  const core = brand ? t.replace(new RegExp(`[\\s|·—–-]*${escapeRe(brand)}\\s*$`, 'i'), '').trim() || t : t
+  // The brand sits inside the title rather than at its end ("Lokasi Kantor KSP
+  // Sari Sedana Bali di Karangasem"); appending it again would read badly.
+  if (brand && core.toLowerCase().includes(brand.toLowerCase())) return t
+  const composed = template.includes('%s') ? template.replace('%s', core) : `${core} | ${template}`
   return composed.length <= TITLE_MAX + brand.length ? composed : t
 }
 

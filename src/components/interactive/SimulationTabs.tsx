@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { SavingsTableSlug } from '@/contracts'
+import { SIGEMAS, SIMAPAN, SIPURA, type SavingsTableSlug } from '@/contracts'
 import type { Product } from '@/lib/api'
 import { track } from '@/lib/client'
 import { Card, Tile, Icon, Blank, Action, Heading } from '../ui'
@@ -16,10 +16,31 @@ const LOAN_METHODS = [
   { n: '03', title: 'Efektif menurun', body: 'Bunga dihitung dari sisa pokok, sehingga angsuran mengecil setiap bulan. Total bunga paling ringan.' },
 ]
 
+/** Indonesian decimals: 0,35 rather than 0.35. */
+const num = (n: number) => n.toLocaleString('id-ID')
+
+/**
+ * The explanations quote the same figures the calculators compute with, read
+ * from the tables' own constants. Written out by hand they drifted the moment a
+ * rate changed, and a wrong rate in a paragraph reads exactly as authoritative
+ * as a right one.
+ */
 const SAVINGS_NOTES = [
-  { n: '01', title: 'SIGEMAS', body: 'Simpanan sekali setor 12–36 bulan. Mendapat bunga 1% per tahun ditambah reward emas 4% per tahun, jadi 5% per tahun.' },
-  { n: '02', title: 'SIMAPAN', body: 'Setoran rutin setiap bulan selama 1–10 tahun. Bunga 0,35% per bulan dan berbunga lagi, sehingga hasilnya menumpuk.' },
-  { n: '03', title: 'SIPURA', body: 'Setoran harian selama 210 hari, satu putaran wuku. Bonus 1,9 kali setoran harian dibayarkan saat jatuh tempo.' },
+  {
+    n: '01',
+    title: 'SIGEMAS',
+    body: `Simpanan sekali setor ${SIGEMAS.tenors[0]}–${SIGEMAS.tenors[SIGEMAS.tenors.length - 1]} bulan. Mendapat bunga ${num(SIGEMAS.interestPercentPerYear)}% per tahun ditambah reward emas ${num(SIGEMAS.rewardPercentPerYear)}% per tahun, jadi ${num(SIGEMAS.interestPercentPerYear + SIGEMAS.rewardPercentPerYear)}% per tahun.`,
+  },
+  {
+    n: '02',
+    title: 'SIMAPAN',
+    body: `Setoran rutin setiap bulan selama ${SIMAPAN.years[0]}–${SIMAPAN.years[SIMAPAN.years.length - 1]} tahun. Bunga ${num(SIMAPAN.monthlyRatePercent)}% per bulan dan berbunga lagi, sehingga hasilnya menumpuk.`,
+  },
+  {
+    n: '03',
+    title: 'SIPURA',
+    body: `Setoran harian selama ${SIPURA.days} hari, satu putaran wuku. Bonus ${num(SIPURA.bonusMultiplier)} kali setoran harian dibayarkan saat jatuh tempo.`,
+  },
 ]
 
 /**

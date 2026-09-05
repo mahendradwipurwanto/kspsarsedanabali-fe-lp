@@ -28,6 +28,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // unconditionally put two 404s in the sitemap.
   ]
 
+  /**
+   * CMS pages whose route is not `/<slug>`.
+   *
+   * The two product categories are edited as pages but live under /produk, and
+   * their slugs are redirect sources left over from WordPress. Emitting the slug
+   * put a URL in the sitemap that answers 301.
+   */
+  const ROUTE_BY_SLUG: Record<string, string> = {
+    '/': '/',
+    home: '/',
+    'produk-simpanan': '/produk/simpanan',
+    'produk-pinjaman': '/produk/pinjaman',
+  }
+  const covered = new Set(staticEntries.map((e) => e.url))
+
   const data = await getSitemapData()
   if (!data) return staticEntries
 
@@ -56,12 +71,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'weekly' as const,
       priority: 0.5,
     })),
-    // CMS pages that aren't backed by a fixed route.
+    // CMS pages, at the route they actually answer on and only once: a page
+    // already listed above would otherwise appear twice.
     ...data.pages
-      .filter((p) => !['/', 'tentang-kami', 'kontak'].includes(p.slug))
-      .map((p) => ({
-        url: absoluteUrl(`/${p.slug}`),
-        lastModified: new Date(p.updatedAt),
+      .map((p) => ({ page: p, url: absoluteUrl(ROUTE_BY_SLUG[p.slug] ?? `/${p.slug}`) }))
+      .filter(({ url }) => !covered.has(url))
+      .map(({ page, url }) => ({
+        url,
+        lastModified: new Date(page.updatedAt),
         changeFrequency: 'monthly' as const,
         priority: 0.5,
       })),
