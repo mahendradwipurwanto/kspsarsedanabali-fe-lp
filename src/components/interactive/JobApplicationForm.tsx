@@ -23,24 +23,17 @@ export function JobApplicationForm({ jobId, jobTitle }: { jobId: string; jobTitl
     if (file.size > MAX_CV_BYTES) return setError('Ukuran CV maksimal 5 MB.')
     if (!ACCEPTED.includes(file.type)) return setError('Format CV harus PDF, DOC, atau DOCX.')
 
-    // Presign → upload direct to storage → submit only the key. The file never
-    // passes through the API, so Vercel's 4.5 MB body limit does not apply.
+    // The CV goes through the API, which writes it to storage. A presigned PUT
+    // straight from the browser needs a CORS rule on the bucket; without one the
+    // browser blocks it and the applicant only sees a failure.
     setStatus('uploading')
-    const presign = await fetch(`${API_BASE}/v1/public/job-applications/presign`, {
+    const uploaded = await fetch(`${API_BASE}/v1/public/job-applications/upload`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size, folder: 'cv' }),
+      headers: { 'content-type': file.type || 'application/pdf', 'x-filename': encodeURIComponent(file.name).replace(/%20/g, ' ') },
+      body: file,
     })
-      .then((r) => (r.ok ? (r.json() as Promise<{ data: { url: string; key: string; headers: Record<string, string> } }>) : null))
+      .then((r) => (r.ok ? (r.json() as Promise<{ data: { key: string } }>) : null))
       .catch(() => null)
-
-    if (!presign) {
-      setStatus('idle')
-      return setError('Gagal menyiapkan unggahan. Silakan coba lagi.')
-    }
-
-    const uploaded = await fetch(presign.data.url, { method: 'PUT', body: file, headers: presign.data.headers })
-      .then((r) => r.ok).catch(() => false)
 
     if (!uploaded) {
       setStatus('idle')
@@ -54,7 +47,7 @@ export function JobApplicationForm({ jobId, jobTitle }: { jobId: string; jobTitl
       email: String(fd.get('email') ?? ''),
       phone: String(fd.get('phone') ?? ''),
       bio: String(fd.get('bio') ?? '') || undefined,
-      cvKey: presign.data.key,
+      cvKey: uploaded.data.key,
       consent: fd.get('consent') === 'on',
       website: String(fd.get('website') ?? ''),
     })
