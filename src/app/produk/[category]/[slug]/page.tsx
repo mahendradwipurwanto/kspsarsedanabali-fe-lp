@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { formatRupiahShort } from '@/contracts'
+import { formatRupiahShort, SAVINGS_TABLE_SLUGS } from '@/contracts'
 import { getProduct, getProducts, getBranches } from '@/lib/api'
 import { buildMetadata, describe, titleFor } from '@/lib/seo'
 import { breadcrumbLd, productLd } from '@/lib/jsonld'
@@ -57,6 +57,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   ].filter(Boolean) as { title: string; body: string }[]
 
   const isLoan = p.category === 'pinjaman'
+  // Savings plans the koperasi publishes a table for get a link to it.
+  const hasSavingsTable = SAVINGS_TABLE_SLUGS.some((slug) => slug === p.slug)
   // No brochure artwork uploaded yet: a 420px square placeholder is a large piece
   // of nothing beside the terms, so the column collapses and the copy runs at a
   // readable measure instead.
@@ -121,6 +123,11 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   <Action href="#simulasi" variant="outline" size="lg">
                     <Icon.calculator className="size-4" />
                     Hitung angsuran
+                  </Action>
+                ) : hasSavingsTable ? (
+                  <Action href={`/simulasi?produk=${p.slug}`} variant="outline" size="lg">
+                    <Icon.calculator className="size-4" />
+                    Lihat tabel dan simulasi
                   </Action>
                 ) : null}
               </div>
