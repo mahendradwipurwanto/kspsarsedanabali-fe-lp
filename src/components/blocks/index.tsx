@@ -16,6 +16,7 @@ import { ProductCard, ProductRow } from '../ProductCard'
 import { PostCard } from '../PostCard'
 import { BranchCard } from '../BranchCard'
 import { Pagination } from '../Pagination'
+import { OrgChart } from '../OrgChart'
 
 export interface BlockContext {
   branches: Branch[]
@@ -362,28 +363,19 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
     case 'org_chart': {
       const fromProps = arr<{ title: string; members: { name: string; role?: string }[] }>(p.groups)
       const groups = fromProps.length ? fromProps : arr<{ title: string; members: { name: string; role?: string }[] }>(ctx.settings.organization)
-      if (!groups.length) return null
+      const units = arr<{ title: string; roles?: { name: string }[] }>(p.units)
+      if (!groups.length && !units.length) return null
       return (
         <Band tone={tone}>
           <Shell>
             <Heading label={s(p.eyebrow, 'Tata kelola')} title={s(p.heading, 'Struktur Organisasi')} />
-            <div className="surface overflow-hidden">
-              <div className="grid divide-y divide-line lg:grid-cols-3 lg:divide-x lg:divide-y-0">
-                {groups.map((group, i) => (
-                  <div key={i} className="p-6">
-                    <h3 className="text-[13px] font-semibold text-green-700">{group.title}</h3>
-                    <ul className="mt-4 space-y-3.5">
-                      {group.members.map((m, j) => (
-                        <li key={j}>
-                          <p className="text-[15px] font-bold text-ink-900">{m.name}</p>
-                          {m.role ? <p className="mt-0.5 text-[12.5px] text-ink-400">{m.role}</p> : null}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <OrgChart
+              groups={groups}
+              apex={s(p.apex, '')}
+              audit={s(p.audit, '')}
+              operationsLead={s(p.operationsLead, '')}
+              units={units}
+            />
           </Shell>
         </Band>
       )
