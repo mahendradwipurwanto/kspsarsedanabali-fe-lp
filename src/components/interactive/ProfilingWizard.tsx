@@ -49,7 +49,7 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
   // the koperasi where people drop off.
   useEffect(() => {
     if (!answers.need) return
-    void apiPost('/public/profiling/session', { sessionId: sessionId(), step, answers })
+    void sessionId().then((id) => apiPost('/public/profiling/session', { sessionId: id, step, answers }))
   }, [step, answers])
 
   useEffect(() => { track('profiling_step', { step }) }, [step])
@@ -88,7 +88,7 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
     // not whatever the browser claimed.
     const recRes = await fetch(`${API_BASE}/v1/public/profiling/recommend`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...answers, sessionId: sessionId() }),
+      body: JSON.stringify({ ...answers, sessionId: await sessionId() }),
     }).then((r) => (r.ok ? (r.json() as Promise<{ data: Recommendation }>) : null)).catch(() => null)
 
     const leadRes = await apiPost('/public/leads', {
@@ -101,7 +101,7 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
       tenorMonths: answers.need === 'pinjaman' ? answers.tenorMonths : undefined,
       purposes: answers.purposes,
       source: 'profiling',
-      sessionId: sessionId(),
+      sessionId: await sessionId(),
       consent: fd.get('consent') === 'on',
       website: String(fd.get('website') ?? ''),
     })

@@ -56,7 +56,7 @@ export function LeadForm({
       branchId: String(fd.get('branchId') ?? '') || undefined,
       interest: product?.category ?? undefined,
       source,
-      sessionId: sessionId(),
+      sessionId: await sessionId(),
       consent: fd.get('consent') === 'on',
       website: String(fd.get('website') ?? ''),
     })
