@@ -23,6 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: absoluteUrl('/laporan-keuangan'), changeFrequency: 'monthly', priority: 0.6 },
     { url: absoluteUrl('/faq'), changeFrequency: 'monthly', priority: 0.6 },
     { url: absoluteUrl('/kontak'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: absoluteUrl('/aplikasi'), changeFrequency: 'monthly', priority: 0.5 },
     // Legal pages are NOT hardcoded here. They are ordinary CMS pages and reach
     // the sitemap through `data.pages` below once published — listing them
     // unconditionally put two 404s in the sitemap.

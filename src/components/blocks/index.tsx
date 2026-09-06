@@ -17,6 +17,10 @@ import { PostCard } from '../PostCard'
 import { BranchCard } from '../BranchCard'
 import { Pagination } from '../Pagination'
 import { OrgChart } from '../OrgChart'
+import { HeroBanners, type Banner } from '../interactive/HeroBanners'
+import { MediaText, Steps, Timeline, VideoEmbed, LogoCloud, type Step, type Milestone, type Logo } from '../Sections'
+import { AppDownload, type StoreMode } from '../AppDownload'
+import { appSettings } from '@/lib/apps'
 
 export interface BlockContext {
   branches: Branch[]
@@ -84,7 +88,23 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
         </div>
       )
 
-    case 'hero_banner':
+    case 'hero_banner': {
+      // The banner style shows the artwork itself; the component style keeps
+      // the rate card. Both are the page's H1.
+      if (s(p.style, 'component') === 'banner') {
+        const banners = arr<Banner>(p.banners).filter((banner) => banner.image)
+        if (!banners.length) return null
+        const height = s(p.bannerHeight, 'wide')
+        return (
+          <HeroBanners
+            banners={banners}
+            autoplay={b(p.autoplay, true)}
+            interval={n(p.interval, 8)}
+            text={s(p.bannerText, 'overlay') === 'none' ? 'none' : 'overlay'}
+            height={height === 'standard' || height === 'tall' ? height : 'wide'}
+          />
+        )
+      }
       return (
         <HeroCarousel
           slides={arr(p.slides)}
@@ -94,6 +114,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
           products={ctx.products}
         />
       )
+    }
 
     case 'quick_access':
       return <QuickAccess items={arr(p.items)} />
@@ -383,6 +404,100 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
             />
           </Shell>
         </Band>
+      )
+    }
+
+    /* ──────────────────────── free-form sections ─────────────────────── */
+    case 'media_text': {
+      if (!s(p.heading)) return null
+      return (
+        <Band tone={tone}>
+          <Shell>
+            <MediaText
+              eyebrow={s(p.eyebrow)}
+              heading={s(p.heading)}
+              body={s(p.body)}
+              bullets={arr<{ text: string }>(p.bullets)}
+              image={s(p.image)}
+              imageAlt={s(p.alt)}
+              imagePosition={s(p.imagePosition, 'right') === 'left' ? 'left' : 'right'}
+              imageRatio={s(p.imageRatio, '4/3')}
+              primary={{ label: s(p.ctaLabel), href: s(p.ctaHref) }}
+              secondary={{ label: s(p.secondaryLabel), href: s(p.secondaryHref) }}
+            />
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'steps': {
+      const items = arr<Step>(p.items)
+      if (!items.length) return null
+      return (
+        <Band tone={tone}>
+          <Shell>
+            {s(p.heading) ? <Heading label={s(p.eyebrow)} title={s(p.heading)} lead={s(p.intro) || undefined} /> : null}
+            <Steps items={items} layout={s(p.layout, 'grid') === 'list' ? 'list' : 'grid'} primary={{ label: s(p.ctaLabel), href: s(p.ctaHref) }} />
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'timeline': {
+      const items = arr<Milestone>(p.items)
+      if (!items.length) return null
+      return (
+        <Band tone={tone}>
+          <Shell>
+            {s(p.heading) ? <Heading label={s(p.eyebrow)} title={s(p.heading)} /> : null}
+            <Timeline items={items} />
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'video_embed': {
+      if (!s(p.url)) return null
+      return (
+        <Band tone={tone}>
+          <Shell>
+            {s(p.heading) ? <Heading label={s(p.eyebrow)} title={s(p.heading)} align="center" /> : null}
+            <VideoEmbed url={s(p.url)} title={s(p.heading)} caption={s(p.caption)} width={s(p.width, 'narrow') === 'wide' ? 'wide' : 'narrow'} />
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'logo_cloud': {
+      const logos = arr<Logo>(p.logos).filter((logo) => logo.image)
+      if (!logos.length) return null
+      return (
+        <Band tone={tone}>
+          <Shell>
+            {s(p.heading) ? <Heading label={s(p.eyebrow)} title={s(p.heading)} align="center" /> : null}
+            <LogoCloud logos={logos} muted={b(p.muted, true)} />
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'app_download': {
+      if (!s(p.heading)) return null
+      const mode = s(p.buttons, 'stores')
+      return (
+        <AppDownload
+          eyebrow={s(p.eyebrow)}
+          heading={s(p.heading)}
+          body={s(p.body)}
+          bullets={arr<{ text: string }>(p.bullets)}
+          image={s(p.image)}
+          alt={s(p.alt)}
+          apps={appSettings(ctx.settings)}
+          mode={(mode === 'smart' || mode === 'both' ? mode : 'stores') as StoreMode}
+          smartLabel={s(p.smartLabel)}
+          tone={s(p.tone, 'dark') === 'light' ? 'light' : 'dark'}
+          bandTone={tone}
+        />
       )
     }
 

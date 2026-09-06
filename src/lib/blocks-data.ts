@@ -26,6 +26,12 @@ const NEEDS: Record<string, (keyof Needs)[]> = {
   simulation_calculator: ['products'],
   simulation_tabs: ['products'],
   profiling_wizard: ['products', 'branches'],
+  media_text: [],
+  steps: [],
+  timeline: [],
+  video_embed: [],
+  logo_cloud: [],
+  app_download: ['settings'],
 }
 
 interface Needs {
