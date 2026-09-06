@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { getBlock, telLink, getOpenState } from '@/contracts'
+import { getBlock, defaultPropsFor, telLink, getOpenState } from '@/contracts'
 import type { Block, Branch, Product, Post, Stat, Testimonial, DocumentItem, Job, Faq } from '@/lib/api'
 import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, Stat as Figure, iconByName } from '../ui'
 import { Media } from '../ui/Media'
@@ -59,7 +59,12 @@ export function BlockRenderer({ blocks, ctx }: { blocks: Block[]; ctx: BlockCont
 }
 
 function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; tone: 'default' | 'alt' }) {
-  const p = block.props as P
+  // A block stored before a field existed has no value for it. The registry
+  // default fills the gap here, the same default the console shows in the
+  // editor, so the two never disagree about what a missing field means. The
+  // literal fallbacks further down only matter when a stored value is not a
+  // string at all.
+  const p = { ...defaultPropsFor(block.type), ...block.props } as P
 
   switch (block.type) {
     /* ─────────────────────────── page openers ─────────────────────────── */

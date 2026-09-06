@@ -31,6 +31,11 @@ export async function POST(req: NextRequest) {
   // render finished — two seconds when idle, half a minute on a busy machine —
   // so an editor saved a menu, opened the website and saw nothing change. With
   // an immediate expiry the next request renders fresh and waits for it.
+  //
+  // This is still scoped: only the routes whose fetches carried the tag
+  // expire. A menu change does reach every route, because every route shows
+  // the header, but a post publish leaves the product pages untouched — which
+  // is the difference from the layout-wide path revalidation rejected below.
   for (const tag of tags) revalidateTag(tag, { expire: 0 })
   for (const path of paths) revalidatePath(path)
 
