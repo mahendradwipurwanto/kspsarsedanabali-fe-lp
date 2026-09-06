@@ -124,8 +124,14 @@ body {
   outline-offset: 2px;
   border-radius: 4px;
 }
-:where(a, button, summary, [role='button']) { cursor: pointer; }
-:where(button:disabled, [aria-disabled='true']) { cursor: not-allowed; }
+/* Everything that acts on click reads as clickable. Tailwind 4 stopped giving
+   buttons a pointer, so it is restored here for every interactive element,
+   including cards and rows that carry a role, and taken away when disabled. */
+:where(a[href], button, summary, select, label[for], label:has(input, select, textarea),
+  [role='button'], [role='link'], [role='option'], [role='menuitem'], [role='menuitemcheckbox'],
+  [role='menuitemradio'], [role='tab'], [role='switch'], [role='checkbox'], [role='radio'],
+  input[type='checkbox'], input[type='radio'], input[type='file'], input[type='range'], input[type='submit']):not(:disabled) { cursor: pointer; }
+:where(button:disabled, input:disabled, select:disabled, [aria-disabled='true'], [data-disabled]) { cursor: not-allowed; }
 
 /* ── Surfaces ──────────────────────────────────────────────────────────────
    A card is a bounded region, drawn with one hairline. The shadow is there
