@@ -24,8 +24,30 @@ export function Header({
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  // Desktop dropdowns open on hover and keyboard focus through CSS alone. Two
+  // things CSS cannot do: fold a dropdown away after a click in it (the cursor
+  // is still over it, and the clicked link keeps focus), and open a group that
+  // has no address of its own on a touch screen. `dismissed` hides a dropdown
+  // until the cursor leaves it; `opened` is the tapped-open group.
+  const [dismissed, setDismissed] = useState<string | null>(null)
+  const [opened, setOpened] = useState<string | null>(null)
 
-  useEffect(() => setOpen(false), [pathname])
+  useEffect(() => { setOpen(false); setOpened(null) }, [pathname])
+
+  useEffect(() => {
+    if (!opened) return
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent && e.key !== 'Escape') return
+      if (e instanceof MouseEvent && (e.target as HTMLElement).closest('[data-nav-group]')) return
+      setOpened(null)
+    }
+    document.addEventListener('click', close)
+    document.addEventListener('keydown', close)
+    return () => { document.removeEventListener('click', close); document.removeEventListener('keydown', close) }
+  }, [opened])
+
+  /** After choosing an entry: hide the dropdown until the cursor leaves, and drop focus so focus-within lets go too. */
+  const settle = (key: string, el: HTMLElement) => { setDismissed(key); setOpened(null); el.blur() }
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -67,23 +89,30 @@ export function Header({
             </Link>
 
             <nav aria-label="Navigasi utama" className="hidden items-center xl:flex">
-              {nav.map((item) => (
-                <div key={item.href || item.label} className="group relative">
+              {nav.map((item) => {
+                const key = item.href || item.label
+                const state = opened === key ? '!visible !opacity-100' : dismissed === key ? '!invisible !opacity-0' : ''
+                return (
+                <div key={key} data-nav-group className="group relative" onMouseLeave={() => setDismissed((d) => (d === key ? null : d))}>
                   {/* A group without an address opens its dropdown and leads
-                      nowhere itself, so it is a button rather than a link. */}
+                      nowhere itself, so it is a button rather than a link. A tap
+                      toggles it, for screens wide enough for this menu but
+                      without a cursor to hover. */}
                   {isMenuGroup(item) ? (
                     <button
                       type="button"
-                      aria-expanded={false}
+                      aria-expanded={opened === key}
+                      onClick={() => { setDismissed(null); setOpened((o) => (o === key ? null : key)) }}
                       className="relative flex items-center gap-1 whitespace-nowrap px-3 py-2.5 text-[13.5px] font-medium text-ink-600 transition-colors hover:text-ink-900"
                     >
                       {item.label}
-                      <Icon.chevron className="size-3.5 text-ink-400 transition-transform group-hover:rotate-180" />
+                      <Icon.chevron className={`size-3.5 text-ink-400 transition-transform group-hover:rotate-180 ${opened === key ? 'rotate-180' : ''}`} />
                     </button>
                   ) : (
                   <Link
                     href={item.href}
                     aria-current={isActive(item.href) ? 'page' : undefined}
+                    onClick={(e) => { if (item.children?.length) settle(key, e.currentTarget) }}
                     className={`relative flex items-center gap-1 whitespace-nowrap px-3 py-2.5 text-[13.5px] font-medium transition-colors after:absolute after:inset-x-3 after:-bottom-[2px] after:h-[2px] after:bg-green-600 after:transition-transform after:duration-300 after:[transition-timing-function:var(--ease-settle)] ${
                       isActive(item.href) ? 'text-ink-900 after:scale-x-100' : 'text-ink-600 after:scale-x-0 hover:text-ink-900 hover:after:scale-x-100'
                     }`}
@@ -94,10 +123,11 @@ export function Header({
                   )}
 
                   {item.children?.length ? (
-                    <div className="invisible absolute left-0 top-full z-10 w-60 pt-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+                    <div className={`invisible absolute left-0 top-full z-10 w-60 pt-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 ${state}`}>
                       <div className="surface p-1.5 shadow-[var(--shadow-lift)]">
                         {item.children.map((child) => (
                           <Link key={child.href || child.label} href={child.href}
+                            onClick={(e) => settle(key, e.currentTarget)}
                             className="flex items-center justify-between rounded-md px-3 py-2.5 text-[14px] text-ink-700 transition-colors hover:bg-paper hover:text-ink-900">
                             {child.label}
                             <Icon.arrowUpRight className="size-3.5 text-ink-300" />
@@ -107,7 +137,8 @@ export function Header({
                     </div>
                   ) : null}
                 </div>
-              ))}
+                )
+              })}
             </nav>
 
             <div className="flex min-w-0 items-center gap-2">

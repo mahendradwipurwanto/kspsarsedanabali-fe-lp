@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
+import { isValidPhone, isValidEmail, cleanPhoneInput, PHONE_ERROR, PHONE_HINT, EMAIL_ERROR } from '@/contracts'
 import type { Product, Branch } from '@/lib/api'
 import { apiPost, sessionId, track } from '@/lib/client'
 import { Action, Icon } from '../ui'
@@ -32,6 +33,19 @@ export function LeadForm({
     const fd = new FormData(e.currentTarget)
     const productId = String(fd.get('productId') ?? '')
     const product = products.find((p) => p.id === productId)
+
+    // Check the two fields a typo most often lands in before anything leaves
+    // the browser; the API repeats the same rules.
+    const problems: Record<string, string> = {}
+    if (!isValidPhone(String(fd.get('phone') ?? ''))) problems.phone = PHONE_ERROR
+    const email = String(fd.get('email') ?? '').trim()
+    if (email && !isValidEmail(email)) problems.email = EMAIL_ERROR
+    if (Object.keys(problems).length) {
+      setStatus('idle')
+      setFieldErrors(problems)
+      ;(e.currentTarget.querySelector(problems.phone ? '#lead-phone' : '#lead-email') as HTMLInputElement | null)?.focus()
+      return
+    }
 
     const res = await apiPost('/public/leads', {
       name: String(fd.get('name') ?? ''),
@@ -91,12 +105,13 @@ export function LeadForm({
         </Field>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Nomor WhatsApp" htmlFor="lead-phone" required error={fieldErrors.phone}>
-            <input id="lead-phone" name="phone" type="tel" required inputMode="tel" autoComplete="tel"
-              placeholder="08xx xxxx xxxx" className={field} aria-describedby={fieldErrors.phone ? 'lead-phone-error' : undefined} />
+          <Field label="Nomor WhatsApp" htmlFor="lead-phone" required error={fieldErrors.phone} hint={fieldErrors.phone ? undefined : PHONE_HINT}>
+            <input id="lead-phone" name="phone" type="tel" required inputMode="numeric" autoComplete="tel" maxLength={16} pattern="[0-9+]*"
+              onInput={(e) => { e.currentTarget.value = cleanPhoneInput(e.currentTarget.value) }}
+              placeholder="081234567890" className={field} aria-invalid={fieldErrors.phone ? true : undefined} aria-describedby={fieldErrors.phone ? 'lead-phone-error' : undefined} />
           </Field>
           <Field label="Email" htmlFor="lead-email" error={fieldErrors.email}>
-            <input id="lead-email" name="email" type="email" autoComplete="email" placeholder="nama@email.com" className={field} />
+            <input id="lead-email" name="email" type="email" autoComplete="email" placeholder="nama@email.com" className={field} aria-invalid={fieldErrors.email ? true : undefined} />
           </Field>
         </div>
 

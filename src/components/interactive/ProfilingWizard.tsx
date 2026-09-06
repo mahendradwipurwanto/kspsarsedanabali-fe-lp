@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { LEAD_PURPOSES, calculateInstallment, formatRupiah, formatRupiahShort, waLink } from '@/contracts'
+import { LEAD_PURPOSES, calculateInstallment, formatRupiah, formatRupiahShort, waLink, isValidPhone, cleanPhoneInput, PHONE_ERROR, PHONE_HINT } from '@/contracts'
 import type { Product, Branch } from '@/lib/api'
 import { apiPost, sessionId, track, API_BASE } from '@/lib/client'
 import { Action, Icon } from '../ui'
@@ -36,6 +36,7 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
   const [result, setResult] = useState<Recommendation | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [phoneError, setPhoneError] = useState('')
   const [done, setDone] = useState(false)
 
   const setStep = useCallback((next: number) => {
@@ -76,6 +77,12 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
     setSubmitting(true)
     setError('')
     const fd = new FormData(e.currentTarget)
+    if (!isValidPhone(String(fd.get('phone') ?? ''))) {
+      setSubmitting(false)
+      setPhoneError(PHONE_ERROR)
+      ;(e.currentTarget.querySelector('#wiz-phone') as HTMLInputElement | null)?.focus()
+      return
+    }
 
     // The server computes the recommendation, so stored figures are the API's,
     // not whatever the browser claimed.
@@ -298,8 +305,10 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
               <Field label="Nama lengkap" htmlFor="wiz-name" required>
                 <input id="wiz-name" name="name" required autoComplete="name" placeholder="I Made Suarjana" className={field} />
               </Field>
-              <Field label="Nomor WhatsApp" htmlFor="wiz-phone" required>
-                <input id="wiz-phone" name="phone" type="tel" required inputMode="tel" autoComplete="tel" placeholder="0812 3456 7890" className={field} />
+              <Field label="Nomor WhatsApp" htmlFor="wiz-phone" required error={phoneError} hint={PHONE_HINT}>
+                <input id="wiz-phone" name="phone" type="tel" required inputMode="numeric" autoComplete="tel" placeholder="081234567890" maxLength={16}
+                  pattern="[0-9+]*" onInput={(e) => { e.currentTarget.value = cleanPhoneInput(e.currentTarget.value); setPhoneError('') }}
+                  aria-invalid={phoneError ? true : undefined} className={field} />
               </Field>
               <Field label="Cabang terdekat" htmlFor="wiz-branch">
                 <Select

@@ -20,6 +20,7 @@ import { OrgChart } from '../OrgChart'
 import { HeroBanners, type Banner } from '../interactive/HeroBanners'
 import { MediaText, Steps, Timeline, VideoEmbed, LogoCloud, type Step, type Milestone, type Logo } from '../Sections'
 import { AppDownload, type StoreMode } from '../AppDownload'
+import { CountUp } from '../interactive/CountUp'
 import { appSettings } from '@/lib/apps'
 
 export interface BlockContext {
@@ -210,7 +211,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                 <ul className="grid grid-cols-2 divide-y divide-line sm:grid-cols-3 lg:grid-cols-6 lg:divide-x lg:divide-y-0">
                   {items.map((item, i) => (
                     <li key={i} className={`p-5 lg:p-6 ${i % 2 === 1 ? 'border-l border-line sm:border-l-0' : ''} ${i >= 2 && i < 3 ? 'sm:border-l' : ''}`}>
-                      <Figure value={item.value} label={item.label} />
+                      <Figure value={<CountUp value={item.value} />} label={item.label} />
                     </li>
                   ))}
                 </ul>
@@ -222,7 +223,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                   return (
                     <Card as="li" key={i} className="p-5">
                       <Tile size="sm" tone="soft"><IconCmp className="size-4" /></Tile>
-                      <p className="figure mt-4 text-[1.5rem] text-ink-900">{item.value}</p>
+                      <p className="figure mt-4 text-[1.5rem] text-ink-900"><CountUp value={item.value} /></p>
                       <p className="mt-1.5 text-[12.5px] font-semibold text-ink-500">{item.label}</p>
                     </Card>
                   )

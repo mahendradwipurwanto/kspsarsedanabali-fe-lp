@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { SITE, telLink, mediaSrc, type MenuItem, type FooterSettings, type BrandSettings } from '@/contracts'
+import type { ReactNode } from 'react'
+import { SITE, SOCIAL_PLATFORMS, telLink, mediaSrc, type MenuItem, type FooterSettings, type BrandSettings, type SocialKey } from '@/contracts'
 import { Shell, Mark, Icon, Action } from '../ui'
 import type { Branch } from '@/lib/api'
 
@@ -27,11 +28,14 @@ export function Footer({
   const year = new Date().getFullYear()
   const columns = menu.filter((m) => m.children?.length)
   const loose = menu.filter((m) => !m.children?.length)
-  const socials = [
-    { key: 'facebook', href: social.facebook, Icon: Icon.facebook, label: 'Facebook' },
-    { key: 'instagram', href: social.instagram, Icon: Icon.instagram, label: 'Instagram' },
-    { key: 'youtube', href: social.youtube, Icon: Icon.youtube, label: 'YouTube' },
-  ].filter((s) => s.href)
+  // One icon per platform the settings know; an empty address hides its icon,
+  // and the whole row can be switched off under Pengaturan → Footer.
+  const SOCIAL_ICON: Record<SocialKey, (p: { className?: string }) => ReactNode> = {
+    facebook: Icon.facebook, instagram: Icon.instagram, youtube: Icon.youtube, tiktok: Icon.tiktok, x: Icon.x, linkedin: Icon.linkedin, telegram: Icon.telegram,
+  }
+  const socials = footer.showSocial
+    ? SOCIAL_PLATFORMS.map((p) => ({ key: p.key, label: p.label, href: (social[p.key] ?? '').trim(), Icon: SOCIAL_ICON[p.key] })).filter((s) => /^https?:\/\//i.test(s.href))
+    : []
 
   return (
     <footer className="bg-ink-900 text-white/70">
@@ -98,7 +102,8 @@ export function Footer({
               ) : null}
 
               {socials.length ? (
-                <ul className="mt-6 flex gap-2">
+                <ul className="mt-6 flex flex-wrap gap-2" aria-label={footer.socialHeading || 'Media sosial'}>
+                  {footer.socialHeading ? <li className="basis-full text-[12px] font-semibold uppercase tracking-[0.08em] text-white/45">{footer.socialHeading}</li> : null}
                   {socials.map((s) => (
                     <li key={s.key}>
                       <a href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label}

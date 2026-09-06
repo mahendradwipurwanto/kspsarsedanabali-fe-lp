@@ -26,6 +26,9 @@ export function organizationLd(settings: Record<string, unknown> = {}) {
     foundingDate: SITE.foundedAt,
     email: site.email || undefined,
     telephone: site.phone || undefined,
+    // The social profiles from Pengaturan → Footer, so Google ties them to the
+    // organisation rather than treating each as a stranger.
+    sameAs: Object.values((settings.social ?? {}) as Record<string, string>).filter((u) => /^https?:\/\//i.test(String(u ?? ''))),
     areaServed: SITE.areaServed.map((name) => ({ '@type': 'AdministrativeArea', name })),
     address: {
       '@type': 'PostalAddress',

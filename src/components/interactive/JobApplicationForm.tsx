@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
+import { isValidPhone, isValidEmail, cleanPhoneInput, PHONE_ERROR, PHONE_HINT, EMAIL_ERROR } from '@/contracts'
 import { apiPost, track, API_BASE } from '@/lib/client'
 import { Action, Icon } from '../ui'
 import { Field, Note, Check, field } from '../ui/form'
@@ -12,12 +13,17 @@ export function JobApplicationForm({ jobId, jobTitle }: { jobId: string; jobTitl
   const [status, setStatus] = useState<'idle' | 'uploading' | 'sending' | 'done'>('idle')
   const [error, setError] = useState('')
   const [fileName, setFileName] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError('')
 
     const fd = new FormData(e.currentTarget)
+    // Contact details first: a wrong number should not cost the applicant a CV upload.
+    if (!isValidEmail(String(fd.get('email') ?? ''))) { setFieldErrors({ email: EMAIL_ERROR }); return setError('Periksa kembali alamat email Anda.') }
+    if (!isValidPhone(String(fd.get('phone') ?? ''))) { setFieldErrors({ phone: PHONE_ERROR }); return setError('Periksa kembali nomor WhatsApp Anda.') }
+    setFieldErrors({})
     const file = fd.get('cv') as File | null
     if (!file || !file.size) return setError('CV wajib diunggah.')
     if (file.size > MAX_CV_BYTES) return setError('Ukuran CV maksimal 5 MB.')
@@ -87,11 +93,13 @@ export function JobApplicationForm({ jobId, jobTitle }: { jobId: string; jobTitl
         <Field label="Nama lengkap" htmlFor="job-name" required>
           <input id="job-name" name="name" required autoComplete="name" className={field} />
         </Field>
-        <Field label="Email" htmlFor="job-email" required>
-          <input id="job-email" name="email" type="email" required autoComplete="email" className={field} />
+        <Field label="Email" htmlFor="job-email" required error={fieldErrors.email}>
+          <input id="job-email" name="email" type="email" required autoComplete="email" placeholder="nama@email.com" className={field} aria-invalid={fieldErrors.email ? true : undefined} />
         </Field>
-        <Field label="Nomor WhatsApp" htmlFor="job-phone" required>
-          <input id="job-phone" name="phone" type="tel" required inputMode="tel" autoComplete="tel" placeholder="0812 3456 7890" className={field} />
+        <Field label="Nomor WhatsApp" htmlFor="job-phone" required error={fieldErrors.phone} hint={fieldErrors.phone ? undefined : PHONE_HINT}>
+          <input id="job-phone" name="phone" type="tel" required inputMode="numeric" autoComplete="tel" maxLength={16} pattern="[0-9+]*"
+            onInput={(e) => { e.currentTarget.value = cleanPhoneInput(e.currentTarget.value) }}
+            placeholder="081234567890" className={field} aria-invalid={fieldErrors.phone ? true : undefined} />
         </Field>
         <Field label="Ceritakan singkat tentang Anda" htmlFor="job-bio">
           <textarea id="job-bio" name="bio" rows={4} className={field} placeholder="Pengalaman kerja, keahlian, atau alasan melamar." />
