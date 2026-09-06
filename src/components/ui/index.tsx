@@ -379,6 +379,8 @@ export const Icon = {
   close: line('m6 6 12 12M18 6 6 18'),
   menu: line('M4 7h16M4 12h16M4 17h16'),
   leaf: line('M5 19c2-8 8-13 15-14-1 7-6 13-14 15M5 19l4-4'),
+  home: line('m3 11.5 9-7.5 9 7.5M5.5 10v10h4.5v-6h4v6h4.5V10'),
+  newspaper: line('M4 5h13v14H4zM17 8h3v9a2 2 0 0 1-2 2M7 9h7M7 12.5h7M7 16h4'),
   whatsapp: (p: { className?: string }) => (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={p.className ?? 'size-4'}>
       <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.92-4.45 9.92-9.91C21.96 6.45 17.5 2 12.04 2Zm5.8 14.06c-.24.68-1.42 1.31-1.96 1.35-.5.05-.98.23-3.3-.69-2.78-1.1-4.55-3.94-4.69-4.13-.14-.19-1.12-1.49-1.12-2.84s.71-2.02.96-2.29c.25-.28.55-.35.73-.35h.52c.17 0 .4-.06.62.48.24.57.8 1.98.87 2.12.07.14.12.31.02.5-.09.19-.14.31-.28.47l-.42.49c-.14.14-.28.29-.12.57.16.28.72 1.18 1.54 1.92 1.06.94 1.95 1.23 2.23 1.37.28.14.44.12.6-.07.17-.19.7-.81.88-1.09.19-.28.37-.23.62-.14.25.09 1.6.75 1.87.89.28.14.46.21.53.32.07.12.07.66-.17 1.34Z" />
@@ -428,12 +430,13 @@ export const iconByName = (name?: string | null) => {
     phone: Icon.phone, calculator: Icon.calculator, percent: Icon.percent, briefcase: Icon.briefcase,
     'file-text': Icon.fileText, mail: Icon.mail, clock: Icon.clock, compass: Icon.compass, leaf: Icon.leaf,
     calendar: Icon.calendar, download: Icon.download, whatsapp: Icon.whatsapp,
+    home: Icon.home, newspaper: Icon.newspaper, news: Icon.newspaper,
   }
   return map[name ?? ''] ?? Icon.checkCircle
 }
 
 /** The names the CMS icon picker offers — kept next to the map so they cannot drift. */
 export const ICON_NAMES = [
-  'spark', 'calculator', 'map-pin', 'phone', 'users', 'trending-up', 'wallet', 'handshake', 'piggy-bank', 'award',
-  'star', 'shield-check', 'building', 'percent', 'briefcase', 'file-text', 'mail', 'clock', 'compass', 'leaf', 'check',
+  'home', 'spark', 'calculator', 'map-pin', 'phone', 'users', 'trending-up', 'wallet', 'handshake', 'piggy-bank', 'award',
+  'star', 'shield-check', 'building', 'percent', 'briefcase', 'file-text', 'newspaper', 'mail', 'clock', 'compass', 'leaf', 'check',
 ] as const

@@ -11,6 +11,7 @@ import { organizationLd, websiteLd } from '@/lib/jsonld'
 import { JsonLd } from '@/components/ui'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
+import { MobileNav } from '@/components/layout/MobileNav'
 import { PageViewTracker } from '@/components/interactive/PageViewTracker'
 import './globals.css'
 
@@ -101,7 +102,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="preconnect" href={process.env.NEXT_PUBLIC_API_URL ?? ''} />
         <JsonLd data={[organizationLd(settings), websiteLd()]} />
       </head>
-      <body className="flex min-h-screen flex-col">
+      <body className={`flex min-h-screen flex-col ${header.showBottomNav && header.bottomNav.length >= 2 ? 'pb-14 md:pb-0' : ''}`}>
         <a
           href="#konten"
           className="sr-only focus:not-sr-only focus:absolute focus:left-5 focus:top-5 focus:z-[100] focus:bg-green-700 focus:px-5 focus:py-3 focus:text-sm focus:font-semibold focus:text-white"
@@ -126,6 +127,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           social={social}
           legalPages={legalPages}
         />
+        {header.showBottomNav ? <MobileNav items={header.bottomNav} /> : null}
         <PageViewTracker />
         {gaId ? <GoogleAnalytics gaId={gaId} /> : null}
       </body>
