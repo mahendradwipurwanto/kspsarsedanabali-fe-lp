@@ -493,6 +493,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
           bullets={arr<{ text: string }>(p.bullets)}
           image={s(p.image)}
           alt={s(p.alt)}
+          frame={s(p.frame, 'phone') === 'plain' ? 'plain' : 'phone'}
           apps={appSettings(ctx.settings)}
           mode={(mode === 'smart' || mode === 'both' ? mode : 'stores') as StoreMode}
           smartLabel={s(p.smartLabel)}

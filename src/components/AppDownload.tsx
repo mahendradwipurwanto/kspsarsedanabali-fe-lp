@@ -78,20 +78,43 @@ export function StoreBadges({
   )
 }
 
-/** A phone outline for the section while no artwork has been uploaded. */
-function PhoneSketch({ name, dark }: { name: string; dark: boolean }) {
+/**
+ * A phone drawn around the screenshot: bezel, notch, side keys and a soft
+ * glow, so an editor's raw capture reads as an app on a device rather than
+ * a rectangle pasted onto the page. With no artwork the screen shows the
+ * app's name on the brand gradient, so the section never looks unfinished.
+ */
+function PhoneFrame({ src, alt, name, dark }: { src?: string; alt: string; name: string; dark: boolean }) {
   return (
-    <div aria-hidden="true" className={`mx-auto aspect-[9/19] w-52 rounded-[2.2rem] border-[6px] p-4 shadow-[var(--shadow-lift)] ${dark ? 'border-white/20 bg-gradient-to-b from-green-600 to-green-800' : 'border-ink-800 bg-gradient-to-b from-green-600 to-green-800'}`}>
-      <span className="mx-auto block h-1.5 w-16 rounded-full bg-white/30" />
-      <p className="mt-14 text-center text-[13px] font-bold leading-snug text-white">{name}</p>
-      <span className="mx-auto mt-6 block h-2 w-24 rounded-full bg-white/25" />
-      <span className="mx-auto mt-2 block h-2 w-16 rounded-full bg-white/25" />
+    <div className="relative mx-auto w-[240px] sm:w-[272px]">
+      <span aria-hidden="true" className={`absolute -inset-8 rounded-[4rem] blur-3xl ${dark ? 'bg-green-500/25' : 'bg-green-300/40'}`} />
+      {/* Side keys sit outside the clipped screen. */}
+      <span aria-hidden="true" className="absolute -left-[3px] top-[88px] h-7 w-[3px] rounded-l-sm bg-ink-700" />
+      <span aria-hidden="true" className="absolute -left-[3px] top-[128px] h-12 w-[3px] rounded-l-sm bg-ink-700" />
+      <span aria-hidden="true" className="absolute -right-[3px] top-[112px] h-16 w-[3px] rounded-r-sm bg-ink-700" />
+      <div className={`relative aspect-[9/19.5] overflow-hidden rounded-[2.75rem] border-[10px] bg-ink-950 shadow-[0_40px_80px_-30px_rgba(0,0,0,0.65)] ${dark ? 'border-ink-800 ring-1 ring-white/15' : 'border-ink-900 ring-1 ring-ink-900/10'}`}>
+        <span aria-hidden="true" className="absolute left-1/2 top-2.5 z-10 h-[22px] w-[88px] -translate-x-1/2 rounded-full bg-ink-950" />
+        {src ? (
+          <Media src={src} alt={alt} ratio="auto" rounded={false} sizes="272px" className="!absolute inset-0 size-full !rounded-none [&>*]:!object-cover [&>*]:!object-top" />
+        ) : (
+          <div aria-hidden="true" className="absolute inset-0 grid content-start bg-gradient-to-b from-green-600 to-green-800 px-5 pt-16">
+            <span className="block h-2 w-20 rounded-full bg-white/35" />
+            <p className="mt-5 text-[15px] font-bold leading-snug text-white">{name}</p>
+            <span className="mt-6 block h-2 w-full rounded-full bg-white/25" />
+            <span className="mt-2 block h-2 w-3/4 rounded-full bg-white/25" />
+            <span className="mt-8 grid grid-cols-4 gap-3">
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => <span key={i} className="aspect-square rounded-xl bg-white/15" />)}
+            </span>
+          </div>
+        )}
+        <span aria-hidden="true" className="absolute inset-x-0 bottom-2 z-10 mx-auto h-1 w-24 rounded-full bg-white/60" />
+      </div>
     </div>
   )
 }
 
 export function AppDownload({
-  eyebrow, heading, body, bullets, image, alt, apps, mode, smartLabel, tone, bandTone,
+  eyebrow, heading, body, bullets, image, alt, frame = 'phone', apps, mode, smartLabel, tone, bandTone,
 }: {
   eyebrow?: string
   heading: string
@@ -99,6 +122,8 @@ export function AppDownload({
   bullets: { text: string }[]
   image?: string
   alt?: string
+  /** 'phone' draws a device around the screenshot; 'plain' shows the image as uploaded. */
+  frame?: 'phone' | 'plain'
   apps: AppSettings
   mode: StoreMode
   smartLabel?: string
@@ -128,10 +153,10 @@ export function AppDownload({
             <StoreBadges apps={apps} mode={mode} smartLabel={smartLabel} on={dark ? 'dark' : 'light'} className="mt-8" />
           </div>
           <div className="mx-auto w-full max-w-xs sm:max-w-sm">
-            {image ? (
+            {image && frame === 'plain' ? (
               <Media src={image} alt={alt?.trim() || `${apps.appName} di ponsel`} ratio="4/5" sizes="(max-width: 640px) 80vw, 400px" rounded={false} className="!bg-transparent [&>*]:!object-contain" />
             ) : (
-              <PhoneSketch name={apps.appName} dark={dark} />
+              <PhoneFrame src={image} alt={alt?.trim() || `${apps.appName} di ponsel`} name={apps.appName} dark={dark} />
             )}
           </div>
         </div>
