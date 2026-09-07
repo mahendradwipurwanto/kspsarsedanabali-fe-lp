@@ -28,9 +28,22 @@ export function TestimonialSlider({ items }: { items: Testimonial[] }) {
           </blockquote>
 
           <figcaption className="mt-6 flex items-center gap-3 border-t border-line pt-4">
-            <span className="grid size-10 shrink-0 place-items-center rounded-[var(--radius-tile)] bg-ink-900 text-[12.5px] font-bold text-gold-300">
-              {item.name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('')}
-            </span>
+            {/* The photo, when the koperasi has one. Initials were the only
+                thing ever drawn here, so a photo uploaded in the console never
+                reached the page. */}
+            {item.avatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={item.avatar}
+                alt=""
+                loading="lazy"
+                className="size-10 shrink-0 rounded-[var(--radius-tile)] border border-line object-cover"
+              />
+            ) : (
+              <span className="grid size-10 shrink-0 place-items-center rounded-[var(--radius-tile)] bg-ink-900 text-[12.5px] font-bold text-gold-300">
+                {item.name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('')}
+              </span>
+            )}
             <span className="min-w-0">
               <span className="block truncate text-[14px] font-bold text-ink-900">{item.name}</span>
               <span className="block truncate text-[12.5px] text-ink-400">
