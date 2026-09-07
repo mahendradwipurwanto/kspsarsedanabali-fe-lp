@@ -1,8 +1,34 @@
 import type { CSSProperties, ReactNode } from 'react'
 
 export interface OrgMember { name: string; role?: string }
-export interface OrgGroup { title: string; members: OrgMember[] }
-export interface OrgUnit { title: string; roles?: { name: string }[] }
+export interface OrgGroup { title: string; members: OrgMember[]; tone?: string }
+export interface OrgUnit { title: string; roles?: { name: string }[]; tone?: string }
+
+/**
+ * How each tone paints a box. The chart used to hard-code navy at the top,
+ * gold beside the line and green on the units; the koperasi can now choose per
+ * box in the console, and these are only the defaults it starts from.
+ */
+const TONE = {
+  netral: 'border border-line bg-white text-ink-800',
+  gelap: 'bg-ink-900 text-white',
+  hijau: 'bg-green-700 text-white',
+  emas: 'border border-gold-400 bg-gold-50 text-ink-800',
+} as const
+
+const toneOf = (value: string | undefined, fallback: keyof typeof TONE) =>
+  TONE[(value ?? '') as keyof typeof TONE] ?? TONE[fallback]
+
+/** The heading strip of a group card, which keeps its own text colour. */
+const HEAD_TONE = {
+  netral: 'border-b border-line bg-paper text-green-700',
+  gelap: 'bg-ink-900 text-white',
+  hijau: 'bg-green-700 text-white',
+  emas: 'border-b border-gold-400 bg-gold-50 text-ink-800',
+} as const
+
+const headToneOf = (value: string | undefined) =>
+  HEAD_TONE[(value ?? '') as keyof typeof HEAD_TONE] ?? HEAD_TONE.netral
 
 /**
  * The koperasi's structure as a chart rather than three columns of names.
@@ -53,9 +79,9 @@ function Node({ children }: { children: ReactNode }) {
   )
 }
 
-function Apex({ label }: { label: string }) {
+function Apex({ label, tone }: { label: string; tone?: string }) {
   return (
-    <p className="mx-auto w-fit rounded-[var(--radius-tile)] bg-ink-900 px-6 py-3 text-center text-[13px] font-bold uppercase tracking-[0.1em] text-white">
+    <p className={`mx-auto w-fit rounded-[var(--radius-tile)] px-6 py-3 text-center text-[13px] font-bold uppercase tracking-[0.1em] ${toneOf(tone, 'gelap')}`}>
       {label}
     </p>
   )
@@ -64,7 +90,7 @@ function Apex({ label }: { label: string }) {
 function GroupCard({ group }: { group: OrgGroup }) {
   return (
     <div className="surface h-full overflow-hidden">
-      <h3 className="border-b border-line bg-paper px-5 py-2.5 text-center text-[12px] font-bold uppercase tracking-[0.09em] text-green-700">
+      <h3 className={`px-5 py-2.5 text-center text-[12px] font-bold uppercase tracking-[0.09em] ${headToneOf(group.tone)}`}>
         {group.title}
       </h3>
       <ul className="divide-y divide-line">
@@ -82,7 +108,7 @@ function GroupCard({ group }: { group: OrgGroup }) {
 function UnitCard({ unit }: { unit: OrgUnit }) {
   return (
     <div className="h-full">
-      <p className="rounded-[var(--radius-tile)] bg-green-700 px-4 py-2.5 text-center text-[12.5px] font-bold uppercase tracking-[0.07em] text-white">
+      <p className={`rounded-[var(--radius-tile)] px-4 py-2.5 text-center text-[12.5px] font-bold uppercase tracking-[0.07em] ${toneOf(unit.tone, 'hijau')}`}>
         {unit.title}
       </p>
       {unit.roles?.length ? (
@@ -102,13 +128,16 @@ function UnitCard({ unit }: { unit: OrgUnit }) {
 }
 
 export function OrgChart({
-  groups, apex, audit, operationsLead, units,
+  groups, apex, audit, operationsLead, units, apexTone, auditTone, leadTone,
 }: {
   groups: OrgGroup[]
   apex?: string
   audit?: string
   operationsLead?: string
   units?: OrgUnit[]
+  apexTone?: string
+  auditTone?: string
+  leadTone?: string
 }) {
   const hasOperations = Boolean(operationsLead?.trim() || units?.length)
 
@@ -116,7 +145,7 @@ export function OrgChart({
     <div className="mx-auto max-w-4xl">
       {apex?.trim() ? (
         <>
-          <Apex label={apex} />
+          <Apex label={apex} tone={apexTone} />
           <Stem />
         </>
       ) : null}
@@ -138,7 +167,7 @@ export function OrgChart({
             {audit?.trim() ? (
               <>
                 <span aria-hidden="true" className="absolute left-0 top-1/2 h-px w-14 bg-line-strong" />
-                <p className="absolute left-14 top-1/2 w-fit -translate-y-1/2 whitespace-nowrap rounded-[var(--radius-tile)] border border-gold-400 bg-gold-50 px-4 py-2 text-[12.5px] font-bold uppercase tracking-[0.08em] text-ink-800">
+                <p className={`absolute left-14 top-1/2 w-fit -translate-y-1/2 whitespace-nowrap rounded-[var(--radius-tile)] px-4 py-2 text-[12.5px] font-bold uppercase tracking-[0.08em] ${toneOf(auditTone, 'emas')}`}>
                   {audit}
                 </p>
               </>
@@ -146,14 +175,14 @@ export function OrgChart({
           </div>
 
           {audit?.trim() ? (
-            <p className="mx-auto mt-4 w-fit rounded-[var(--radius-tile)] border border-gold-400 bg-gold-50 px-4 py-2 text-[12.5px] font-bold uppercase tracking-[0.08em] text-ink-800 sm:hidden">
+            <p className={`mx-auto mt-4 w-fit rounded-[var(--radius-tile)] px-4 py-2 text-[12.5px] font-bold uppercase tracking-[0.08em] sm:hidden ${toneOf(auditTone, 'emas')}`}>
               {audit}
             </p>
           ) : null}
 
           {operationsLead?.trim() ? (
             <>
-              <p className="mx-auto mt-4 w-fit rounded-[var(--radius-tile)] bg-ink-800 px-6 py-2.5 text-center text-[12.5px] font-bold uppercase tracking-[0.08em] text-white sm:mt-0">
+              <p className={`mx-auto mt-4 w-fit rounded-[var(--radius-tile)] px-6 py-2.5 text-center text-[12.5px] font-bold uppercase tracking-[0.08em] sm:mt-0 ${toneOf(leadTone, 'gelap')}`}>
                 {operationsLead}
               </p>
               {units?.length ? <Stem tall /> : null}

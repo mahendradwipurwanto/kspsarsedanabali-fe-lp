@@ -388,9 +388,9 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
     }
 
     case 'org_chart': {
-      const fromProps = arr<{ title: string; members: { name: string; role?: string }[] }>(p.groups)
-      const groups = fromProps.length ? fromProps : arr<{ title: string; members: { name: string; role?: string }[] }>(ctx.settings.organization)
-      const units = arr<{ title: string; roles?: { name: string }[] }>(p.units)
+      const fromProps = arr<{ title: string; members: { name: string; role?: string }[]; tone?: string }>(p.groups)
+      const groups = fromProps.length ? fromProps : arr<{ title: string; members: { name: string; role?: string }[]; tone?: string }>(ctx.settings.organization)
+      const units = arr<{ title: string; roles?: { name: string }[]; tone?: string }>(p.units)
       if (!groups.length && !units.length) return null
       return (
         <Band tone={tone}>
@@ -402,6 +402,9 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
               audit={s(p.audit, '')}
               operationsLead={s(p.operationsLead, '')}
               units={units}
+              apexTone={s(p.apexTone, '')}
+              auditTone={s(p.auditTone, '')}
+              leadTone={s(p.leadTone, '')}
             />
           </Shell>
         </Band>
