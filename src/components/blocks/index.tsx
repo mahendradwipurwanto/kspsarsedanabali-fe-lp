@@ -5,6 +5,7 @@ import type { Block, Branch, Product, Post, Stat, Testimonial, DocumentItem, Job
 import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, Stat as Figure, iconByName } from '../ui'
 import { Media } from '../ui/Media'
 import { HeroCarousel, QuickAccess } from '../interactive/HeroCarousel'
+import { FeedbackForm } from '../interactive/FeedbackForm'
 import { LeadForm } from '../interactive/LeadForm'
 import { BranchFinder } from '../interactive/BranchFinder'
 import { SimulationCalculator } from '../interactive/SimulationCalculator'
@@ -582,6 +583,48 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                   {s(p.note) ? <p className="mt-2.5 text-center text-[12.5px] text-white/50">{s(p.note)}</p> : null}
                 </div>
               </div>
+            </div>
+          </Shell>
+        </Band>
+      )
+
+    case 'feedback_form':
+      return (
+        <Band tone={tone} id="masukan">
+          <Shell>
+            <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-16">
+              <div>
+                {s(p.eyebrow) ? <Label>{s(p.eyebrow)}</Label> : null}
+                <h2 className="t-h2 mt-3">
+                  {s(p.heading, 'Kritik & Saran')}
+                  {s(p.headingAccent) ? <> <span className="text-green-700">{s(p.headingAccent)}</span></> : null}
+                </h2>
+                {s(p.body) ? <p className="t-lead mt-4 max-w-[46ch]">{s(p.body)}</p> : null}
+
+                {arr(p.points).length ? (
+                  <ul className="mt-8 divide-y divide-line border-y border-line">
+                    {arr<{ title: string; body?: string }>(p.points).map((point, i) => (
+                      <li key={i} className="flex items-start gap-3.5 py-4">
+                        <Icon.checkCircle className="mt-0.5 size-5 shrink-0 text-green-600" />
+                        <span className="min-w-0">
+                          <span className="block text-[14.5px] font-bold text-ink-900">{point.title}</span>
+                          {point.body ? <span className="mt-0.5 block text-[13.5px] leading-relaxed text-ink-500">{point.body}</span> : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+
+              <FeedbackForm
+                title={s(p.formTitle, 'Sampaikan Masukan')}
+                askIdentity={b(p.askIdentity, true)}
+                askBranch={b(p.askBranch, true)}
+                askRating={b(p.askRating, true)}
+                note={s(p.note)}
+                successMessage={s(p.successMessage, 'Terima kasih. Masukan Anda sudah kami terima dan akan dibaca pengurus.')}
+                branches={ctx.branches}
+              />
             </div>
           </Shell>
         </Band>
