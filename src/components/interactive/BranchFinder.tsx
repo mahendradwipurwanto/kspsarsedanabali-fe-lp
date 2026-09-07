@@ -7,6 +7,7 @@ import { track } from '@/lib/client'
 import { Action, Icon } from '../ui'
 import { field } from '../ui/form'
 import { BranchCard } from '../BranchCard'
+import { BranchMap } from './BranchMap'
 
 export function BranchFinder({ branches, showMap = true }: { branches: Branch[]; showMap?: boolean }) {
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null)
@@ -24,6 +25,14 @@ export function BranchFinder({ branches, showMap = true }: { branches: Branch[];
       .map((branch) => ({ branch, km: distanceKm(origin, { lat: branch.latitude, lng: branch.longitude }) }))
       .sort((a, b) => (a.km ?? 0) - (b.km ?? 0))
   }, [branches, origin, query])
+
+  /** Only offices whose coordinates are usable get a pin. */
+  const pins = useMemo(
+    () => ranked
+      .filter(({ branch }) => Number.isFinite(branch.latitude) && Number.isFinite(branch.longitude) && (branch.latitude !== 0 || branch.longitude !== 0))
+      .map(({ branch }) => ({ id: branch.id, name: branch.name, lat: branch.latitude, lng: branch.longitude })),
+    [ranked],
+  )
 
   /** Districts a search would actually match, rather than three names fixed in the code. */
   const examples = useMemo(() => {
@@ -81,20 +90,15 @@ export function BranchFinder({ branches, showMap = true }: { branches: Branch[];
         )}
       </div>
 
-      {showMap ? (
-        <div className="surface relative overflow-hidden">
-          {/* Static embed keeps a paid Maps key and a third-party script off the
-              critical path. Each card still deep-links to turn-by-turn directions. */}
-          <iframe
-            title="Peta lokasi kantor KSP Sari Sedana Bali"
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
+      {showMap && pins.length ? (
+        <div className="surface overflow-hidden">
+          {/* Tiles and pins are drawn here rather than in an OpenStreetMap
+              embed, which carries one marker at most and none of these. Each
+              card still deep-links to turn-by-turn directions. */}
+          <BranchMap
+            points={pins}
+            you={origin}
             className="h-[340px] w-full sm:h-[440px] lg:h-full lg:min-h-[560px]"
-            src={`https://www.openstreetmap.org/export/embed.html?bbox=${
-              Math.min(...branches.map((b) => b.longitude)) - 0.08
-            }%2C${Math.min(...branches.map((b) => b.latitude)) - 0.06}%2C${
-              Math.max(...branches.map((b) => b.longitude)) + 0.08
-            }%2C${Math.max(...branches.map((b) => b.latitude)) + 0.06}&layer=mapnik`}
           />
         </div>
       ) : null}
