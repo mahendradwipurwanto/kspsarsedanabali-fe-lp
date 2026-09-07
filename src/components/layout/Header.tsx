@@ -4,7 +4,30 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { telLink, mediaSrc, isMenuGroup, type MenuItem, type HeaderSettings, type BrandSettings } from '@/contracts'
-import { Shell, Wordmark, Action, Icon, Tile } from '../ui'
+import { Shell, Wordmark, Action, Icon, Tile, iconByName } from '../ui'
+
+/**
+ * What a dropdown entry shows beside its name: an icon, and one line saying
+ * where the link goes.
+ *
+ * The menu itself is edited in the CMS, which stores a label and an address and
+ * nothing else, so this fills in the rest for the addresses the site ships with.
+ * An entry staff add later still renders — it falls back to a neutral icon and
+ * no second line rather than leaving a hole in the row.
+ */
+const NAV_DETAIL: Record<string, { icon: string; description: string }> = {
+  '/produk': { icon: 'compass', description: 'Semua simpanan dan pinjaman' },
+  '/produk/simpanan': { icon: 'piggy-bank', description: 'Simpanan berjangka, harian dan berencana' },
+  '/produk/pinjaman': { icon: 'wallet', description: 'Pembiayaan untuk usaha, rumah dan pendidikan' },
+  '/tentang-kami': { icon: 'users', description: 'Profil, visi misi dan struktur pengurus' },
+  '/laporan-keuangan': { icon: 'chart', description: 'Kinerja dan laporan yang kami terbitkan' },
+  '/kantor': { icon: 'map-pin', description: 'Alamat dan jam layanan tiap kantor' },
+  '/simulasi': { icon: 'calculator', description: 'Hitung angsuran sebelum mengajukan' },
+  '/karir': { icon: 'briefcase', description: 'Lowongan yang sedang dibuka' },
+  '/berita': { icon: 'newspaper', description: 'Kabar dan kegiatan terbaru' },
+}
+
+const detailFor = (href: string) => NAV_DETAIL[href.replace(/\/+$/, '') || '/'] ?? null
 
 /**
  * Site header. Everything it shows is editable in the CMS:
@@ -90,12 +113,32 @@ export function Header({
               <Wordmark name={brand.name} tagline={brand.tagline} logo={brand.logo ? mediaSrc(brand.logo) : undefined} />
             </Link>
 
-            <nav aria-label="Navigasi utama" className="hidden items-center xl:flex">
+            {/* The bar's own height is the nav's height, so an item's indicator
+                sits on the header's bottom edge and its dropdown opens flush
+                against it. */}
+            <nav aria-label="Navigasi utama" className="hidden items-stretch self-stretch xl:flex xl:flex-1 xl:justify-center">
               {nav.map((item) => {
                 const key = item.href || item.label
-                const state = opened === key ? '!visible !opacity-100' : dismissed === key ? '!invisible !opacity-0' : ''
+                const state = opened === key ? '!visible !translate-y-0 !opacity-100' : dismissed === key ? '!invisible !opacity-0' : ''
+                // A group is current when the page you are on sits inside it,
+                // whether or not the group itself leads anywhere.
+                const current = (item.href ? isActive(item.href) : false) || Boolean(item.children?.some((c) => c.href && isActive(c.href)))
+                const held = current || opened === key
+                const hasMenu = Boolean(item.children?.length)
+                // Green says one of two things: this is the page you are on, or
+                // this menu is open. Plain items darken instead, so the colour
+                // never fires on a pointer merely passing over.
+                const label = `whitespace-nowrap px-4 text-[14px] font-medium tracking-[-0.005em] transition-colors duration-200 ${
+                  held ? 'text-green-700' : hasMenu ? 'text-ink-600 group-hover:text-green-700' : 'text-ink-600 hover:text-ink-900'
+                }`
+                // The indicator, on the header's bottom edge: full green on the
+                // page you are reading, a paler one that grows from the centre
+                // under whatever the cursor is over.
+                const rule = `after:absolute after:inset-x-4 after:bottom-0 after:h-[2px] after:rounded-full after:transition-transform after:duration-300 after:[transition-timing-function:var(--ease-settle)] ${
+                  held ? 'after:scale-x-100 after:bg-green-600' : 'after:scale-x-0 after:bg-green-200 group-hover:after:scale-x-100'
+                }`
                 return (
-                <div key={key} data-nav-group className="group relative" onMouseLeave={() => setDismissed((d) => (d === key ? null : d))}>
+                <div key={key} data-nav-group className="group relative flex items-stretch" onMouseLeave={() => setDismissed((d) => (d === key ? null : d))}>
                   {/* A group without an address opens its dropdown and leads
                       nowhere itself, so it is a button rather than a link. A tap
                       toggles it, for screens wide enough for this menu but
@@ -116,36 +159,60 @@ export function Header({
                         setDismissed(null)
                         setOpened((o) => (o === key ? null : key))
                       }}
-                      className="relative flex items-center gap-1 whitespace-nowrap px-3 py-2.5 text-[13.5px] font-medium text-ink-600 transition-colors hover:text-ink-900"
+                      className={`relative flex h-full items-center gap-1.5 ${label} ${rule}`}
                     >
                       {item.label}
-                      <Icon.chevron className={`size-3.5 text-ink-400 transition-transform group-hover:rotate-180 ${opened === key ? 'rotate-180' : ''}`} />
+                      <Icon.chevron className={`size-3.5 transition-[transform,color] duration-300 [transition-timing-function:var(--ease-settle)] group-hover:rotate-180 ${held ? 'text-green-600' : 'text-ink-400 group-hover:text-green-600'} ${opened === key ? 'rotate-180' : ''}`} />
                     </button>
                   ) : (
                   <Link
                     href={item.href}
                     aria-current={isActive(item.href) ? 'page' : undefined}
                     onClick={(e) => { if (item.children?.length) settle(key, e.currentTarget) }}
-                    className={`relative flex items-center gap-1 whitespace-nowrap px-3 py-2.5 text-[13.5px] font-medium transition-colors after:absolute after:inset-x-3 after:-bottom-[2px] after:h-[2px] after:bg-green-600 after:transition-transform after:duration-300 after:[transition-timing-function:var(--ease-settle)] ${
-                      isActive(item.href) ? 'text-ink-900 after:scale-x-100' : 'text-ink-600 after:scale-x-0 hover:text-ink-900 hover:after:scale-x-100'
-                    }`}
+                    className={`relative flex h-full items-center gap-1.5 ${label} ${rule}`}
                   >
                     {item.label}
-                    {item.children?.length ? <Icon.chevron className="size-3.5 text-ink-400 transition-transform group-hover:rotate-180" /> : null}
+                    {item.children?.length ? (
+                      <Icon.chevron className={`size-3.5 transition-[transform,color] duration-300 [transition-timing-function:var(--ease-settle)] group-hover:rotate-180 ${held ? 'text-green-600' : 'text-ink-400 group-hover:text-green-600'}`} />
+                    ) : null}
                   </Link>
                   )}
 
+                  {/* Absolutely positioned and mounted at all times, so opening
+                      it moves nothing on the page. */}
                   {item.children?.length ? (
-                    <div className={`invisible absolute left-0 top-full z-10 w-60 pt-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 group-has-[:focus-visible]:visible group-has-[:focus-visible]:opacity-100 ${state}`}>
-                      <div className="surface p-1.5 shadow-[var(--shadow-lift)]">
-                        {item.children.map((child) => (
-                          <Link key={child.href || child.label} href={child.href}
-                            onClick={(e) => settle(key, e.currentTarget)}
-                            className="flex items-center justify-between rounded-md px-3 py-2.5 text-[14px] text-ink-700 transition-colors hover:bg-paper hover:text-ink-900">
-                            {child.label}
-                            <Icon.arrowUpRight className="size-3.5 text-ink-300" />
-                          </Link>
-                        ))}
+                    <div
+                      className={`invisible absolute left-0 top-full z-20 w-[25rem] max-w-[calc(100vw-2*var(--gutter))] -translate-y-1 pt-2 opacity-0 transition-[opacity,transform,visibility] duration-200 [transition-timing-function:var(--ease-settle)] group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-has-[:focus-visible]:visible group-has-[:focus-visible]:translate-y-0 group-has-[:focus-visible]:opacity-100 ${state}`}
+                    >
+                      <div className="rounded-[14px] border border-line bg-white p-1.5 shadow-[var(--shadow-lift)]">
+                        {item.children.map((child) => {
+                          const detail = detailFor(child.href)
+                          const Glyph = iconByName(detail?.icon)
+                          const here = Boolean(child.href) && isActive(child.href)
+                          return (
+                            <Link
+                              key={child.href || child.label}
+                              href={child.href}
+                              aria-current={here ? 'page' : undefined}
+                              onClick={(e) => settle(key, e.currentTarget)}
+                              className={`group/row flex items-center gap-3 rounded-[10px] px-3 py-2.5 transition-colors duration-200 ${here ? 'bg-green-50' : 'hover:bg-green-50/70'}`}
+                            >
+                              <span className={`grid size-10 shrink-0 place-items-center rounded-[10px] ring-1 ring-inset transition-colors duration-200 ${
+                                here
+                                  ? 'bg-green-100 text-green-700 ring-green-200'
+                                  : 'bg-paper text-ink-500 ring-line group-hover/row:bg-green-100 group-hover/row:text-green-700 group-hover/row:ring-green-200'
+                              }`}>
+                                <Glyph className="size-5" />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className={`block text-[14px] font-semibold leading-snug ${here ? 'text-green-800' : 'text-ink-900'}`}>{child.label}</span>
+                                {/* ink-500, not the lighter grey: at 12.5px the paler one falls under 4.5:1 on white. */}
+                                {detail ? <span className="mt-0.5 block truncate text-[12.5px] leading-snug text-ink-500">{detail.description}</span> : null}
+                              </span>
+                              <Icon.arrow className={`size-4 shrink-0 transition-[transform,color] duration-200 group-hover/row:translate-x-0.5 ${here ? 'text-green-600' : 'text-ink-300 group-hover/row:text-green-600'}`} />
+                            </Link>
+                          )
+                        })}
                       </div>
                     </div>
                   ) : null}
@@ -154,18 +221,20 @@ export function Header({
               })}
             </nav>
 
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 shrink-0 items-center gap-1.5">
               {header.showProfilingShortcut ? (
                 <span className="hidden 2xl:block">
-                  <Action href="/profiling" variant="quiet" size="sm">
+                  <Action href="/profiling" variant="quiet" size="sm" className="font-medium">
                     <Icon.spark className="size-4 text-green-600" />
                     {header.profilingLabel}
                   </Action>
                 </span>
               ) : null}
               <span className="hidden sm:block">
-                <Action href={ctaHref} external={ctaExternal} size="sm" className="whitespace-nowrap">
-                  {ctaExternal ? <Icon.whatsapp className="size-4" /> : null}
+                {/* One size up from the old button: at 14px it reads level with
+                    the nav beside it rather than as an afterthought. */}
+                <Action href={ctaHref} external={ctaExternal} size="md" className="whitespace-nowrap">
+                  {ctaExternal ? <Icon.whatsapp className="size-[17px]" /> : null}
                   {header.ctaLabel}
                 </Action>
               </span>
@@ -222,12 +291,21 @@ export function Header({
                 )}
                 {item.children?.length ? (
                   <div className="flex flex-wrap gap-2 pb-3.5">
-                    {item.children.map((child) => (
-                      <Link key={child.href || child.label} href={child.href}
-                        className="rounded-full bg-paper px-3.5 py-2 text-[13px] font-medium text-ink-700 ring-1 ring-inset ring-line">
-                        {child.label}
-                      </Link>
-                    ))}
+                    {item.children.map((child) => {
+                      const here = Boolean(child.href) && isActive(child.href)
+                      return (
+                        <Link
+                          key={child.href || child.label}
+                          href={child.href}
+                          aria-current={here ? 'page' : undefined}
+                          className={`inline-flex min-h-[44px] items-center rounded-full px-4 text-[13.5px] font-medium ring-1 ring-inset transition-colors ${
+                            here ? 'bg-green-50 text-green-800 ring-green-200' : 'bg-paper text-ink-700 ring-line'
+                          }`}
+                        >
+                          {child.label}
+                        </Link>
+                      )
+                    })}
                   </div>
                 ) : null}
               </div>
