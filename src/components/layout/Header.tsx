@@ -28,7 +28,9 @@ export function Header({
   // things CSS cannot do: fold a dropdown away after a click in it (the cursor
   // is still over it, and the clicked link keeps focus), and open a group that
   // has no address of its own on a touch screen. `dismissed` hides a dropdown
-  // until the cursor leaves it; `opened` is the tapped-open group.
+  // until the cursor leaves it; `opened` is the tapped-open group — a touch
+  // tap only, never a mouse click, which would pin one menu open beside the
+  // next one the cursor reached.
   const [dismissed, setDismissed] = useState<string | null>(null)
   const [opened, setOpened] = useState<string | null>(null)
 
@@ -46,7 +48,7 @@ export function Header({
     return () => { document.removeEventListener('click', close); document.removeEventListener('keydown', close) }
   }, [opened])
 
-  /** After choosing an entry: hide the dropdown until the cursor leaves, and drop focus so focus-within lets go too. */
+  /** After choosing an entry: hide the dropdown until the cursor leaves, and drop focus so the focus rule lets go too. */
   const settle = (key: string, el: HTMLElement) => { setDismissed(key); setOpened(null); el.blur() }
 
   useEffect(() => {
@@ -102,7 +104,18 @@ export function Header({
                     <button
                       type="button"
                       aria-expanded={opened === key}
-                      onClick={() => { setDismissed(null); setOpened((o) => (o === key ? null : key)) }}
+                      /* A mouse must leave nothing behind here. Hovering already
+                         shows the dropdown, and a click that latched it open —
+                         or merely left focus on the button — kept it on screen
+                         while the next group opened beside it, two menus at
+                         once with a focus ring stuck on the first. Preventing
+                         the mousedown keeps focus off it; only a tap toggles. */
+                      onMouseDown={(e) => e.preventDefault()}
+                      onPointerUp={(e) => {
+                        if (e.pointerType === 'mouse') return
+                        setDismissed(null)
+                        setOpened((o) => (o === key ? null : key))
+                      }}
                       className="relative flex items-center gap-1 whitespace-nowrap px-3 py-2.5 text-[13.5px] font-medium text-ink-600 transition-colors hover:text-ink-900"
                     >
                       {item.label}
@@ -123,7 +136,7 @@ export function Header({
                   )}
 
                   {item.children?.length ? (
-                    <div className={`invisible absolute left-0 top-full z-10 w-60 pt-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 ${state}`}>
+                    <div className={`invisible absolute left-0 top-full z-10 w-60 pt-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 group-has-[:focus-visible]:visible group-has-[:focus-visible]:opacity-100 ${state}`}>
                       <div className="surface p-1.5 shadow-[var(--shadow-lift)]">
                         {item.children.map((child) => (
                           <Link key={child.href || child.label} href={child.href}
