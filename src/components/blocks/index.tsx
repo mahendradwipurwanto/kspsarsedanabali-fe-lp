@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { getBlock, defaultPropsFor, telLink, getOpenState } from '@/contracts'
+import { getBlock, defaultPropsFor, telLink, getOpenState, orgLevelsFrom, type OrgColumn } from '@/contracts'
 import type { Block, Branch, Product, Post, Stat, Testimonial, DocumentItem, Job, Faq } from '@/lib/api'
 import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, Stat as Figure, iconByName } from '../ui'
 import { Media } from '../ui/Media'
@@ -389,24 +389,16 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
     }
 
     case 'org_chart': {
-      const fromProps = arr<{ title: string; members: { name: string; role?: string }[]; tone?: string }>(p.groups)
-      const groups = fromProps.length ? fromProps : arr<{ title: string; members: { name: string; role?: string }[]; tone?: string }>(ctx.settings.organization)
-      const units = arr<{ title: string; roles?: { name: string }[]; tone?: string }>(p.units)
-      if (!groups.length && !units.length) return null
+      // The chart is a list of levels. Charts saved before levels existed are
+      // converted by the shared helper, with the board from Pengaturan →
+      // Legalitas & Organisasi standing in when the block carries none.
+      const levels = orgLevelsFrom(p, arr<OrgColumn>(ctx.settings.organization))
+      if (!levels.length) return null
       return (
         <Band tone={tone}>
           <Shell>
             <Heading label={s(p.eyebrow, 'Tata kelola')} title={s(p.heading, 'Struktur Organisasi')} />
-            <OrgChart
-              groups={groups}
-              apex={s(p.apex, '')}
-              audit={s(p.audit, '')}
-              operationsLead={s(p.operationsLead, '')}
-              units={units}
-              apexTone={s(p.apexTone, '')}
-              auditTone={s(p.auditTone, '')}
-              leadTone={s(p.leadTone, '')}
-            />
+            <OrgChart levels={levels} />
           </Shell>
         </Band>
       )
