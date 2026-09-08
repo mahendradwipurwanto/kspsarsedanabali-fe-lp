@@ -1,6 +1,6 @@
-import { Suspense } from 'react'
+import { Fragment, Suspense } from 'react'
 import Link from 'next/link'
-import { getBlock, defaultPropsFor, telLink, getOpenState, orgLevelsFrom, type OrgColumn } from '@/contracts'
+import { getBlock, defaultPropsFor, telLink, getOpenState, orgLevelsFrom, trackingAttrs, DEFAULT_ANALYTICS, type OrgColumn, type AnalyticsSettings } from '@/contracts'
 import type { Block, Branch, Product, Post, Stat, Testimonial, DocumentItem, Job, Faq } from '@/lib/api'
 import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, Stat as Figure, iconByName } from '../ui'
 import { Media } from '../ui/Media'
@@ -50,6 +50,7 @@ const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : [])
 
 export function BlockRenderer({ blocks, ctx }: { blocks: Block[]; ctx: BlockContext }) {
   const visible = blocks.filter((block) => block.isVisible && getBlock(block.type))
+  const analytics = { ...DEFAULT_ANALYTICS, ...((ctx.settings.analytics ?? {}) as Partial<AnalyticsSettings>) }
   // Bands alternate white / paper, counting only the blocks that are bands —
   // full-bleed openers and strips do not take a turn, or the rhythm breaks.
   let bandIndex = 0
@@ -58,7 +59,21 @@ export function BlockRenderer({ blocks, ctx }: { blocks: Block[]; ctx: BlockCont
       {visible.map((block, i) => {
         const isBand = !['hero_banner', 'quick_access', 'legality_bar', 'branch_contact_strip', 'page_header', 'cta_banner'].includes(block.type)
         const tone = isBand ? (bandIndex++ % 2 === 1 ? 'alt' : 'default') : 'default'
-        return <BlockSwitch key={block.id ?? i} block={block} ctx={ctx} tone={tone} />
+        const node = <BlockSwitch block={block} ctx={ctx} tone={tone} />
+
+        // A block the editor named for Tag Manager gets a wrapper carrying that
+        // name; every other block renders exactly as before, with no element
+        // added at all. The wrapper is a plain block-level div in normal flow,
+        // so it neither constrains a full-bleed band nor breaks an #anchor —
+        // `display: contents` would have done the latter.
+        const track = trackingAttrs(block.props ?? {}, analytics.classPrefix)
+        return track ? (
+          <div key={block.id ?? i} className={track.className} id={track.id} data-block={block.type}>
+            {node}
+          </div>
+        ) : (
+          <Fragment key={block.id ?? i}>{node}</Fragment>
+        )
       })}
     </>
   )
