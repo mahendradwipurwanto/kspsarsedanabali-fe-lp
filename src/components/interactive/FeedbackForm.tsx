@@ -32,6 +32,7 @@ export function FeedbackForm({
   const [status, setStatus] = useState<'idle' | 'sending' | 'done'>('idle')
   const [category, setCategory] = useState<FeedbackCategory>('saran')
   const [rating, setRating] = useState(0)
+  const [hoverRating, setHoverRating] = useState(0)
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
@@ -132,21 +133,40 @@ export function FeedbackForm({
 
         {askRating ? (
           <Field label="Penilaian layanan" hint="Opsional. Ketuk bintang untuk memberi nilai.">
-            <div className="flex items-center gap-1.5" role="radiogroup" aria-label="Penilaian layanan">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  role="radio"
-                  aria-checked={rating === n}
-                  aria-label={`${n} dari 5 bintang`}
-                  onClick={() => setRating(rating === n ? 0 : n)}
-                  className="cursor-pointer p-1 text-gold-400 transition-transform duration-150 hover:scale-110"
-                >
-                  <Icon.star className={`size-7 ${n <= rating ? 'fill-gold-400' : 'fill-transparent text-line-strong'}`} />
-                </button>
-              ))}
-              {rating > 0 ? <span className="ml-2 text-[13px] text-ink-500">{rating} dari 5</span> : null}
+            {/* Hovering fills the stars up to the one under the cursor, so the
+                score is visible before it is committed. */}
+            <div
+              className="flex items-center gap-1.5"
+              role="radiogroup"
+              aria-label="Penilaian layanan"
+              onMouseLeave={() => setHoverRating(0)}
+            >
+              {[1, 2, 3, 4, 5].map((n) => {
+                const shown = hoverRating || rating
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    role="radio"
+                    aria-checked={rating === n}
+                    aria-label={`${n} dari 5 bintang`}
+                    onMouseEnter={() => setHoverRating(n)}
+                    onFocus={() => setHoverRating(n)}
+                    onBlur={() => setHoverRating(0)}
+                    onClick={() => setRating(rating === n ? 0 : n)}
+                    className="cursor-pointer p-1 transition-transform duration-150 [transition-timing-function:var(--ease-settle)] hover:scale-115"
+                  >
+                    <Icon.star
+                      className={`size-7 transition-colors duration-150 ${
+                        n <= shown ? 'fill-gold-400 text-gold-400' : 'fill-transparent text-ink-300 hover:text-gold-400'
+                      }`}
+                    />
+                  </button>
+                )
+              })}
+              <span className="ml-2 text-[13px] text-ink-500">
+                {hoverRating || rating ? `${hoverRating || rating} dari 5` : ''}
+              </span>
             </div>
           </Field>
         ) : null}
