@@ -175,7 +175,7 @@ export const getMenu = (key: string) => apiGet<Wrapped<unknown[]>>(`/menus/${key
 
 export const getSitemapData = () =>
   apiGet<Wrapped<{
-    pages: { slug: string; title: string; isSystem: boolean; updatedAt: string }[]
+    pages: { slug: string; title: string; isSystem: boolean; showInFooter: boolean; updatedAt: string }[]
     products: { slug: string; category: string; updatedAt: string }[]
     posts: { slug: string; updatedAt: string }[]
     branches: { slug: string; updatedAt: string }[]
@@ -189,18 +189,20 @@ export const getSitemapData = () =>
   }).then((r) => r?.data ?? null)
 
 /**
- * Published pages an editor created, for the footer's bottom row.
+ * The pages listed in the footer's bottom row.
  *
- * Every page that is not one of the site's fixed routes belongs here, under the
- * title it carries in the console. It used to be filtered against two slugs
- * written into this file, so a third page — a cookie policy, a members' notice —
- * could be written and published and still never appear anywhere on the site.
+ * Asked for, one page at a time, with the "Tampilkan di footer" switch in the
+ * console. It was every published page that is not a fixed route, which put a
+ * campaign page or a half-finished draft in the same row as the privacy policy
+ * the moment it went live. Before that it was two slugs written into this file,
+ * so a genuine third page could never appear at all; the switch is what both
+ * were reaching for.
  */
 export const getLegalPages = async () => {
   const data = await getSitemapData()
   if (!data) return []
   return data.pages
-    .filter((pg) => !pg.isSystem)
+    .filter((pg) => pg.showInFooter)
     .map((pg) => ({ slug: pg.slug, title: pg.title }))
 }
 
