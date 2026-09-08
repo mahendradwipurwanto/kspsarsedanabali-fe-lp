@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
-import { getSitemapData } from '@/lib/api'
+import { DEFAULT_SEO_TECH, type SeoTechSettings } from '@/contracts'
+import { getSettings, getSitemapData } from '@/lib/api'
 import { absoluteUrl } from '@/lib/seo'
 
 export const revalidate = 600
@@ -10,6 +11,14 @@ export const revalidate = 600
  * `lastModified` is the real row timestamp — Google ignores fabricated dates.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const settings = await getSettings()
+  const seo: SeoTechSettings = { ...DEFAULT_SEO_TECH, ...((settings.seoTech ?? {}) as Partial<SeoTechSettings>) }
+
+  // Switched off in the console, the file is served empty rather than removed:
+  // a 404 on a URL already announced to Google reads as a broken site, an empty
+  // <urlset> reads as "nothing to crawl right now".
+  if (!seo.sitemapEnabled) return []
+
   const staticEntries: MetadataRoute.Sitemap = [
     { url: absoluteUrl('/'), changeFrequency: 'weekly', priority: 1 },
     { url: absoluteUrl('/tentang-kami'), changeFrequency: 'monthly', priority: 0.8 },
@@ -47,26 +56,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const data = await getSitemapData()
   if (!data) return staticEntries
 
+  // Each collection is listed only if the console asks for it. A koperasi that
+  // has emptied its careers page would rather not advertise it.
   const dynamic: MetadataRoute.Sitemap = [
-    ...data.products.map((p) => ({
+    ...(seo.sitemapProducts ? data.products : []).map((p) => ({
       url: absoluteUrl(`/produk/${p.category}/${p.slug}`),
       lastModified: new Date(p.updatedAt),
       changeFrequency: 'monthly' as const,
       priority: 0.8,
     })),
-    ...data.branches.map((b) => ({
+    ...(seo.sitemapBranches ? data.branches : []).map((b) => ({
       url: absoluteUrl(`/lokasi/${b.slug}`),
       lastModified: new Date(b.updatedAt),
       changeFrequency: 'monthly' as const,
       priority: 0.8,
     })),
-    ...data.posts.map((p) => ({
+    ...(seo.sitemapPosts ? data.posts : []).map((p) => ({
       url: absoluteUrl(`/berita/${p.slug}`),
       lastModified: new Date(p.updatedAt),
       changeFrequency: 'monthly' as const,
       priority: 0.6,
     })),
-    ...data.jobs.map((j) => ({
+    ...(seo.sitemapJobs ? data.jobs : []).map((j) => ({
       url: absoluteUrl(`/karir/${j.slug}`),
       lastModified: new Date(j.updatedAt),
       changeFrequency: 'weekly' as const,
@@ -74,7 +85,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
     // CMS pages, at the route they actually answer on and only once: a page
     // already listed above would otherwise appear twice.
-    ...data.pages
+    ...(seo.sitemapPages ? data.pages : [])
       .map((p) => ({ page: p, url: absoluteUrl(ROUTE_BY_SLUG[p.slug] ?? `/${p.slug}`) }))
       .filter(({ url }) => !covered.has(url))
       .map(({ page, url }) => ({

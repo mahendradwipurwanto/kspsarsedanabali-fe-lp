@@ -153,9 +153,10 @@ export const getBranches = () => apiGet<Wrapped<Branch[]>>('/branches', { tags: 
 export const getBranch = (slug: string) =>
   apiGet<Wrapped<Branch>>(`/branches/${slug}`, { tags: [`branch:${slug}`, 'branches'] }).then((r) => r?.data ?? null)
 
-export const getPosts = (params: { page?: number; limit?: number; category?: string } = {}) =>
+/** `full` also fetches each article's body — only the RSS feed needs it. */
+export const getPosts = (params: { page?: number; limit?: number; category?: string; full?: boolean } = {}) =>
   apiGet<Paged<Post[]>>(
-    `/posts?page=${params.page ?? 1}&limit=${params.limit ?? 9}${params.category ? `&category=${params.category}` : ''}`,
+    `/posts?page=${params.page ?? 1}&limit=${params.limit ?? 9}${params.category ? `&category=${params.category}` : ''}${params.full ? '&full=1' : ''}`,
     { tags: ['posts'] },
   )
 
