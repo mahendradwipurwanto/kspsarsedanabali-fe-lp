@@ -73,13 +73,18 @@ export async function getBlockContext(
   const perPage = typeof postIndex?.props.perPage === 'number' ? postIndex.props.perPage : 9
   const newsList = blocks.find((b) => b.type === 'news_list' && b.isVisible)
   const teaserLimit = typeof newsList?.props.limit === 'number' ? newsList.props.limit : 3
+  // The block's own limit, not a constant: a fixed six meant a section asking
+  // for ten quietly showed six, and the carousel had fewer pages than the
+  // editor had entries.
+  const testimonialBlock = blocks.find((b) => b.type === 'testimonial_slider' && b.isVisible)
+  const testimonialLimit = typeof testimonialBlock?.props.limit === 'number' ? testimonialBlock.props.limit : 3
 
   const [products, branches, postsRes, stats, testimonials, documents, settings, jobs, faqs] = await Promise.all([
     need.products ? getProducts() : Promise.resolve([]),
     need.branches ? getBranches() : Promise.resolve([]),
     need.posts ? getPosts(postIndex ? { page: opts.page ?? 1, limit: perPage } : { limit: teaserLimit }) : Promise.resolve(null),
     need.stats ? getStats() : Promise.resolve([]),
-    need.testimonials ? getTestimonials(6) : Promise.resolve([]),
+    need.testimonials ? getTestimonials(testimonialLimit) : Promise.resolve([]),
     need.documents ? getDocuments() : Promise.resolve([]),
     getSettings(),
     need.jobs ? getJobs() : Promise.resolve([]),
