@@ -131,7 +131,11 @@ export interface Page { id: string; title: string; slug: string; seo: Record<str
 export interface Stat { id: string; label: string; value: string; icon?: string | null }
 export interface Testimonial { id: string; name: string; role?: string | null; location?: string | null; quote: string; rating: number; avatar?: string }
 export interface Faq { id: string; question: string; answer: string; category?: string | null }
-export interface DocumentItem { id: string; title: string; category: string; year?: number | null; url: string; fileSize?: number | null; coverImage?: string }
+export interface DocumentItem {
+  id: string; title: string; category: string; year?: number | null; url: string; fileSize?: number | null; coverImage?: string
+  /** The kind's own name, icon and order, joined by the API so the shelf never shows a slug. */
+  categoryName?: string | null; categoryIcon?: string | null; categoryOrder?: number | null
+}
 
 type Wrapped<T> = { data: T }
 type Paged<T> = { data: T; meta: { page: number; limit: number; total: number; totalPages: number } }

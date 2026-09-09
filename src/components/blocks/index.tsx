@@ -564,8 +564,10 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
     }
 
     case 'document_list': {
-      const category = s(p.category, 'all')
-      const list = ctx.documents.filter((d) => category === 'all' || d.category === category)
+      // Empty is "every kind"; 'all' is what the field stored before it became a reference.
+      const category = s(p.category, '')
+      const every = category === '' || category === 'all'
+      const list = ctx.documents.filter((d) => every || d.category === category)
       return (
         <Band tone={tone}>
           <Shell>
@@ -574,7 +576,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
               <Blank title="Belum ada dokumen" body="Dokumen akan tersedia di sini setelah diunggah oleh pengurus koperasi." />
             ) : s(p.layout, 'shelf') === 'shelf' ? (
               // Covers on a shelf, tabbed by category when the block shows them all.
-              <DocumentShelf items={list} single={category === 'all' ? undefined : category} />
+              <DocumentShelf items={list} single={every ? undefined : category} />
             ) : (
               <ul className="surface divide-y divide-line overflow-hidden">
                 {list.map((doc) => (
