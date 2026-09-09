@@ -564,10 +564,13 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
     }
 
     case 'document_list': {
-      // Empty is "every kind"; 'all' is what the field stored before it became a reference.
-      const category = s(p.category, '')
-      const every = category === '' || category === 'all'
-      const list = ctx.documents.filter((d) => every || d.category === category)
+      // A list of kind slugs; empty means every kind. Older pages stored one
+      // string here — '' or 'all' for everything, else a slug — and a
+      // revision restored from that time still can, so all three are read.
+      const raw = p.category
+      const kinds = Array.isArray(raw) ? raw.filter((k): k is string => typeof k === 'string' && k !== '')
+        : typeof raw === 'string' && raw && raw !== 'all' ? [raw] : []
+      const list = ctx.documents.filter((d) => !kinds.length || kinds.includes(d.category))
       return (
         <Band tone={tone}>
           <Shell>
@@ -576,7 +579,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
               <Blank title="Belum ada dokumen" body="Dokumen akan tersedia di sini setelah diunggah oleh pengurus koperasi." />
             ) : s(p.layout, 'shelf') === 'shelf' ? (
               // Covers on a shelf, tabbed by category when the block shows them all.
-              <DocumentShelf items={list} single={every ? undefined : category} />
+              <DocumentShelf items={list} />
             ) : (
               <ul className="surface divide-y divide-line overflow-hidden">
                 {list.map((doc) => (
