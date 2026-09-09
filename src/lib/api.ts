@@ -131,7 +131,7 @@ export interface Page { id: string; title: string; slug: string; seo: Record<str
 export interface Stat { id: string; label: string; value: string; icon?: string | null }
 export interface Testimonial { id: string; name: string; role?: string | null; location?: string | null; quote: string; rating: number; avatar?: string }
 export interface Faq { id: string; question: string; answer: string; category?: string | null }
-export interface DocumentItem { id: string; title: string; category: string; year?: number | null; url: string; fileSize?: number | null }
+export interface DocumentItem { id: string; title: string; category: string; year?: number | null; url: string; fileSize?: number | null; coverImage?: string }
 
 type Wrapped<T> = { data: T }
 type Paged<T> = { data: T; meta: { page: number; limit: number; total: number; totalPages: number } }

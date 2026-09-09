@@ -10,6 +10,7 @@ import { LeadForm } from '../interactive/LeadForm'
 import { BranchFinder } from '../interactive/BranchFinder'
 import { SimulationCalculator } from '../interactive/SimulationCalculator'
 import { TestimonialSlider } from '../interactive/TestimonialSlider'
+import { DocumentShelf } from '../interactive/DocumentShelf'
 import { Accordion } from '../interactive/Accordion'
 import { SimulationTabs } from '../interactive/SimulationTabs'
 import { ProfilingWizard } from '../interactive/ProfilingWizard'
@@ -569,7 +570,12 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
         <Band tone={tone}>
           <Shell>
             {s(p.heading) ? <Heading label={s(p.eyebrow, 'Unduhan')} title={s(p.heading)} /> : null}
-            {list.length ? (
+            {!list.length ? (
+              <Blank title="Belum ada dokumen" body="Dokumen akan tersedia di sini setelah diunggah oleh pengurus koperasi." />
+            ) : s(p.layout, 'shelf') === 'shelf' ? (
+              // Covers on a shelf, tabbed by category when the block shows them all.
+              <DocumentShelf items={list} single={category === 'all' ? undefined : category} />
+            ) : (
               <ul className="surface divide-y divide-line overflow-hidden">
                 {list.map((doc) => (
                   <li key={doc.id}>
@@ -586,8 +592,6 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                   </li>
                 ))}
               </ul>
-            ) : (
-              <Blank title="Belum ada dokumen" body="Dokumen akan tersedia di sini setelah diunggah oleh pengurus koperasi." />
             )}
           </Shell>
         </Band>
