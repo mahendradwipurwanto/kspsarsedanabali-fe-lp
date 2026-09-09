@@ -42,14 +42,46 @@ function TestimonialCarousel({ items }: { items: Testimonial[] }) {
   const [page, setPage] = useState(0)
   const [pages, setPages] = useState(1)
 
+  /**
+   * How many pages there are, and which one is showing.
+   *
+   * Counted in cards rather than screenfuls. Dividing the content width by the
+   * viewport width gave a page the rail could not actually reach: the last
+   * screenful is short, so scrolling clamps before it, the dot never lit and
+   * the carousel appeared to have one page more than it had. Measuring a card
+   * gives whole pages that always land somewhere real.
+   *
+   * The width is read from the rendered card instead of the breakpoints, so
+   * the three-up, two-up and one-up layouts need no second definition here.
+   */
   const measure = useCallback(() => {
     const el = rail.current
-    if (!el) return
-    // A fractional last page still counts as a page; rounding it away left the
-    // final card unreachable by the arrows.
-    setPages(Math.max(1, Math.ceil(el.scrollWidth / el.clientWidth - 0.02)))
-    setPage(Math.round(el.scrollLeft / el.clientWidth))
+    const card = el?.firstElementChild as HTMLElement | null
+    if (!el || !card) return
+
+    const gap = parseFloat(getComputedStyle(el).columnGap) || 0
+    const stride = card.getBoundingClientRect().width + gap
+    const perView = Math.max(1, Math.round((el.clientWidth + gap) / stride))
+    const total = Math.max(1, Math.ceil(el.children.length / perView))
+    const furthest = el.scrollWidth - el.clientWidth
+
+    setPages(total)
+    // Scrolled to the end means the last page, whatever the arithmetic says:
+    // the final page is usually a partial one and stops short of its own
+    // offset, which would otherwise report the page before it.
+    setPage(furthest <= 1 ? 0 : el.scrollLeft >= furthest - 1 ? total - 1 : Math.min(total - 1, Math.round(el.scrollLeft / (perView * stride))))
   }, [])
+
+  /** Where page `i` starts, never past the end of the rail. */
+  const offsetOf = (i: number) => {
+    const el = rail.current
+    const card = el?.firstElementChild as HTMLElement | null
+    if (!el || !card) return 0
+    const gap = parseFloat(getComputedStyle(el).columnGap) || 0
+    const stride = card.getBoundingClientRect().width + gap
+    const perView = Math.max(1, Math.round((el.clientWidth + gap) / stride))
+    return Math.min(i * perView * stride, el.scrollWidth - el.clientWidth)
+  }
 
   useEffect(() => {
     const el = rail.current
@@ -63,7 +95,7 @@ function TestimonialCarousel({ items }: { items: Testimonial[] }) {
   const go = (next: number) => {
     const el = rail.current
     if (!el) return
-    el.scrollTo({ left: Math.min(Math.max(next, 0), pages - 1) * el.clientWidth, behavior: 'smooth' })
+    el.scrollTo({ left: offsetOf(Math.min(Math.max(next, 0), pages - 1)), behavior: 'smooth' })
   }
 
   const atStart = page <= 0

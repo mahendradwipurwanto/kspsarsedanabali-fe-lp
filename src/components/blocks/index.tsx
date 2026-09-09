@@ -48,6 +48,26 @@ const n = (v: unknown, fallback: number) => (typeof v === 'number' ? v : fallbac
 const b = (v: unknown, fallback = false) => (typeof v === 'boolean' ? v : fallback)
 const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : [])
 
+/**
+ * Column tracks for the achievement figures, sized to how many there are.
+ *
+ * Six tracks were laid out whatever the count, so a koperasi showing four
+ * numbers got four figures and two empty columns — a panel that ran the full
+ * width of the page with a third of it blank. Fewer figures now share the
+ * width between them instead of leaving a tail.
+ *
+ * Written as whole class names because Tailwind reads the source for them; a
+ * template built from a number would compile to nothing.
+ */
+const statColumns = (n: number) =>
+  ({
+    1: 'grid-cols-1',
+    2: 'grid-cols-2',
+    3: 'grid-cols-2 sm:grid-cols-3',
+    4: 'grid-cols-2 lg:grid-cols-4',
+    5: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
+  })[n] ?? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'
+
 export function BlockRenderer({ blocks, ctx }: { blocks: Block[]; ctx: BlockContext }) {
   const visible = blocks.filter((block) => block.isVisible && getBlock(block.type))
   const analytics = { ...DEFAULT_ANALYTICS, ...((ctx.settings.analytics ?? {}) as Partial<AnalyticsSettings>) }
@@ -215,6 +235,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
       const items = custom.length ? custom : ctx.stats.map((x) => ({ value: x.value, label: x.label, icon: x.icon ?? undefined }))
       if (!items.length) return null
       const ledger = s(p.layout, 'ledger') === 'ledger'
+      const columns = statColumns(items.length)
       return (
         <Band tone={tone}>
           <Shell>
@@ -222,18 +243,23 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
             {ledger ? (
               /* A ledger row: figures on hairlines, no boxes. This is the
                  shape a financial statement has, and it is the one place the
-                 site shows its numbers together. */
+                 site shows its numbers together.
+                 The hairlines are the gaps: a one-pixel gap over the line
+                 colour draws a rule between every pair of neighbours, however
+                 the row happens to wrap. Divide utilities cannot — they follow
+                 DOM order, not grid rows, and drew a rule through the middle of
+                 a row whenever the count did not fill it. */
               <div className="surface overflow-hidden">
-                <ul className="grid grid-cols-2 divide-y divide-line sm:grid-cols-3 lg:grid-cols-6 lg:divide-x lg:divide-y-0">
+                <ul className={`grid gap-px bg-line ${columns}`}>
                   {items.map((item, i) => (
-                    <li key={i} className={`p-5 lg:p-6 ${i % 2 === 1 ? 'border-l border-line sm:border-l-0' : ''} ${i >= 2 && i < 3 ? 'sm:border-l' : ''}`}>
+                    <li key={i} className="bg-surface p-5 lg:p-6">
                       <Figure value={<CountUp value={item.value} />} label={item.label} />
                     </li>
                   ))}
                 </ul>
               </div>
             ) : (
-              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
+              <ul className={`grid gap-3 lg:gap-4 ${columns}`}>
                 {items.map((item, i) => {
                   const IconCmp = iconByName(item.icon)
                   return (
