@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { telLink, mediaSrc, isMenuGroup, type MenuItem, type HeaderSettings, type BrandSettings } from '@/contracts'
 import { Shell, Wordmark, Action, Icon, Tile, iconByName } from '../ui'
 
@@ -56,6 +56,10 @@ export function Header({
   // next one the cursor reached.
   const [dismissed, setDismissed] = useState<string | null>(null)
   const [opened, setOpened] = useState<string | null>(null)
+  // How the last press arrived. A click event does not say, and the two need
+  // opposite treatment: a cursor has already shown the dropdown by hovering,
+  // a finger has not shown it at all.
+  const pointer = useRef<string>('mouse')
 
   useEffect(() => { setOpen(false); setOpened(null) }, [pathname])
 
@@ -168,12 +172,38 @@ export function Header({
                   <Link
                     href={item.href}
                     aria-current={isActive(item.href) ? 'page' : undefined}
-                    onClick={(e) => { if (item.children?.length) settle(key, e.currentTarget) }}
+                    aria-expanded={hasMenu ? opened === key : undefined}
+                    onPointerDown={(e) => { pointer.current = e.pointerType }}
+                    /**
+                     * On a touch screen the first tap opens the dropdown; the
+                     * second follows the link.
+                     *
+                     * An entry like Produk has an address of its own *and*
+                     * children, so it is a link, and the dropdown was left to
+                     * CSS :hover — which a finger never fires. Tapping simply
+                     * went to /produk and the submenu could not be reached at
+                     * all on an iPad. A cursor is untouched: hover has already
+                     * opened the menu by the time it is clicked.
+                     */
+                    onClick={(e) => {
+                      if (!hasMenu) return
+                      // `detail === 0` is a keyboard activation, which has no
+                      // pointer type to read and needs none: focusing the link
+                      // has already opened the dropdown, so Enter should follow
+                      // the link rather than toggle what is on screen.
+                      if (e.detail !== 0 && pointer.current !== 'mouse' && opened !== key) {
+                        e.preventDefault()
+                        setDismissed(null)
+                        setOpened(key)
+                        return
+                      }
+                      settle(key, e.currentTarget)
+                    }}
                     className={`relative flex h-full items-center gap-1.5 ${label} ${rule}`}
                   >
                     {item.label}
-                    {item.children?.length ? (
-                      <Icon.chevron className={`size-3.5 transition-[transform,color] duration-300 [transition-timing-function:var(--ease-settle)] group-hover:rotate-180 ${held ? 'text-green-600' : 'text-ink-400 group-hover:text-green-600'}`} />
+                    {hasMenu ? (
+                      <Icon.chevron className={`size-3.5 transition-[transform,color] duration-300 [transition-timing-function:var(--ease-settle)] group-hover:rotate-180 ${held ? 'text-green-600' : 'text-ink-400 group-hover:text-green-600'} ${opened === key ? 'rotate-180' : ''}`} />
                     ) : null}
                   </Link>
                   )}
