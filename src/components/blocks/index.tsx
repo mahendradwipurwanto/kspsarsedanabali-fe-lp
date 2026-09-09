@@ -1,7 +1,7 @@
 import { Fragment, Suspense } from 'react'
 import Link from 'next/link'
 import { getBlock, defaultPropsFor, telLink, getOpenState, orgLevelsFrom, trackingAttrs, DEFAULT_ANALYTICS, type OrgColumn, type AnalyticsSettings } from '@/contracts'
-import type { Block, Branch, Product, Post, Stat, Testimonial, DocumentItem, Job, Faq } from '@/lib/api'
+import type { Block, Branch, Product, Post, Stat, Testimonial, DocumentItem, DocumentCategory, Job, Faq } from '@/lib/api'
 import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, Stat as Figure, iconByName } from '../ui'
 import { Media } from '../ui/Media'
 import { HeroCarousel, QuickAccess } from '../interactive/HeroCarousel'
@@ -32,6 +32,8 @@ export interface BlockContext {
   stats: Stat[]
   testimonials: Testimonial[]
   documents: DocumentItem[]
+  /** Every document kind, so the shelf can list one that is still empty. */
+  documentCategories?: DocumentCategory[]
   settings: Record<string, unknown>
   /** Only the pages that render them fetch these. */
   jobs?: Job[]
@@ -568,18 +570,23 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
       // string here — '' or 'all' for everything, else a slug — and a
       // revision restored from that time still can, so all three are read.
       const raw = p.category
-      const kinds = Array.isArray(raw) ? raw.filter((k): k is string => typeof k === 'string' && k !== '')
+      const chosen = Array.isArray(raw) ? raw.filter((k): k is string => typeof k === 'string' && k !== '')
         : typeof raw === 'string' && raw && raw !== 'all' ? [raw] : []
-      const list = ctx.documents.filter((d) => !kinds.length || kinds.includes(d.category))
+      // The kinds to list, as rows: the chosen ones, or every kind when none
+      // was chosen — in the order the koperasi set, empty ones included.
+      const all = ctx.documentCategories ?? []
+      const kinds = (chosen.length ? all.filter((c) => chosen.includes(c.slug)) : all)
+        .map((c) => ({ slug: c.slug, name: c.name, icon: c.icon ?? 'file-text', order: c.sortOrder }))
+      const list = ctx.documents.filter((d) => !chosen.length || chosen.includes(d.category))
       return (
         <Band tone={tone}>
           <Shell>
             {s(p.heading) ? <Heading label={s(p.eyebrow, 'Unduhan')} title={s(p.heading)} /> : null}
-            {!list.length ? (
+            {!list.length && !kinds.length ? (
               <Blank title="Belum ada dokumen" body="Dokumen akan tersedia di sini setelah diunggah oleh pengurus koperasi." />
             ) : s(p.layout, 'shelf') === 'shelf' ? (
               // Covers on a shelf, tabbed by category when the block shows them all.
-              <DocumentShelf items={list} />
+              <DocumentShelf items={list} kinds={kinds} />
             ) : (
               <ul className="surface divide-y divide-line overflow-hidden">
                 {list.map((doc) => (

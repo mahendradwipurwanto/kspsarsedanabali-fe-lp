@@ -6,26 +6,29 @@ import { Icon, iconByName } from '../ui'
 import { Media } from '../ui/Media'
 
 /**
- * The kinds are rows the koperasi manages — name, icon, order — and each
- * document arrives with its own kind joined on, so the pill row is built from
- * the documents themselves and never from a list frozen here. A kind whose row
- * has gone (or a document from before kinds existed) still gets a pill, named
- * after its slug, rather than dropping its documents off the shelf.
+ * The kinds are rows the koperasi manages — name, icon, order — handed in by
+ * the block, so a kind is listed whether or not anything sits on it yet: the
+ * pill row is the category list, not a summary of what happens to exist.
+ *
+ * A document whose kind is not among them — its row deleted, or a file from
+ * before kinds existed — still gets a pill of its own, named from what the
+ * document carries, rather than dropping off the shelf.
  */
-interface Kind { slug: string; name: string; icon: string; order: number }
+export interface Kind { slug: string; name: string; icon: string; order: number }
 
-function kindsOf(items: DocumentItem[]): Kind[] {
-  const seen = new Map<string, Kind>()
+function withStrays(kinds: Kind[], items: DocumentItem[]): Kind[] {
+  const known = new Set(kinds.map((k) => k.slug))
+  const strays = new Map<string, Kind>()
   for (const d of items) {
-    if (seen.has(d.category)) continue
-    seen.set(d.category, {
+    if (known.has(d.category) || strays.has(d.category)) continue
+    strays.set(d.category, {
       slug: d.category,
       name: d.categoryName ?? d.category.charAt(0).toUpperCase() + d.category.slice(1),
       icon: d.categoryIcon ?? 'file-text',
       order: d.categoryOrder ?? Number.MAX_SAFE_INTEGER,
     })
   }
-  return [...seen.values()].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'id'))
+  return [...kinds, ...[...strays.values()].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'id'))]
 }
 
 /**
@@ -38,17 +41,20 @@ function kindsOf(items: DocumentItem[]): Kind[] {
  * row.
  *
  * With more than one kind on the page, a row of pills sits above the shelves:
- * "Semua" shows every kind as its own labelled shelf, one after another, and a
- * kind's pill narrows the page to that shelf alone. With a single kind there
- * is nothing to choose, so the pills stay away. The pills are the only script
- * here — the shelves, the covers and the links are plain markup.
+ * "Semua" shows each kind that holds something as its own labelled shelf, one
+ * after another, and a kind's pill narrows the page to that shelf alone — an
+ * empty kind says so in its own words rather than vanishing. With a single
+ * kind there is nothing to choose, so the pills stay away. The pills are the
+ * only script here — the shelves, the covers and the links are plain markup.
  */
-export function DocumentShelf({ items }: { items: DocumentItem[] }) {
-  // Only the kinds that actually hold something — an empty pill is a promise
-  // of documents that do not exist.
-  const kinds = kindsOf(items)
+export function DocumentShelf({ items, kinds: named }: { items: DocumentItem[]; kinds: Kind[] }) {
+  const kinds = withStrays(named, items)
+  const count = (slug: string) => items.filter((d) => d.category === slug).length
   const [active, setActive] = useState<string>('')
-  const shown = active ? kinds.filter((k) => k.slug === active) : kinds
+  // Under Semua an empty kind is skipped — a run of empty shelves is noise —
+  // but chosen by its pill it is shown, so the visitor learns it is empty
+  // rather than wondering whether the pill did anything.
+  const shown = active ? kinds.filter((k) => k.slug === active) : kinds.filter((k) => count(k.slug) > 0)
 
   return (
     <div>
@@ -65,7 +71,7 @@ export function DocumentShelf({ items }: { items: DocumentItem[] }) {
               <Pill key={k.slug} on={on} onClick={() => setActive(k.slug)} controls={`docs-${k.slug}`}>
                 <Glyph className="size-3.5" />
                 {k.name}
-                <Count on={on} n={items.filter((d) => d.category === k.slug).length} />
+                <Count on={on} n={count(k.slug)} />
               </Pill>
             )
           })}
@@ -73,9 +79,13 @@ export function DocumentShelf({ items }: { items: DocumentItem[] }) {
       ) : null}
 
       <div id="docs-semua" className="grid gap-6">
-        {shown.map((k) => (
+        {shown.length ? shown.map((k) => (
           <Shelf key={k.slug} kind={k} items={items.filter((d) => d.category === k.slug)} />
-        ))}
+        )) : (
+          <p className="rounded-[var(--radius-card)] border border-dashed border-ink-200 bg-paper px-6 py-10 text-center text-[14.5px] text-ink-500">
+            Belum ada dokumen yang diunggah.
+          </p>
+        )}
       </div>
     </div>
   )
@@ -115,6 +125,9 @@ function Shelf({ kind, items }: { kind: Kind; items: DocumentItem[] }) {
     <section id={`docs-${kind.slug}`} className="surface overflow-hidden">
       <h3 className="border-b border-line bg-paper px-5 py-3 text-[13.5px] font-bold text-ink-700">{kind.name}</h3>
 
+      {!items.length ? (
+        <p className="px-5 py-8 text-center text-[14px] text-ink-500">Belum ada dokumen di jenis ini.</p>
+      ) : (
       <ul className="grid grid-cols-2 gap-4 p-4 sm:grid-cols-3 sm:gap-5 sm:p-5 lg:grid-cols-4">
         {items.map((doc) => (
           <li key={doc.id}>
@@ -149,6 +162,7 @@ function Shelf({ kind, items }: { kind: Kind; items: DocumentItem[] }) {
           </li>
         ))}
       </ul>
+      )}
     </section>
   )
 }

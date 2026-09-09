@@ -131,6 +131,9 @@ export interface Page { id: string; title: string; slug: string; seo: Record<str
 export interface Stat { id: string; label: string; value: string; icon?: string | null }
 export interface Testimonial { id: string; name: string; role?: string | null; location?: string | null; quote: string; rating: number; avatar?: string }
 export interface Faq { id: string; question: string; answer: string; category?: string | null }
+/** A document kind as the koperasi named it — the row behind a pill on the shelf. */
+export interface DocumentCategory { id: string; name: string; slug: string; icon?: string | null; sortOrder: number }
+
 export interface DocumentItem {
   id: string; title: string; category: string; year?: number | null; url: string; fileSize?: number | null; coverImage?: string
   /** The kind's own name, icon and order, joined by the API so the shelf never shows a slug. */
@@ -173,6 +176,8 @@ export const getStats = () => apiGet<Wrapped<Stat[]>>('/stats', { tags: ['stats'
 export const getTestimonials = (limit = 12) =>
   apiGet<Wrapped<Testimonial[]>>(`/testimonials?limit=${limit}`, { tags: ['testimonials'] }).then((r) => r?.data ?? [])
 export const getFaqs = () => apiGet<Wrapped<Faq[]>>('/faqs', { tags: ['faqs'] }).then((r) => r?.data ?? [])
+export const getDocumentCategories = () =>
+  apiGet<Wrapped<DocumentCategory[]>>('/document-categories', { tags: ['documents'] }).then((r) => r?.data ?? [])
 export const getDocuments = (category?: string) =>
   apiGet<Wrapped<DocumentItem[]>>(`/documents${category ? `?category=${category}` : ''}`, { tags: ['documents'] }).then((r) => r?.data ?? [])
 export const getSettings = () => apiGet<Wrapped<Record<string, unknown>>>('/settings', { tags: ['settings'] }).then((r) => r?.data ?? {})
