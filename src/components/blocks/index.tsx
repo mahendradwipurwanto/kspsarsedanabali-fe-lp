@@ -2,7 +2,7 @@ import { Fragment, Suspense } from 'react'
 import Link from 'next/link'
 import { getBlock, defaultPropsFor, telLink, getOpenState, orgLevelsFrom, trackingAttrs, DEFAULT_ANALYTICS, type OrgColumn, type AnalyticsSettings } from '@/contracts'
 import type { Block, Branch, Product, Post, Stat, Testimonial, DocumentItem, DocumentCategory, Job, Faq } from '@/lib/api'
-import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, Stat as Figure, iconByName } from '../ui'
+import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, iconByName } from '../ui'
 import { Media } from '../ui/Media'
 import { HeroCarousel, QuickAccess } from '../interactive/HeroCarousel'
 import { FeedbackForm } from '../interactive/FeedbackForm'
@@ -260,9 +260,10 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                     // next to the cards, and the icon field looked ignored.
                     const IconCmp = iconByName(item.icon)
                     return (
-                      <li key={i} className="bg-surface p-5 lg:p-6">
-                        <div className="mb-4"><Tile size="sm" tone="green"><IconCmp className="size-4" /></Tile></div>
-                        <Figure value={<CountUp value={item.value} />} label={item.label} />
+                      <li key={i} className="flex flex-col items-center bg-surface px-4 py-6 text-center lg:py-7">
+                        <Tile size="lg" tone="green"><IconCmp className="size-6" /></Tile>
+                        <p className="figure mt-4 text-[1.75rem] text-ink-900 sm:text-[2rem]"><CountUp value={item.value} /></p>
+                        <p className="mt-1.5 text-[12px] font-bold uppercase tracking-[0.08em] text-ink-500">{item.label}</p>
                       </li>
                     )
                   })}
