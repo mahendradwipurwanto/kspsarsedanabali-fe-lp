@@ -254,11 +254,18 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                  a row whenever the count did not fill it. */
               <div className="surface overflow-hidden">
                 <ul className={`grid gap-px bg-line ${columns}`}>
-                  {items.map((item, i) => (
-                    <li key={i} className="bg-surface p-5 lg:p-6">
-                      <Figure value={<CountUp value={item.value} />} label={item.label} />
-                    </li>
-                  ))}
+                  {items.map((item, i) => {
+                    // The icon the koperasi chose for the figure sits above
+                    // it here too; a ledger of bare numbers read as unfinished
+                    // next to the cards, and the icon field looked ignored.
+                    const IconCmp = iconByName(item.icon)
+                    return (
+                      <li key={i} className="bg-surface p-5 lg:p-6">
+                        <div className="mb-4"><Tile size="sm" tone="green"><IconCmp className="size-4" /></Tile></div>
+                        <Figure value={<CountUp value={item.value} />} label={item.label} />
+                      </li>
+                    )
+                  })}
                 </ul>
               </div>
             ) : (
