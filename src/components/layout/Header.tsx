@@ -60,6 +60,7 @@ export function Header({
   // opposite treatment: a cursor has already shown the dropdown by hovering,
   // a finger has not shown it at all.
   const pointer = useRef<string>('mouse')
+  const bar = useRef<HTMLElement>(null)
 
   useEffect(() => { setOpen(false); setOpened(null) }, [pathname])
 
@@ -90,13 +91,34 @@ export function Header({
     return () => { document.body.style.overflow = '' }
   }, [open])
 
+  /**
+   * Publish the header's height, so an #anchor does not land underneath it.
+   *
+   * The header is sticky, and `scroll-padding-top` is the only thing that keeps
+   * a jump to `#simulasi` from parking the section's heading behind the bar.
+   * It is measured rather than written down because the height has three
+   * answers — 66px, 74px above `lg`, and either plus the announcement strip
+   * when the koperasi has set one — and a guess is wrong in two of them.
+   */
+  useEffect(() => {
+    const el = bar.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const publish = () => {
+      document.documentElement.style.setProperty('--header-h', `${Math.round(el.getBoundingClientRect().height)}px`)
+    }
+    publish()
+    const ro = new ResizeObserver(publish)
+    ro.observe(el)
+    return () => { ro.disconnect(); document.documentElement.style.removeProperty('--header-h') }
+  }, [])
+
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href))
   // "whatsapp" is a keyword in the settings form, so staff never have to build a wa.me URL.
   const ctaHref = header.ctaHref === 'whatsapp' || !header.ctaHref ? `https://wa.me/${whatsapp}` : header.ctaHref
   const ctaExternal = ctaHref.startsWith('http')
 
   return (
-    <header className="sticky top-0 z-50">
+    <header ref={bar} className="sticky top-0 z-50">
       {header.announcement ? (
         <div className="bg-ink-900 text-white">
           <Shell>

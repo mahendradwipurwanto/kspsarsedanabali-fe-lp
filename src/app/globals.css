@@ -97,7 +97,18 @@
 @media (min-width: 640px) { :root { --gutter: 2rem; } }
 @media (min-width: 1024px) { :root { --gutter: 2.5rem; } }
 
-html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+/*
+ * The sticky header covers the top of the viewport, so an #anchor jump has to
+ * stop short of it or the section's heading lands behind the bar. --header-h is
+ * measured and published by the header itself; the fallback covers the bar at
+ * its usual height for the first paint and for the rare case where no
+ * ResizeObserver exists. The extra 1rem is breathing room, not chrome.
+ */
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--header-h, 74px) + 1rem);
+}
 
 body {
   background-color: var(--color-surface);

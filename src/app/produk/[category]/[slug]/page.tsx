@@ -64,6 +64,12 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   // readable measure instead.
   const hasArtwork = Boolean(p.image)
   const loans = allProducts.filter((x) => x.category === 'pinjaman' && x.isVerified && x.ratePercent != null)
+  // The one condition behind both the button and the section it points at. A
+  // loan whose rate is still unverified publishes no figure to calculate with,
+  // so there is nothing to render — and offering "Hitung angsuran" anyway left
+  // the button pointing at an #simulasi that did not exist: the address gained
+  // a fragment and the page stayed exactly where it was.
+  const canSimulate = isLoan && p.isVerified && p.ratePercent != null
 
   return (
     <>
@@ -119,7 +125,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   Ajukan sekarang
                   <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
                 </Action>
-                {isLoan ? (
+                {canSimulate ? (
                   <Action href="#simulasi" variant="outline" size="lg">
                     <Icon.calculator className="size-4" />
                     Hitung angsuran
@@ -142,7 +148,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         </Shell>
       </Band>
 
-      {isLoan && p.isVerified && p.ratePercent != null ? (
+      {canSimulate ? (
         <Band tone="alt" id="simulasi">
           <Shell>
             <Heading
