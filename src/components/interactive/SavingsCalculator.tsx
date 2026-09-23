@@ -312,7 +312,7 @@ function MonthlyDeposit({
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
         <Panel>
           <div>
-            <AmountInput id="sim-save-amount" label="Setoran per bulan" value={deposit} min={sim.minAmount} max={sim.maxAmount} step={sim.step} onChange={onDeposit}
+            <AmountInput id="sim-save-amount" label="Setoran pokok per bulan" value={deposit} min={sim.minAmount} max={sim.maxAmount} step={sim.step} onChange={onDeposit}
               hint="Disetor rutin setiap bulan." />
           </div>
 
@@ -346,7 +346,7 @@ function MonthlyDeposit({
           headlineLabel={`Nilai simpanan setelah ${num(years)} tahun`}
           headline={result.value}
           rows={[
-            ['Setoran per bulan', formatRupiah(deposit)],
+            ['Setoran pokok per bulan', formatRupiah(deposit)],
             ['Jumlah disetor', formatRupiah(result.deposited)],
             ['Hasil bunga', formatRupiah(result.profit)],
           ]}

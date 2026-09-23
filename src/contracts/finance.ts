@@ -316,7 +316,7 @@ function formulaTableBody(t: FormulaTableInput): { caption: string; columns: str
     case 'monthly_deposit':
       return {
         caption: `Tabel ${t.name} · nilai simpanan akhir`,
-        columns: ['Setoran per bulan', ...t.tenors.map(years)],
+        columns: ['Setoran pokok per bulan', ...t.tenors.map(years)],
         rows: amounts.map((a) => [formatRupiah(a), ...t.tenors.map((m) => formatRupiah(calculateMonthlyDeposit(a, m, t.ratePercent ?? 0).value))]),
       }
     case 'daily_deposit': {
