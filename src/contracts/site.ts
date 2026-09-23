@@ -230,6 +230,56 @@ export const DEFAULT_FOOTER_MENU: MenuItem[] = [
 
 export const DAY_NAMES_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] as const
 
+export type BranchHours = { day: number; opensAt: string | null; closesAt: string | null }[]
+
+/** The week as an office reads it, Monday first. `day` stays 0 = Sunday, as stored. */
+export const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0] as const
+export const DAY_SHORT_ID = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'] as const
+
+/** A new office's week, as the koperasi's offices keep it: weekdays 08.00–15.00, Saturday to 13.00, Sunday closed. */
+export const DEFAULT_BRANCH_HOURS: BranchHours = WEEK_ORDER.map((day) => ({
+  day,
+  opensAt: day === 0 ? null : '08:00',
+  closesAt: day === 0 ? null : day === 6 ? '13:00' : '15:00',
+}))
+
+const dotted = (t: string) => t.replace(':', '.')
+
+/**
+ * The week in one line, runs of days with the same hours joined:
+ * "Sen–Jum 08.00–15.00 · Sab 08.00–12.00 · Min tutup".
+ */
+export function summarizeHours(hours: BranchHours): string {
+  if (!hours.length) return ''
+  const slot = (day: number) => {
+    const h = hours.find((x) => x.day === day)
+    return h?.opensAt && h.closesAt ? `${dotted(h.opensAt)}–${dotted(h.closesAt)}` : 'tutup'
+  }
+  const runs: { from: number; to: number; slot: string }[] = []
+  for (const day of WEEK_ORDER) {
+    const s = slot(day)
+    const last = runs[runs.length - 1]
+    if (last && last.slot === s) last.to = day
+    else runs.push({ from: day, to: day, slot: s })
+  }
+  return runs
+    .map((r) => `${DAY_SHORT_ID[r.from]}${r.from === r.to ? '' : `–${DAY_SHORT_ID[r.to]}`} ${r.slot}`)
+    .join(' · ')
+}
+
+/** What is wrong with a week of hours, per day, in words an editor can act on. */
+export function branchHoursProblems(hours: BranchHours): { day: number; message: string }[] {
+  const out: { day: number; message: string }[] = []
+  const seen = new Set<number>()
+  for (const h of hours) {
+    if (seen.has(h.day)) out.push({ day: h.day, message: `${DAY_NAMES_ID[h.day]} tertulis lebih dari sekali.` })
+    seen.add(h.day)
+    if (!h.opensAt !== !h.closesAt) out.push({ day: h.day, message: `${DAY_NAMES_ID[h.day]}: isi jam buka dan jam tutup, atau tandai tutup.` })
+    else if (h.opensAt && h.closesAt && h.closesAt <= h.opensAt) out.push({ day: h.day, message: `${DAY_NAMES_ID[h.day]}: jam tutup harus setelah jam buka.` })
+  }
+  return out
+}
+
 /** Live open/closed state in WITA, independent of the viewer's own clock setting. */
 export function getOpenState(
   hours: { day: number; opensAt: string | null; closesAt: string | null }[],

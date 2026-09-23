@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { branchHoursProblems } from '../site'
 
 /* ---------------------------------- shared --------------------------------- */
 
@@ -566,13 +567,22 @@ export function simulationProblems(v: z.infer<typeof simulationSchema>): { field
 
 /* --------------------------------- branches -------------------------------- */
 
-export const branchHoursSchema = z.array(
-  z.object({
-    day: z.number().int().min(0).max(6), // 0 = Sunday
-    opensAt: z.string().regex(/^\d{2}:\d{2}$/).nullable(),
-    closesAt: z.string().regex(/^\d{2}:\d{2}$/).nullable(),
-  }),
-)
+const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Tulis jam sebagai JJ:MM, misalnya 08:00.')
+
+export const branchHoursSchema = z
+  .array(
+    z.object({
+      day: z.number().int().min(0).max(6), // 0 = Sunday
+      opensAt: clockTime.nullable(),
+      closesAt: clockTime.nullable(),
+    }),
+  )
+  .max(7)
+  // Both times or neither, closing after opening, each day once: an office
+  // "open" from 15.00 to 08.00 would read as open all night on the website.
+  .superRefine((hours, ctx) => {
+    for (const p of branchHoursProblems(hours)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: p.message })
+  })
 
 export const branchSchema = z.object({
   name: z.string().min(2).max(120),
