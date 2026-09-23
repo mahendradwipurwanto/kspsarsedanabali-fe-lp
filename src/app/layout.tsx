@@ -6,6 +6,7 @@ import {
   DEFAULT_ANALYTICS, DEFAULT_SEO_TECH, GA_ID_RULE,
   type MenuItem, type HeaderSettings, type FooterSettings, type BrandSettings,
   type AnalyticsSettings, type SeoTechSettings,
+  themeColors, themeCss,
 } from '@/contracts'
 import { getBranches, getSettings, getLegalPages, getMenu } from '@/lib/api'
 import { SITE_URL } from '@/lib/seo'
@@ -77,11 +78,16 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export const viewport: Viewport = {
-  themeColor: '#0f1b2d',
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 5,
+/** The browser's own chrome takes the secondary colour, as the header and footer do. */
+export async function generateViewport(): Promise<Viewport> {
+  const settings = await getSettings()
+  const colors = themeColors((settings.brand as { colors?: Record<string, unknown> } | undefined)?.colors)
+  return {
+    themeColor: colors.secondary,
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 5,
+  }
 }
 
 /** A settings group merged over its defaults, so a half-filled form never blanks the site. */
@@ -101,6 +107,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const header = group<HeaderSettings>(settings.header, DEFAULT_HEADER)
   const footer = group<FooterSettings>(settings.footer, DEFAULT_FOOTER)
   const brand = group<BrandSettings>(settings.brand, { ...DEFAULT_BRAND, name: site.name || DEFAULT_BRAND.name, tagline: site.tagline || DEFAULT_BRAND.tagline })
+  // The colours chosen under Identitas, as overrides of the shipped ramps.
+  // themeColors() admits only six-digit hex, so nothing but a colour reaches the style sheet.
+  const brandCss = themeCss(themeColors(brand.colors))
   const legal = (Array.isArray(settings.legal) ? settings.legal : SITE.legal) as { label: string; value: string; date: string }[]
   const social = (settings.social ?? {}) as Record<string, string>
   // Menus fall back to the shipped defaults only when nothing has ever been saved.
@@ -125,6 +134,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="id" className={jakarta.variable} suppressHydrationWarning>
       <head>
         <link rel="preconnect" href={process.env.NEXT_PUBLIC_API_URL ?? ''} />
+        {brandCss ? <style id="brand-colors" dangerouslySetInnerHTML={{ __html: brandCss }} /> : null}
         {seoTech.schemaEnabled ? (
           <JsonLd
             data={[

@@ -1,11 +1,12 @@
 import type { MetadataRoute } from 'next'
-import { SITE } from '@/contracts'
+import { SITE, themeColors } from '@/contracts'
 import { getSettings } from '@/lib/api'
 
 /** Installed-app name and description follow the koperasi's own settings. */
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const settings = await getSettings()
   const site = (settings.site ?? {}) as Record<string, string>
+  const colors = themeColors((settings.brand as { colors?: Record<string, unknown> } | undefined)?.colors)
 
   return {
     name: site.legalName || SITE.legalName,
@@ -14,7 +15,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',
-    theme_color: '#0f1b2d',
+    theme_color: colors.secondary,
     lang: 'id-ID',
     categories: ['finance', 'business'],
   }

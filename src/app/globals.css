@@ -35,16 +35,16 @@
 
   /* Aliases kept so existing components keep compiling: navy = ink dark,
      slate = ink mid. Both now resolve into the single ink ramp above. */
-  --color-navy-900: #0f1b2d;
-  --color-navy-800: #16263d;
-  --color-navy-700: #223452;
-  --color-slate-600: #3b4d68;
-  --color-slate-500: #5b6b82;
-  --color-slate-400: #8593a6;
-  --color-slate-300: #b7c0cc;
-  --color-slate-200: #d9dee5;
-  --color-slate-100: #eceff3;
-  --color-slate-50:  #f5f7f9;
+  --color-navy-900: var(--color-ink-900);
+  --color-navy-800: var(--color-ink-800);
+  --color-navy-700: var(--color-ink-700);
+  --color-slate-600: var(--color-ink-600);
+  --color-slate-500: var(--color-ink-500);
+  --color-slate-400: var(--color-ink-400);
+  --color-slate-300: var(--color-ink-300);
+  --color-slate-200: var(--color-ink-200);
+  --color-slate-100: var(--color-ink-100);
+  --color-slate-50:  var(--color-ink-50);
 
   /* ── Brand green, from the logo ────────────────────────────────────────── */
   --color-green-50:  #f1f7ec;
@@ -82,11 +82,11 @@
   --radius-input: 0.5rem;
 
   /* Elevation is a hairline first and a shadow second. */
-  --shadow-card: 0 1px 2px rgb(15 27 45 / 0.04);
-  --shadow-raised: 0 1px 2px rgb(15 27 45 / 0.05), 0 8px 24px -12px rgb(15 27 45 / 0.12);
-  --shadow-lift: 0 2px 4px rgb(15 27 45 / 0.05), 0 16px 40px -16px rgb(15 27 45 / 0.18);
-  --shadow-green: 0 1px 2px rgb(50 89 30 / 0.2), 0 8px 20px -10px rgb(50 89 30 / 0.4);
-  --shadow-green-lift: 0 2px 4px rgb(50 89 30 / 0.2), 0 14px 28px -12px rgb(50 89 30 / 0.45);
+  --shadow-card: 0 1px 2px color-mix(in srgb, var(--color-ink-900) 4%, transparent);
+  --shadow-raised: 0 1px 2px color-mix(in srgb, var(--color-ink-900) 5%, transparent), 0 8px 24px -12px color-mix(in srgb, var(--color-ink-900) 12%, transparent);
+  --shadow-lift: 0 2px 4px color-mix(in srgb, var(--color-ink-900) 5%, transparent), 0 16px 40px -16px color-mix(in srgb, var(--color-ink-900) 18%, transparent);
+  --shadow-green: 0 1px 2px color-mix(in srgb, var(--color-green-800) 20%, transparent), 0 8px 20px -10px color-mix(in srgb, var(--color-green-800) 40%, transparent);
+  --shadow-green-lift: 0 2px 4px color-mix(in srgb, var(--color-green-800) 20%, transparent), 0 14px 28px -12px color-mix(in srgb, var(--color-green-800) 45%, transparent);
   --edge-top: inset 0 1px 0 rgb(255 255 255 / 0.9);
 
   --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
@@ -190,8 +190,8 @@ body {
 /* The paper band gets a quieter version of the same grid. */
 .ground-texture {
   background-image:
-    linear-gradient(to right, rgb(15 27 45 / 0.035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(15 27 45 / 0.035) 1px, transparent 1px);
+    linear-gradient(to right, color-mix(in srgb, var(--color-ink-900) 3.5%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--color-ink-900) 3.5%, transparent) 1px, transparent 1px);
   background-size: 48px 48px;
 }
 

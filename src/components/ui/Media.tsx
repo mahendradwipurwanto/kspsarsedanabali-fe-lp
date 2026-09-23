@@ -42,8 +42,8 @@ export function Media({
         <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-green-100 via-green-50 to-white p-5 text-center">
           <span>
             <svg viewBox="0 0 34 60" className="mx-auto h-9 w-auto opacity-70" fill="none" aria-hidden="true">
-              <path d="M30 2C30 18 18 24 4 30c0-16 12-22 26-28Z" fill="#7cba57" />
-              <path d="M4 58c0-16 12-22 26-28 0 16-12 22-26 28Z" fill="#dfae3c" />
+              <path d="M30 2C30 18 18 24 4 30c0-16 12-22 26-28Z" className="fill-green-400" />
+              <path d="M4 58c0-16 12-22 26-28 0 16-12 22-26 28Z" className="fill-gold-400" />
             </svg>
             {fallbackLabel ? (
               <span className="mt-3 block text-[13px] font-bold leading-snug text-green-700/80">{fallbackLabel}</span>

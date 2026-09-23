@@ -19,10 +19,10 @@ export function Mark({ className = 'h-9 w-auto' }: { className?: string }) {
     <svg viewBox="0 0 34 60" className={className} fill="none" aria-hidden="true">
       <defs>
         <linearGradient id="ksp-leaf" x1="4" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#78b850" /><stop offset="1" stopColor="#32591e" />
+          <stop style={{ stopColor: 'var(--color-green-400)' }} /><stop offset="1" style={{ stopColor: 'var(--color-green-800)' }} />
         </linearGradient>
         <linearGradient id="ksp-gold" x1="30" y1="30" x2="4" y2="58" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#dfae3c" /><stop offset="1" stopColor="#8f6a12" />
+          <stop style={{ stopColor: 'var(--color-gold-400)' }} /><stop offset="1" style={{ stopColor: 'var(--color-gold-600)' }} />
         </linearGradient>
       </defs>
       <path d="M30 2C30 18 18 24 4 30c0-16 12-22 26-28Z" fill="url(#ksp-leaf)" />

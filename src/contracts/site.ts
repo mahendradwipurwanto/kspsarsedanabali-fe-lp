@@ -1,6 +1,7 @@
 /** Facts about the cooperative, taken from the legal documents and the current site. */
 
 import { field, type FieldMap } from './fields'
+import { DEFAULT_THEME_COLORS, type ThemeColors } from './theme'
 
 export const SITE = {
   legalName: 'Koperasi Simpan Pinjam Sari Sedana Bali',
@@ -131,6 +132,8 @@ export interface BrandSettings {
   /** Media URL. Empty renders the built-in leaf mark. */
   logo: string
   logoLight: string
+  /** The three brand colours the website is painted with. See theme.ts. */
+  colors: ThemeColors
 }
 
 export const DEFAULT_HEADER: HeaderSettings = {
@@ -167,6 +170,7 @@ export const DEFAULT_BRAND: BrandSettings = {
   tagline: SITE.tagline,
   logo: '',
   logoLight: '',
+  colors: DEFAULT_THEME_COLORS,
 }
 
 /**

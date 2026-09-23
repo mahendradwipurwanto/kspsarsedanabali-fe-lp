@@ -125,15 +125,15 @@ export function Slider(props: React.InputHTMLAttributes<HTMLInputElement>) {
           -webkit-appearance: none; appearance: none;
           width: 22px; height: 22px; margin-top: -9px; border-radius: 999px;
           background: #fff; border: 5px solid var(--color-ink-900);
-          box-shadow: 0 1px 2px rgb(15 27 45 / .2);
+          box-shadow: 0 1px 2px color-mix(in srgb, var(--color-ink-900) 20%, transparent);
           transition: transform .18s var(--ease-swift), box-shadow .18s var(--ease-swift);
         }
         .ksp-range::-moz-range-thumb {
           width: 18px; height: 18px; border-radius: 999px;
           background: #fff; border: 5px solid var(--color-ink-900);
-          box-shadow: 0 1px 2px rgb(15 27 45 / .2);
+          box-shadow: 0 1px 2px color-mix(in srgb, var(--color-ink-900) 20%, transparent);
         }
-        .ksp-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgb(78 139 44 / .25); }
+        .ksp-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-green-600) 25%, transparent); }
         .ksp-range:hover::-webkit-slider-thumb { transform: scale(1.08); }
         .ksp-range:active::-webkit-slider-thumb { transform: scale(0.96); }
       `}</style>
