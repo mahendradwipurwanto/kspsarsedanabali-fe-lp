@@ -2,13 +2,13 @@
 
 import { useMemo, useState, type ReactNode } from 'react'
 import {
-  calculateTermDeposit, calculateMonthlyDeposit, calculateDailyDeposit,
+  calculateTermDeposit, calculateMonthlyDeposit, calculateDailyDeposit, cellAmount,
   formatRupiah, formatRupiahShort,
 } from '@/contracts'
 import type { Simulation } from '@/lib/api'
 import { track } from '@/lib/client'
 import { Action, Icon } from '../ui'
-import { Slider, Segments } from '../ui/form'
+import { AmountInput, Segments } from '../ui/form'
 
 /** Indonesian decimals: 0,35 rather than 0.35. */
 const num = (n: number) => n.toLocaleString('id-ID')
@@ -46,7 +46,8 @@ export function SavingsCalculator({
   )
 
   if (!sim) return null
-  const amount = amounts[sim.id] ?? startAmount(sim)
+  // Typing can run outside the range for a moment; the figures use the nearest allowed amount.
+  const amount = clamp(amounts[sim.id] ?? startAmount(sim), sim.minAmount, sim.maxAmount)
   const months = tenors[sim.id] ?? startTenor(sim)
   const onAmount = (v: number) => setAmounts((a) => ({ ...a, [sim.id]: v }))
   const onMonths = (v: number) => setTenors((t) => ({ ...t, [sim.id]: v }))
@@ -97,35 +98,7 @@ function startTenor(sim: Simulation, wanted?: number) {
   return sim.tenors[0] ?? 12
 }
 
-/** The slider's step: the one filed, else whole steps of about a hundredth of the range. */
-function stepOf(sim: Simulation) {
-  if (sim.step) return sim.step
-  const raw = (sim.maxAmount - sim.minAmount) / 100
-  const magnitude = 10 ** Math.floor(Math.log10(Math.max(raw, 1)))
-  return Math.max(1_000, Math.round(raw / magnitude) * magnitude)
-}
-
 const rateInfoOf = (sim: Simulation) => sim.rateInfo || 'tabel resmi koperasi'
-
-/** The slider with its range underneath, shared by every kind. */
-function AmountSlider({ sim, value, onChange, label }: { sim: Simulation; value: number; onChange: (v: number) => void; label: string }) {
-  return (
-    <>
-      <Slider
-        min={sim.minAmount}
-        max={sim.maxAmount}
-        step={stepOf(sim)}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        aria-label={label}
-      />
-      <p className="tnum flex justify-between text-[12px] text-ink-400">
-        <span>{formatRupiahShort(sim.minAmount)}</span>
-        <span>{formatRupiahShort(sim.maxAmount)}</span>
-      </p>
-    </>
-  )
-}
 
 /* ─────────────────────────── shared presentation ────────────────────────── */
 
@@ -133,16 +106,6 @@ function Panel({ children }: { children: ReactNode }) {
   // Spread the input groups down the panel: the result beside it is taller, and
   // a stretched panel with everything bunched at the top reads as unfinished.
   return <div className="surface p-6 sm:p-8"><div className="grid h-full content-between gap-8">{children}</div></div>
-}
-
-function Amount({ label, value, hint }: { label: string; value: number; hint?: string }) {
-  return (
-    <div>
-      <span className="block text-[13px] font-semibold text-ink-700">{label}</span>
-      <output className="figure mt-1.5 block text-[clamp(1.8rem,1.35rem+1.7vw,2.4rem)] text-ink-900">{formatRupiah(value)}</output>
-      {hint ? <p className="mt-1 text-[12px] text-ink-400">{hint}</p> : null}
-    </div>
-  )
 }
 
 function Result({
@@ -202,7 +165,7 @@ function Result({
   )
 }
 
-function Table({
+export function Table({
   caption, head, rows, activeIndex,
 }: {
   caption: string
@@ -220,14 +183,14 @@ function Table({
         <table className="w-full min-w-[520px] text-[13.5px]">
           <thead>
             <tr className="border-b border-line bg-paper text-left text-[12.5px] font-semibold text-ink-500">
-              {head.map((h, i) => <th key={h} scope="col" className={`px-4 py-2.5 ${i === 0 ? '' : 'text-right'}`}>{h}</th>)}
+              {head.map((h, i) => <th key={i} scope="col" className={`px-4 py-2.5 ${i === 0 ? '' : 'text-right'}`}>{h}</th>)}
             </tr>
           </thead>
           <tbody className="tnum divide-y divide-line">
             {rows.map((row, r) => {
               const active = r === activeIndex
               return (
-                <tr key={row[0]} className={active ? 'bg-green-50' : ''}>
+                <tr key={r} className={active ? 'bg-green-50' : ''}>
                   {row.map((cell, c) => (
                     <td
                       key={c}
@@ -245,6 +208,23 @@ function Table({
         </table>
       </div>
     </div>
+  )
+}
+
+/**
+ * The table the editor wrote, shown as written. The row whose first cell reads
+ * as the amount typed in is marked, as the worked-out tables mark theirs.
+ */
+export function SavedTable({ sim, amount }: { sim: Simulation; amount: number }) {
+  const t = sim.table
+  if (!t?.rows.length) return null
+  return (
+    <Table
+      caption={t.caption || `Tabel ${sim.name}`}
+      head={t.columns}
+      rows={t.rows}
+      activeIndex={t.rows.findIndex((r) => cellAmount(r[0] ?? '') === amount)}
+    />
   )
 }
 
@@ -271,8 +251,8 @@ function TermDeposit({
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
         <Panel>
           <div>
-            <Amount label="Jumlah simpanan" value={amount} hint={sim.step ? `Kelipatan ${formatRupiahShort(sim.step)}.` : undefined} />
-            <AmountSlider sim={sim} value={amount} onChange={onAmount} label="Jumlah simpanan" />
+            <AmountInput id="sim-save-amount" label="Jumlah simpanan" value={amount} min={sim.minAmount} max={sim.maxAmount} step={sim.step} onChange={onAmount}
+              hint={sim.step ? `Kelipatan ${formatRupiahShort(sim.step)}.` : undefined} />
           </div>
 
           {sim.tenors.length > 1 ? (
@@ -313,7 +293,7 @@ function TermDeposit({
         />
       </div>
 
-      {rows.length ? (
+      {sim.table ? <SavedTable sim={sim} amount={amount} /> : rows.length ? (
         <Table
           caption={`Tabel ${sim.name} · jangka waktu ${months} bulan`}
           head={reward ? ['Jumlah simpanan', 'Nilai bunga', 'Reward', 'Total'] : ['Jumlah simpanan', 'Nilai bunga', 'Diterima']}
@@ -346,8 +326,8 @@ function MonthlyDeposit({
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
         <Panel>
           <div>
-            <Amount label="Setoran per bulan" value={deposit} hint="Disetor rutin setiap bulan selama jangka waktu yang dipilih." />
-            <AmountSlider sim={sim} value={deposit} onChange={onDeposit} label="Setoran per bulan" />
+            <AmountInput id="sim-save-amount" label="Setoran per bulan" value={deposit} min={sim.minAmount} max={sim.maxAmount} step={sim.step} onChange={onDeposit}
+              hint="Disetor rutin setiap bulan." />
           </div>
 
           {sim.tenors.length > 1 ? (
@@ -392,7 +372,7 @@ function MonthlyDeposit({
         />
       </div>
 
-      {rows.length ? (
+      {sim.table ? <SavedTable sim={sim} amount={deposit} /> : rows.length ? (
         <Table
           caption={`Tabel ${sim.name} · ${num(years)} tahun (${months} bulan)`}
           head={['Setoran per bulan', 'Jumlah disetor', 'Nilai simpanan akhir']}
@@ -420,8 +400,8 @@ function DailyDeposit({ sim, daily, onDaily }: { sim: Simulation; daily: number;
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
         <Panel>
           <div>
-            <Amount label="Setoran per hari" value={daily} hint={`Disetor setiap hari selama ${days} hari.`} />
-            <AmountSlider sim={sim} value={daily} onChange={onDaily} label="Setoran per hari" />
+            <AmountInput id="sim-save-amount" label="Setoran per hari" value={daily} min={sim.minAmount} max={sim.maxAmount} step={sim.step} onChange={onDaily}
+              hint={`Disetor setiap hari selama ${days} hari.`} />
           </div>
 
           <dl className="grid grid-cols-2 gap-4 border-t border-line pt-6 text-[13px]">
@@ -453,7 +433,7 @@ function DailyDeposit({ sim, daily, onDaily }: { sim: Simulation; daily: number;
         />
       </div>
 
-      {rows.length ? (
+      {sim.table ? <SavedTable sim={sim} amount={daily} /> : rows.length ? (
         <Table
           caption={`Tabel ${sim.name} · ${days} hari`}
           head={['Setoran per hari', 'Jumlah disetor', 'Diterima']}

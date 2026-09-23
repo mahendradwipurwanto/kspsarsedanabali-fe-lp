@@ -124,6 +124,8 @@ export interface Simulation {
   rateInfo?: string | null
   ratePercent?: number | null; rewardPercent?: number | null; bonusMultiplier?: number | null; termDays?: number | null
   tableAmounts: number[]; note?: string | null; sortOrder: number
+  /** The table the editor wrote, shown as written in place of the worked-out one. */
+  table?: { caption?: string; columns: string[]; rows: string[][] } | null
   product: Pick<Product, 'id' | 'name' | 'slug' | 'category' | 'tagline' | 'isVerified' | 'ratePercent' | 'rateMethod' | 'rateNote' | 'ratePercentIndicative' | 'rateMethodIndicative'>
 }
 

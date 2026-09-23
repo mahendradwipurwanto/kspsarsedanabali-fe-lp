@@ -110,6 +110,83 @@ export function Segments({
 }
 
 /** A range input styled to read as a ruled slider rather than an OS default. */
+/**
+ * A rupiah amount typed by hand, set as large as the figure it replaced.
+ *
+ * Dots are added as it is typed ("75.000.000"). While the number is outside the
+ * range it says so, and the caller computes with the nearest allowed amount;
+ * on leaving the field the amount is pulled into the range and, when a step is
+ * given, rounded to it, so what the field shows is what was calculated.
+ */
+export function AmountInput({
+  id, label, value, min, max, step, onChange, hint,
+}: {
+  id: string
+  label: string
+  value: number
+  min: number
+  max: number
+  /** Round to this multiple (counted from `min`) when the field is left. */
+  step?: number | null
+  onChange: (v: number) => void
+  hint?: string
+}) {
+  const fmt = (n: number) => (n ? n.toLocaleString('id-ID') : '')
+  const [text, setText] = useState(fmt(value))
+  const focused = useRef(false)
+  // The amount can change from outside — another product chosen, a link that
+  // named one — and the field follows unless someone is typing in it.
+  useEffect(() => { if (!focused.current) setText(fmt(value)) }, [value])
+
+  const raw = Number(text.replace(/\D/g, '')) || 0
+  const short = (n: number) => `Rp${n.toLocaleString('id-ID')}`
+  const error = !text
+    ? 'Isi nominalnya.'
+    : raw < min ? `Minimal ${short(min)}.` : raw > max ? `Maksimal ${short(max)}.` : undefined
+
+  const settle = () => {
+    focused.current = false
+    let n = Math.min(Math.max(raw, min), max)
+    if (step && step > 0) n = Math.min(max, min + Math.round((n - min) / step) * step)
+    onChange(n)
+    setText(fmt(n))
+  }
+
+  return (
+    <div>
+      <label htmlFor={id} className="block text-[13px] font-semibold text-ink-700">{label}</label>
+      <div
+        className={`mt-2 flex items-baseline gap-2 rounded-[var(--radius-input)] border bg-white px-4 py-2.5 transition-[border-color,box-shadow] duration-200 focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-green-600)_18%,transparent)] ${
+          error ? 'border-[#d1483c]' : 'border-line hover:border-line-strong focus-within:border-green-600'
+        }`}
+      >
+        <span className="figure text-[clamp(1.3rem,1.05rem+1vw,1.7rem)] text-ink-400" aria-hidden="true">Rp</span>
+        <input
+          id={id}
+          inputMode="numeric"
+          autoComplete="off"
+          value={text}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={`${id}-help`}
+          onFocus={() => { focused.current = true }}
+          onBlur={settle}
+          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+          onChange={(e) => {
+            const n = Number(e.target.value.replace(/\D/g, '').slice(0, 13)) || 0
+            setText(fmt(n))
+            onChange(n)
+          }}
+          className="figure min-w-0 flex-1 bg-transparent text-[clamp(1.8rem,1.35rem+1.7vw,2.4rem)] text-ink-900 outline-none placeholder:text-ink-300"
+          placeholder="0"
+        />
+      </div>
+      <p id={`${id}-help`} className={`tnum mt-1.5 text-[12.5px] ${error ? 'font-medium text-[#c23b2e]' : 'text-ink-400'}`} role={error ? 'alert' : undefined}>
+        {error ?? `${hint ? `${hint} ` : ''}Minimal ${short(min)}, maksimal ${short(max)}.`}
+      </p>
+    </div>
+  )
+}
+
 export function Slider(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <>

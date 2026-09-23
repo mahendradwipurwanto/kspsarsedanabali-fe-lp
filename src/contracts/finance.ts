@@ -256,3 +256,92 @@ export const formatRupiahShort = (n: number) => {
   if (n >= 1_000) return `Rp${(n / 1_000).toFixed(0)}rb`
   return `Rp${n}`
 }
+
+/* ─────────────────────── a simulation's table, from its formula ─────────── */
+
+export interface FormulaTableInput {
+  kind: 'installment' | 'term_deposit' | 'monthly_deposit' | 'daily_deposit'
+  name: string
+  minAmount: number
+  maxAmount: number
+  step?: number | null
+  tenors: number[]
+  tableAmounts?: number[]
+  ratePercent?: number | null
+  rewardPercent?: number | null
+  bonusMultiplier?: number | null
+  termDays?: number | null
+  /** Installment only: the product's annual rate and method. */
+  loanRatePercent?: number | null
+  loanMethod?: RateMethod
+}
+
+/** The amounts a table lists: the ones filed, else six across the range on the step. */
+function tableAmountsOf(t: FormulaTableInput): number[] {
+  if (t.tableAmounts?.length) return t.tableAmounts
+  const n = 6
+  const step = t.step && t.step > 0 ? t.step : 0
+  const out = new Set<number>()
+  for (let i = 0; i < n; i++) {
+    let a = t.minAmount + ((t.maxAmount - t.minAmount) * i) / (n - 1)
+    if (step) a = t.minAmount + Math.round((a - t.minAmount) / step) * step
+    else {
+      const mag = 10 ** Math.max(0, Math.floor(Math.log10(Math.max(a, 1))) - 1)
+      a = Math.round(a / mag) * mag
+    }
+    out.add(Math.min(Math.max(a, t.minAmount), t.maxAmount))
+  }
+  return [...out]
+}
+
+/**
+ * A table worked out from a simulation's own figures, as a starting point the
+ * editor can then change: one row per amount, one column per tenor where the
+ * kind has tenors. Every cell is text, formatted as the website shows money.
+ */
+export function formulaTable(t: FormulaTableInput): { caption: string; columns: string[]; rows: string[][] } {
+  const amounts = tableAmountsOf(t)
+  const years = (m: number) => (m % 12 === 0 ? `${m / 12} th` : `${m} bln`)
+  switch (t.kind) {
+    case 'term_deposit':
+      return {
+        caption: `Tabel ${t.name} · total imbal hasil`,
+        columns: ['Jumlah simpanan', ...t.tenors.map((m) => `${m} bulan`)],
+        rows: amounts.map((a) => [formatRupiah(a), ...t.tenors.map((m) => formatRupiah(calculateTermDeposit(a, m, t.ratePercent ?? 0, t.rewardPercent ?? 0).total))]),
+      }
+    case 'monthly_deposit':
+      return {
+        caption: `Tabel ${t.name} · nilai simpanan akhir`,
+        columns: ['Setoran per bulan', ...t.tenors.map(years)],
+        rows: amounts.map((a) => [formatRupiah(a), ...t.tenors.map((m) => formatRupiah(calculateMonthlyDeposit(a, m, t.ratePercent ?? 0).value))]),
+      }
+    case 'daily_deposit': {
+      const days = t.termDays ?? 210
+      return {
+        caption: `Tabel ${t.name} · ${days} hari`,
+        columns: ['Setoran per hari', 'Jumlah disetor', 'Bonus', 'Diterima'],
+        rows: amounts.map((a) => {
+          const r = calculateDailyDeposit(a, days, t.bonusMultiplier ?? 0)
+          return [formatRupiah(a), formatRupiah(r.deposited), formatRupiah(r.bonus), formatRupiah(r.received)]
+        }),
+      }
+    }
+    default:
+      return {
+        caption: `Tabel angsuran ${t.name} · per bulan`,
+        columns: ['Nominal pinjaman', ...t.tenors.map((m) => `${m} bulan`)],
+        rows: amounts.map((a) => [
+          formatRupiah(a),
+          ...t.tenors.map((m) => t.loanRatePercent
+            ? formatRupiah(calculateInstallment({ principal: a, annualRatePercent: t.loanRatePercent, months: m, method: t.loanMethod ?? 'flat' }).monthly)
+            : '—'),
+        ]),
+      }
+  }
+}
+
+/** The number a table cell names, if it names one: "Rp 2.500.000" → 2500000. */
+export const cellAmount = (cell: string) => {
+  const digits = cell.replace(/\D/g, '')
+  return digits ? Number(digits) : null
+}

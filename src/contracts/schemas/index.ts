@@ -512,6 +512,21 @@ export const SIMULATION_KIND_LABELS: Record<SimulationKind, string> = {
 const money = z.number().int().min(0).max(100_000_000_000)
 const nullableMoney = money.nullable().optional()
 
+/**
+ * The table shown under a calculator, written the way the koperasi prints it:
+ * a header row and rows of cells, all text, so a cell can hold "Rp2.500.000",
+ * "5%" or a note. The row whose first cell reads as the amount a visitor typed
+ * is marked on the website.
+ */
+export const simulationTableSchema = z
+  .object({
+    caption: z.string().max(160).optional().or(z.literal('')),
+    columns: z.array(z.string().max(60)).min(1, 'Tabel butuh minimal satu kolom.').max(12, 'Tabel paling banyak 12 kolom.'),
+    rows: z.array(z.array(z.string().max(80))).max(100, 'Tabel paling banyak 100 baris.'),
+  })
+  .refine((t) => t.rows.every((r) => r.length === t.columns.length), { message: 'Setiap baris harus punya sel sebanyak kolomnya.' })
+export type SimulationTable = z.infer<typeof simulationTableSchema>
+
 export const simulationSchema = z
   .object({
     name: z.string().min(2).max(120),
@@ -538,6 +553,8 @@ export const simulationSchema = z
     termDays: z.number().int().min(1).max(3650).nullable().optional(),
     /** Amounts listed in the reference table under a savings calculator. Empty shows no table. */
     tableAmounts: z.array(money).default([]),
+    /** The table the editor wrote. When set it replaces the table worked out from `tableAmounts`. */
+    table: simulationTableSchema.nullable().optional(),
     /** The explanation in the result card. Empty uses one written from the figures. */
     note: z.string().max(400).optional().or(z.literal('')),
     isActive: z.boolean().default(true),
