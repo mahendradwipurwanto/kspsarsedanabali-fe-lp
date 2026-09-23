@@ -299,7 +299,11 @@ function tableAmountsOf(t: FormulaTableInput): number[] {
  * editor can then change: one row per amount, one column per tenor where the
  * kind has tenors. Every cell is text, formatted as the website shows money.
  */
-export function formulaTable(t: FormulaTableInput): { caption: string; columns: string[]; rows: string[][] } {
+export function formulaTable(t: FormulaTableInput): { caption: string; source: string; columns: string[]; rows: string[][] } {
+  return { source: 'Tabel resmi KSP Sari Sedana Bali', ...formulaTableBody(t) }
+}
+
+function formulaTableBody(t: FormulaTableInput): { caption: string; columns: string[]; rows: string[][] } {
   const amounts = tableAmountsOf(t)
   const years = (m: number) => (m % 12 === 0 ? `${m / 12} th` : `${m} bln`)
   switch (t.kind) {

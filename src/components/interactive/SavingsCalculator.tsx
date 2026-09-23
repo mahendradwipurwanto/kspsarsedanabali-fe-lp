@@ -166,9 +166,10 @@ function Result({
 }
 
 export function Table({
-  caption, head, rows, activeIndex,
+  caption, source, head, rows, activeIndex,
 }: {
   caption: string
+  source?: string
   head: string[]
   rows: string[][]
   activeIndex: number
@@ -177,7 +178,7 @@ export function Table({
     <div className="surface overflow-hidden">
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-5 py-4">
         <h3 className="text-[15px] font-bold text-ink-900">{caption}</h3>
-        <p className="text-[12px] text-ink-400">Sumber: tabel resmi KSP Sari Sedana Bali</p>
+        {source ? <p className="text-[12px] text-ink-400">Sumber: {source}</p> : null}
       </div>
       <div className="rail overflow-x-auto">
         <table className="w-full min-w-[520px] text-[13.5px]">
@@ -212,8 +213,9 @@ export function Table({
 }
 
 /**
- * The table the editor wrote, shown as written. The row whose first cell reads
- * as the amount typed in is marked, as the worked-out tables mark theirs.
+ * The table filed with the simulation in the console, shown as written; the
+ * site never works one out itself. The row whose first cell reads as the
+ * amount typed in is marked.
  */
 export function SavedTable({ sim, amount }: { sim: Simulation; amount: number }) {
   const t = sim.table
@@ -221,6 +223,7 @@ export function SavedTable({ sim, amount }: { sim: Simulation; amount: number })
   return (
     <Table
       caption={t.caption || `Tabel ${sim.name}`}
+      source={t.source}
       head={t.columns}
       rows={t.rows}
       activeIndex={t.rows.findIndex((r) => cellAmount(r[0] ?? '') === amount)}
@@ -239,12 +242,6 @@ function TermDeposit({
   const rate = sim.ratePercent ?? 0
   const reward = sim.rewardPercent ?? 0
   const result = useMemo(() => calculateTermDeposit(amount, months, rate, reward), [amount, months, rate, reward])
-  const rows = sim.tableAmounts.map((a) => {
-    const r = calculateTermDeposit(a, months, rate, reward)
-    return reward
-      ? [formatRupiah(a), formatRupiah(r.interest), formatRupiah(r.reward), formatRupiah(r.total)]
-      : [formatRupiah(a), formatRupiah(r.interest), formatRupiah(r.payout)]
-  })
 
   return (
     <>
@@ -293,14 +290,7 @@ function TermDeposit({
         />
       </div>
 
-      {sim.table ? <SavedTable sim={sim} amount={amount} /> : rows.length ? (
-        <Table
-          caption={`Tabel ${sim.name} · jangka waktu ${months} bulan`}
-          head={reward ? ['Jumlah simpanan', 'Nilai bunga', 'Reward', 'Total'] : ['Jumlah simpanan', 'Nilai bunga', 'Diterima']}
-          rows={rows}
-          activeIndex={sim.tableAmounts.indexOf(amount)}
-        />
-      ) : null}
+      <SavedTable sim={sim} amount={amount} />
     </>
   )
 }
@@ -316,10 +306,6 @@ function MonthlyDeposit({
   const rate = sim.ratePercent ?? 0
   const years = months / 12
   const result = useMemo(() => calculateMonthlyDeposit(deposit, months, rate), [deposit, months, rate])
-  const rows = sim.tableAmounts.map((d) => {
-    const r = calculateMonthlyDeposit(d, months, rate)
-    return [formatRupiah(d), formatRupiah(r.deposited), formatRupiah(r.value)]
-  })
 
   return (
     <>
@@ -372,14 +358,7 @@ function MonthlyDeposit({
         />
       </div>
 
-      {sim.table ? <SavedTable sim={sim} amount={deposit} /> : rows.length ? (
-        <Table
-          caption={`Tabel ${sim.name} · ${num(years)} tahun (${months} bulan)`}
-          head={['Setoran per bulan', 'Jumlah disetor', 'Nilai simpanan akhir']}
-          rows={rows}
-          activeIndex={sim.tableAmounts.indexOf(deposit)}
-        />
-      ) : null}
+      <SavedTable sim={sim} amount={deposit} />
     </>
   )
 }
@@ -390,10 +369,6 @@ function DailyDeposit({ sim, daily, onDaily }: { sim: Simulation; daily: number;
   const days = sim.termDays ?? 210
   const multiplier = sim.bonusMultiplier ?? 0
   const result = useMemo(() => calculateDailyDeposit(daily, days, multiplier), [daily, days, multiplier])
-  const rows = sim.tableAmounts.map((d) => {
-    const r = calculateDailyDeposit(d, days, multiplier)
-    return [formatRupiah(d), formatRupiah(r.deposited), formatRupiah(r.received)]
-  })
 
   return (
     <>
@@ -433,14 +408,7 @@ function DailyDeposit({ sim, daily, onDaily }: { sim: Simulation; daily: number;
         />
       </div>
 
-      {sim.table ? <SavedTable sim={sim} amount={daily} /> : rows.length ? (
-        <Table
-          caption={`Tabel ${sim.name} · ${days} hari`}
-          head={['Setoran per hari', 'Jumlah disetor', 'Diterima']}
-          rows={rows}
-          activeIndex={sim.tableAmounts.indexOf(daily)}
-        />
-      ) : null}
+      <SavedTable sim={sim} amount={daily} />
     </>
   )
 }

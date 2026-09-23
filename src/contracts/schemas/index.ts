@@ -521,6 +521,8 @@ const nullableMoney = money.nullable().optional()
 export const simulationTableSchema = z
   .object({
     caption: z.string().max(160).optional().or(z.literal('')),
+    /** Where the figures come from, shown beside the caption. Empty shows nothing. */
+    source: z.string().max(120).optional().or(z.literal('')),
     columns: z.array(z.string().max(60)).min(1, 'Tabel butuh minimal satu kolom.').max(12, 'Tabel paling banyak 12 kolom.'),
     rows: z.array(z.array(z.string().max(80))).max(100, 'Tabel paling banyak 100 baris.'),
   })
