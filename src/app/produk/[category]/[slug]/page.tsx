@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { formatRupiahShort, SAVINGS_TABLE_SLUGS } from '@/contracts'
-import { getProduct, getProducts, getBranches } from '@/lib/api'
+import { formatRupiahShort } from '@/contracts'
+import { getProduct, getProducts, getBranches, getSimulations } from '@/lib/api'
 import { buildMetadata, describe, titleFor } from '@/lib/seo'
 import { breadcrumbLd, productLd } from '@/lib/jsonld'
 import { Shell, Band, Breadcrumbs, JsonLd, Action, Card, Pill, Icon, Heading } from '@/components/ui'
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: { params: Promise<{ category:
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ category: string; slug: string }> }) {
   const { category, slug } = await params
-  const [res, branches, allProducts] = await Promise.all([getProduct(slug), getBranches(), getProducts()])
+  const [res, branches, allProducts, simulations] = await Promise.all([getProduct(slug), getBranches(), getProducts(), getSimulations()])
   if (!res) notFound()
 
   const p = res.data
@@ -57,19 +57,20 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   ].filter(Boolean) as { title: string; body: string }[]
 
   const isLoan = p.category === 'pinjaman'
-  // Savings plans the koperasi publishes a table for get a link to it.
-  const hasSavingsTable = SAVINGS_TABLE_SLUGS.some((slug) => slug === p.slug)
+  // A savings product with a calculator filed under Simulasi gets a link to it.
+  const hasSavingsTable = simulations.some((x) => x.kind !== 'installment' && x.product.id === p.id)
   // No brochure artwork uploaded yet: a 420px square placeholder is a large piece
   // of nothing beside the terms, so the column collapses and the copy runs at a
   // readable measure instead.
   const hasArtwork = Boolean(p.image)
-  const loans = allProducts.filter((x) => x.category === 'pinjaman' && x.isVerified && x.ratePercent != null)
+  const loans = simulations.filter((x) => x.kind === 'installment' && x.product.isVerified && x.product.ratePercent != null)
+  const ownLoan = loans.find((x) => x.product.id === p.id)
   // The one condition behind both the button and the section it points at. A
   // loan whose rate is still unverified publishes no figure to calculate with,
   // so there is nothing to render — and offering "Hitung angsuran" anyway left
   // the button pointing at an #simulasi that did not exist: the address gained
   // a fragment and the page stayed exactly where it was.
-  const canSimulate = isLoan && p.isVerified && p.ratePercent != null
+  const canSimulate = isLoan && ownLoan != null
 
   return (
     <>
@@ -155,7 +156,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
               title={`Simulasi Angsuran ${p.name}`}
               lead="Geser nominal dan pilih jangka waktu untuk melihat perkiraan angsuran bulanan Anda."
             />
-            <SimulationCalculator products={loans} initialProductId={p.id} disclaimer="Simulasi awal, bukan penawaran final. Angka resmi ditentukan setelah pengajuan dan survei." />
+            <SimulationCalculator simulations={loans} initialSimulationId={ownLoan?.id} disclaimer="Simulasi awal, bukan penawaran final. Angka resmi ditentukan setelah pengajuan dan survei." />
           </Shell>
         </Band>
       ) : null}

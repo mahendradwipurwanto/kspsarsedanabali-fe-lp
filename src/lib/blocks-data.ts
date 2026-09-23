@@ -1,5 +1,5 @@
 import {
-  getBranches, getDocumentCategories, getDocuments, getFaqs, getJobs, getPosts, getProducts, getSettings, getStats, getTestimonials,
+  getBranches, getDocumentCategories, getDocuments, getFaqs, getJobs, getPosts, getProducts, getSettings, getSimulations, getStats, getTestimonials,
 } from './api'
 import type { BlockContext } from '@/components/blocks'
 
@@ -23,8 +23,8 @@ const NEEDS: Record<string, (keyof Needs)[]> = {
   org_chart: ['settings'],
   job_list: ['jobs'],
   faq_index: ['faqs'],
-  simulation_calculator: ['products'],
-  simulation_tabs: ['products'],
+  simulation_calculator: ['simulations'],
+  simulation_tabs: ['simulations'],
   profiling_wizard: ['products', 'branches'],
   media_text: [],
   steps: [],
@@ -36,6 +36,7 @@ const NEEDS: Record<string, (keyof Needs)[]> = {
 
 interface Needs {
   products: boolean
+  simulations: boolean
   branches: boolean
   posts: boolean
   stats: boolean
@@ -80,8 +81,9 @@ export async function getBlockContext(
   const testimonialBlock = blocks.find((b) => b.type === 'testimonial_slider' && b.isVisible)
   const testimonialLimit = typeof testimonialBlock?.props.limit === 'number' ? testimonialBlock.props.limit : 3
 
-  const [products, branches, postsRes, stats, testimonials, documents, documentCategories, settings, jobs, faqs] = await Promise.all([
+  const [products, simulations, branches, postsRes, stats, testimonials, documents, documentCategories, settings, jobs, faqs] = await Promise.all([
     need.products ? getProducts() : Promise.resolve([]),
+    need.simulations ? getSimulations() : Promise.resolve([]),
     need.branches ? getBranches() : Promise.resolve([]),
     need.posts ? getPosts(postIndex ? { page: opts.page ?? 1, limit: perPage } : { limit: teaserLimit }) : Promise.resolve(null),
     need.stats ? getStats() : Promise.resolve([]),
@@ -95,6 +97,7 @@ export async function getBlockContext(
 
   return {
     products,
+    simulations,
     branches,
     posts: postsRes?.data ?? [],
     stats,

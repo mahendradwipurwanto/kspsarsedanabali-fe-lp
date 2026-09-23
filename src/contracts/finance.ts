@@ -147,9 +147,18 @@ export interface SigemasResult {
 }
 
 export function calculateSigemas(amount: number, months: number): SigemasResult {
+  return calculateTermDeposit(amount, months, SIGEMAS.interestPercentPerYear, SIGEMAS.rewardPercentPerYear)
+}
+
+/**
+ * A lump sum held for a term, earning simple interest plus an optional reward,
+ * both quoted per year. SIGEMAS is this with 1% and 4%; a simulation filed in
+ * the console under "Simpanan berjangka" supplies its own two figures.
+ */
+export function calculateTermDeposit(amount: number, months: number, interestPercentPerYear: number, rewardPercentPerYear = 0): SigemasResult {
   const years = months / 12
-  const interest = round((amount * SIGEMAS.interestPercentPerYear / 100) * years)
-  const reward = round((amount * SIGEMAS.rewardPercentPerYear / 100) * years)
+  const interest = round((amount * interestPercentPerYear / 100) * years)
+  const reward = round((amount * rewardPercentPerYear / 100) * years)
   return { years, interest, reward, total: interest + reward, payout: amount + interest + reward }
 }
 
@@ -181,8 +190,16 @@ export interface SimapanResult {
 }
 
 export function calculateSimapan(monthlyDeposit: number, months: number): SimapanResult {
-  const i = SIMAPAN.monthlyRatePercent / 100
-  const value = monthlyDeposit * (((1 + i) ** months - 1) / i)
+  return calculateMonthlyDeposit(monthlyDeposit, months, SIMAPAN.monthlyRatePercent)
+}
+
+/**
+ * A fixed deposit every month, compounding monthly as an ordinary annuity.
+ * SIMAPAN is this at 0.35% a month.
+ */
+export function calculateMonthlyDeposit(monthlyDeposit: number, months: number, monthlyRatePercent: number): SimapanResult {
+  const i = monthlyRatePercent / 100
+  const value = i === 0 ? monthlyDeposit * months : monthlyDeposit * (((1 + i) ** months - 1) / i)
   const deposited = monthlyDeposit * months
   return { months, deposited, value: round(value), profit: round(value) - deposited }
 }
@@ -213,9 +230,17 @@ export interface SipuraResult {
 }
 
 export function calculateSipura(dailyDeposit: number): SipuraResult {
-  const deposited = dailyDeposit * SIPURA.days
-  const bonus = Math.floor((dailyDeposit * SIPURA.bonusMultiplier) / 1000) * 1000
-  return { days: SIPURA.days, deposited, bonus, received: deposited + bonus }
+  return calculateDailyDeposit(dailyDeposit, SIPURA.days, SIPURA.bonusMultiplier)
+}
+
+/**
+ * A deposit every day for a fixed number of days, with a bonus of some multiple
+ * of one day's deposit, rounded down to the thousand. SIPURA is 210 days and 1.9×.
+ */
+export function calculateDailyDeposit(dailyDeposit: number, days: number, bonusMultiplier: number): SipuraResult {
+  const deposited = dailyDeposit * days
+  const bonus = Math.floor((dailyDeposit * bonusMultiplier) / 1000) * 1000
+  return { days, deposited, bonus, received: deposited + bonus }
 }
 
 /** Slugs the savings tables belong to, so a product page can link to its table. */

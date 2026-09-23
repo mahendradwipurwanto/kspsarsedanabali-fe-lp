@@ -109,6 +109,24 @@ export interface Product {
   seo: Record<string, string>
 }
 
+/**
+ * One calculator on /simulasi, as the console files it. The product rides
+ * along, already through the API's rate gate: a loan calculator reads its rate
+ * from here, and only `ratePercentIndicative` while the product is unconfirmed.
+ */
+export interface Simulation {
+  id: string; name: string; tagline?: string | null
+  kind: 'installment' | 'term_deposit' | 'monthly_deposit' | 'daily_deposit'
+  minAmount: number; maxAmount: number; step?: number | null; defaultAmount?: number | null
+  /** Months. */
+  tenors: number[]
+  /** The label at the top right of the result card. */
+  rateInfo?: string | null
+  ratePercent?: number | null; rewardPercent?: number | null; bonusMultiplier?: number | null; termDays?: number | null
+  tableAmounts: number[]; note?: string | null; sortOrder: number
+  product: Pick<Product, 'id' | 'name' | 'slug' | 'category' | 'tagline' | 'isVerified' | 'ratePercent' | 'rateMethod' | 'rateNote' | 'ratePercentIndicative' | 'rateMethodIndicative'>
+}
+
 export interface Post {
   id: string; title: string; slug: string; excerpt?: string | null; content?: string | null
   coverImage?: string; publishedAt: string | null; readMinutes: number
@@ -154,6 +172,9 @@ export const getProducts = (category?: string, limit = 50) =>
 
 export const getProduct = (slug: string) =>
   apiGet<{ data: Product; related: Product[] }>(`/products/${slug}`, { tags: [`product:${slug}`, 'products'] })
+
+export const getSimulations = () =>
+  apiGet<Wrapped<Simulation[]>>('/simulations', { tags: ['simulations', 'products'] }).then((r) => r?.data ?? [])
 
 export const getBranches = () => apiGet<Wrapped<Branch[]>>('/branches', { tags: ['branches'] }).then((r) => r?.data ?? [])
 

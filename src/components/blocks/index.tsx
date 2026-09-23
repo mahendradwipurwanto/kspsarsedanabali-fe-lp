@@ -1,7 +1,7 @@
 import { Fragment, Suspense } from 'react'
 import Link from 'next/link'
 import { getBlock, defaultPropsFor, telLink, getOpenState, orgLevelsFrom, trackingAttrs, DEFAULT_ANALYTICS, type OrgColumn, type AnalyticsSettings } from '@/contracts'
-import type { Block, Branch, Product, Post, Stat, Testimonial, DocumentItem, DocumentCategory, Job, Faq } from '@/lib/api'
+import type { Block, Branch, Product, Simulation, Post, Stat, Testimonial, DocumentItem, DocumentCategory, Job, Faq } from '@/lib/api'
 import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, iconByName } from '../ui'
 import { Media } from '../ui/Media'
 import { HeroCarousel, QuickAccess } from '../interactive/HeroCarousel'
@@ -28,6 +28,8 @@ import { appSettings } from '@/lib/apps'
 export interface BlockContext {
   branches: Branch[]
   products: Product[]
+  /** The simulator's calculators, for the pages that render one. */
+  simulations?: Simulation[]
   posts: Post[]
   stats: Stat[]
   testimonials: Testimonial[]
@@ -44,6 +46,9 @@ export interface BlockContext {
   /** Query string the route was opened with, for blocks that preselect from it. */
   query?: { produk?: string; nominal?: string; tenor?: string; jenis?: string }
 }
+
+/** A loan calculator needs a rate to compute with: signed off, or the figure on record labelled as an estimate. */
+const hasLoanRate = (x: Simulation) => (x.product.ratePercent ?? x.product.ratePercentIndicative) != null
 
 type P = Record<string, unknown>
 const s = (v: unknown, fallback = '') => (typeof v === 'string' ? v : fallback)
@@ -761,14 +766,14 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
 
     case 'simulation_calculator': {
       const chosen = s(p.product)
-      const loans = ctx.products.filter((x) => x.category === 'pinjaman' && (x.ratePercent ?? x.ratePercentIndicative) != null)
-      const preselected = loans.find((x) => x.id === chosen)
+      const loans = (ctx.simulations ?? []).filter((x) => x.kind === 'installment' && hasLoanRate(x))
+      const preselected = loans.find((x) => x.product.id === chosen)
       return (
         <Band tone={tone} id="simulasi">
           <Shell>
             <Heading label={s(p.eyebrow, 'Kalkulator')} title={s(p.heading, 'Simulasi Angsuran')} lead={s(p.body)} />
             {loans.length ? (
-              <SimulationCalculator products={loans} initialProductId={preselected?.id} disclaimer={s(p.disclaimer, 'Simulasi awal, bukan penawaran final.')} />
+              <SimulationCalculator simulations={loans} initialSimulationId={preselected?.id} disclaimer={s(p.disclaimer, 'Simulasi awal, bukan penawaran final.')} />
             ) : (
               <Blank
                 title="Simulasi belum tersedia"
@@ -902,19 +907,22 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
     }
 
     case 'simulation_tabs': {
-      const loans = ctx.products.filter((x) => x.category === 'pinjaman' && (x.ratePercent ?? x.ratePercentIndicative) != null)
-      const savings = ctx.products.filter((x) => x.category === 'simpanan')
-      const preselected = loans.find((x) => x.slug === ctx.query?.produk)
-      const plan = ['sigemas', 'simapan', 'sipura'].find((slug) => slug === ctx.query?.produk)
+      const all = ctx.simulations ?? []
+      const loans = all.filter((x) => x.kind === 'installment' && hasLoanRate(x))
+      const savings = all.filter((x) => x.kind !== 'installment')
+      // A link names a product (?produk=sigemas); open whichever calculator simulates it.
+      const linked = [...loans, ...savings].find((x) => x.product.slug === ctx.query?.produk)
+      const tab = linked
+        ? (linked.kind === 'installment' ? 'pinjaman' : 'simpanan')
+        : ctx.query?.jenis === 'simpanan' ? 'simpanan' : (s(p.defaultTab, 'pinjaman') as 'pinjaman' | 'simpanan')
       return (
         <Band tone={tone} id="simulasi">
           <Shell>
             <SimulationTabs
-              loanProducts={loans}
-              savingsProducts={savings}
-              initialTab={plan || ctx.query?.jenis === 'simpanan' ? 'simpanan' : (s(p.defaultTab, 'pinjaman') as 'pinjaman' | 'simpanan')}
-              initialPlan={plan as 'sigemas' | 'simapan' | 'sipura' | undefined}
-              initialProductId={preselected?.id}
+              loans={loans}
+              savings={savings}
+              initialTab={tab}
+              initialSimulationId={linked?.id}
               initialAmount={ctx.query?.nominal ? Number(ctx.query.nominal) : undefined}
               initialTenor={ctx.query?.tenor ? Number(ctx.query.tenor) : undefined}
               disclaimer={s(p.disclaimer, 'Simulasi awal, bukan penawaran final.')}

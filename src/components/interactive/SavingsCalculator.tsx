@@ -2,10 +2,10 @@
 
 import { useMemo, useState, type ReactNode } from 'react'
 import {
-  SIGEMAS, SIMAPAN, SIPURA, calculateSigemas, calculateSimapan, calculateSipura,
-  formatRupiah, formatRupiahShort, type SavingsTableSlug,
+  calculateTermDeposit, calculateMonthlyDeposit, calculateDailyDeposit,
+  formatRupiah, formatRupiahShort,
 } from '@/contracts'
-import type { Product } from '@/lib/api'
+import type { Simulation } from '@/lib/api'
 import { track } from '@/lib/client'
 import { Action, Icon } from '../ui'
 import { Slider, Segments } from '../ui/form'
@@ -13,66 +13,117 @@ import { Slider, Segments } from '../ui/form'
 /** Indonesian decimals: 0,35 rather than 0.35. */
 const num = (n: number) => n.toLocaleString('id-ID')
 
-const PLANS: { slug: SavingsTableSlug; name: string; tagline: string }[] = [
-  { slug: 'sigemas', name: 'SIGEMAS', tagline: 'Simpanan Generasi Emas' },
-  { slug: 'simapan', name: 'SIMAPAN', tagline: 'Simpanan Masa Depan' },
-  { slug: 'sipura', name: 'SIPURA', tagline: 'Simpanan Hari Raya' },
-]
+const clamp = (n: number, min: number, max: number) => Math.min(Math.max(n, min), max)
 
 /**
- * Savings side of the simulator, driven by the koperasi's own printed tables:
- * SIGEMAS from the brochure, SIMAPAN and SIPURA from the signed spreadsheet.
+ * Savings side of the simulator, one calculator per simulation filed in the
+ * console. The kind picks the formula — a lump sum for a term, a monthly
+ * deposit, a daily one — and the row supplies the figures, which for SIGEMAS,
+ * SIMAPAN and SIPURA are the ones on the koperasi's printed tables.
  *
- * Every figure is reproduced from those tables rather than approximated, and
- * each plan shows its table underneath with the chosen row marked, so a member
- * can hold the printed sheet next to the screen and read the same number.
+ * A simulation that lists table rows shows that table underneath with the
+ * chosen row marked, so a member can hold the printed sheet next to the screen
+ * and read the same number.
  */
 export function SavingsCalculator({
-  products, initialPlan = 'sigemas',
+  simulations, initialSimulationId, initialAmount, initialTenor,
 }: {
-  products: Product[]
-  initialPlan?: SavingsTableSlug
+  simulations: Simulation[]
+  initialSimulationId?: string
+  initialAmount?: number
+  initialTenor?: number
 }) {
-  const [plan, setPlan] = useState<SavingsTableSlug>(initialPlan)
+  const [simulationId, setSimulationId] = useState(initialSimulationId ?? simulations[0]?.id ?? '')
+  const sim = simulations.find((x) => x.id === simulationId) ?? simulations[0]
 
-  const [gemasAmount, setGemasAmount] = useState(100_000_000)
-  const [gemasMonths, setGemasMonths] = useState<number>(12)
-  const [simapanDeposit, setSimapanDeposit] = useState(500_000)
-  const [simapanYears, setSimapanYears] = useState(5)
-  const [sipuraDaily, setSipuraDaily] = useState(20_000)
+  // Each calculator keeps its own figures, so switching away and back does not
+  // lose what the visitor had set.
+  const [amounts, setAmounts] = useState<Record<string, number>>(() =>
+    Object.fromEntries(simulations.map((x) => [x.id, startAmount(x, x.id === initialSimulationId ? initialAmount : undefined)])),
+  )
+  const [tenors, setTenors] = useState<Record<string, number>>(() =>
+    Object.fromEntries(simulations.map((x) => [x.id, startTenor(x, x.id === initialSimulationId ? initialTenor : undefined)])),
+  )
 
-  const product = products.find((p) => p.slug === plan)
+  if (!sim) return null
+  const amount = amounts[sim.id] ?? startAmount(sim)
+  const months = tenors[sim.id] ?? startTenor(sim)
+  const onAmount = (v: number) => setAmounts((a) => ({ ...a, [sim.id]: v }))
+  const onMonths = (v: number) => setTenors((t) => ({ ...t, [sim.id]: v }))
 
   return (
     <div className="grid gap-5">
-      <div className="grid gap-2.5 sm:grid-cols-3">
-        {PLANS.map((p) => {
-          const active = p.slug === plan
-          return (
-            <button
-              key={p.slug}
-              type="button"
-              onClick={() => { setPlan(p.slug); track('simulation_change', { plan: p.slug }) }}
-              aria-pressed={active}
-              className={`rounded-[var(--radius-card)] border p-4 text-left transition-colors duration-200 ${
-                active ? 'border-ink-900 bg-ink-900' : 'border-line bg-white hover:border-ink-900'
-              }`}
-            >
-              <span className={`block text-[15px] font-bold ${active ? 'text-white' : 'text-ink-900'}`}>{p.name}</span>
-              <span className={`mt-0.5 block text-[12.5px] ${active ? 'text-white/60' : 'text-ink-500'}`}>{p.tagline}</span>
-            </button>
-          )
-        })}
-      </div>
+      {simulations.length > 1 ? (
+        <div className={`grid gap-2.5 ${simulations.length % 3 === 0 || simulations.length > 4 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+          {simulations.map((x) => {
+            const active = x.id === sim.id
+            return (
+              <button
+                key={x.id}
+                type="button"
+                onClick={() => { setSimulationId(x.id); track('simulation_change', { plan: x.product.slug }) }}
+                aria-pressed={active}
+                className={`rounded-[var(--radius-card)] border p-4 text-left transition-colors duration-200 ${
+                  active ? 'border-ink-900 bg-ink-900' : 'border-line bg-white hover:border-ink-900'
+                }`}
+              >
+                <span className={`block text-[15px] font-bold ${active ? 'text-white' : 'text-ink-900'}`}>{x.name}</span>
+                {x.tagline || x.product.tagline ? (
+                  <span className={`mt-0.5 block text-[12.5px] ${active ? 'text-white/60' : 'text-ink-500'}`}>{x.tagline || x.product.tagline}</span>
+                ) : null}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
 
-      {plan === 'sigemas' ? (
-        <Sigemas amount={gemasAmount} months={gemasMonths} onAmount={setGemasAmount} onMonths={setGemasMonths} product={product} />
-      ) : plan === 'simapan' ? (
-        <Simapan deposit={simapanDeposit} years={simapanYears} onDeposit={setSimapanDeposit} onYears={setSimapanYears} product={product} />
+      {sim.kind === 'term_deposit' ? (
+        <TermDeposit key={sim.id} sim={sim} amount={amount} months={months} onAmount={onAmount} onMonths={onMonths} />
+      ) : sim.kind === 'monthly_deposit' ? (
+        <MonthlyDeposit key={sim.id} sim={sim} deposit={amount} months={months} onDeposit={onAmount} onMonths={onMonths} />
       ) : (
-        <Sipura daily={sipuraDaily} onDaily={setSipuraDaily} product={product} />
+        <DailyDeposit key={sim.id} sim={sim} daily={amount} onDaily={onAmount} />
       )}
     </div>
+  )
+}
+
+function startAmount(sim: Simulation, wanted?: number) {
+  return clamp(wanted ?? sim.defaultAmount ?? sim.minAmount, sim.minAmount, sim.maxAmount)
+}
+
+function startTenor(sim: Simulation, wanted?: number) {
+  if (wanted && sim.tenors.includes(wanted)) return wanted
+  return sim.tenors[0] ?? 12
+}
+
+/** The slider's step: the one filed, else whole steps of about a hundredth of the range. */
+function stepOf(sim: Simulation) {
+  if (sim.step) return sim.step
+  const raw = (sim.maxAmount - sim.minAmount) / 100
+  const magnitude = 10 ** Math.floor(Math.log10(Math.max(raw, 1)))
+  return Math.max(1_000, Math.round(raw / magnitude) * magnitude)
+}
+
+const rateInfoOf = (sim: Simulation) => sim.rateInfo || 'tabel resmi koperasi'
+
+/** The slider with its range underneath, shared by every kind. */
+function AmountSlider({ sim, value, onChange, label }: { sim: Simulation; value: number; onChange: (v: number) => void; label: string }) {
+  return (
+    <>
+      <Slider
+        min={sim.minAmount}
+        max={sim.maxAmount}
+        step={stepOf(sim)}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        aria-label={label}
+      />
+      <p className="tnum flex justify-between text-[12px] text-ink-400">
+        <span>{formatRupiahShort(sim.minAmount)}</span>
+        <span>{formatRupiahShort(sim.maxAmount)}</span>
+      </p>
+    </>
   )
 }
 
@@ -95,7 +146,7 @@ function Amount({ label, value, hint }: { label: string; value: number; hint?: s
 }
 
 function Result({
-  headline, headlineLabel, rows, total, totalLabel, note, product, footer,
+  headline, headlineLabel, rows, total, totalLabel, note, product, footer, rateInfo,
 }: {
   headline: number
   headlineLabel: string
@@ -103,8 +154,9 @@ function Result({
   total: number
   totalLabel: string
   note: string
-  product?: Product
+  product: Simulation['product']
   footer?: string
+  rateInfo: string
 }) {
   return (
     <div className="surface-dark relative overflow-hidden p-6 text-white sm:p-8">
@@ -113,7 +165,7 @@ function Result({
 
       <div className="relative flex items-center justify-between gap-4">
         <p className="text-[13px] font-medium text-white/60">Hasil simpanan</p>
-        <span className="text-[12px] font-medium text-white/45">tabel resmi koperasi</span>
+        <span className="text-[12px] font-medium text-white/45">{rateInfo}</span>
       </div>
 
       <p className="relative mt-7 text-[13px] text-white/60">{headlineLabel}</p>
@@ -138,13 +190,11 @@ function Result({
       </p>
 
       <div className="relative mt-7 grid gap-2.5">
-        <Action href={product ? `/kontak?produk=${product.slug}` : '/kontak'} variant="light" size="lg" full>
+        <Action href={`/kontak?produk=${product.slug}`} variant="light" size="lg" full>
           Buka simpanan
           <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
         </Action>
-        {product ? (
-          <Action href={`/produk/simpanan/${product.slug}`} variant="ghostLight" full>Lihat syarat dan ketentuan</Action>
-        ) : null}
+        <Action href={`/produk/${product.category}/${product.slug}`} variant="ghostLight" full>Lihat syarat dan ketentuan</Action>
       </div>
 
       {footer ? <p className="relative mt-6 border-t border-white/10 pt-5 text-[12px] leading-relaxed text-white/45">{footer}</p> : null}
@@ -198,19 +248,22 @@ function Table({
   )
 }
 
-/* ───────────────────────────────── SIGEMAS ──────────────────────────────── */
+/* ─────────────────────── lump sum, interest + reward ────────────────────── */
 
-function Sigemas({
-  amount, months, onAmount, onMonths, product,
+function TermDeposit({
+  sim, amount, months, onAmount, onMonths,
 }: {
-  amount: number; months: number
+  sim: Simulation; amount: number; months: number
   onAmount: (v: number) => void; onMonths: (v: number) => void
-  product?: Product
 }) {
-  const result = useMemo(() => calculateSigemas(amount, months), [amount, months])
-  const rows = SIGEMAS.amounts.map((a) => {
-    const r = calculateSigemas(a, months)
-    return [formatRupiah(a), formatRupiah(r.interest), formatRupiah(r.reward), formatRupiah(r.total)]
+  const rate = sim.ratePercent ?? 0
+  const reward = sim.rewardPercent ?? 0
+  const result = useMemo(() => calculateTermDeposit(amount, months, rate, reward), [amount, months, rate, reward])
+  const rows = sim.tableAmounts.map((a) => {
+    const r = calculateTermDeposit(a, months, rate, reward)
+    return reward
+      ? [formatRupiah(a), formatRupiah(r.interest), formatRupiah(r.reward), formatRupiah(r.total)]
+      : [formatRupiah(a), formatRupiah(r.interest), formatRupiah(r.payout)]
   })
 
   return (
@@ -218,77 +271,73 @@ function Sigemas({
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
         <Panel>
           <div>
-            <Amount label="Jumlah simpanan" value={amount} hint={`Kelipatan ${formatRupiahShort(SIGEMAS.step)}, sesuai tabel resmi.`} />
-            <Slider
-              min={SIGEMAS.minAmount}
-              max={SIGEMAS.maxAmount}
-              step={SIGEMAS.step}
-              value={amount}
-              onChange={(e) => onAmount(Number(e.target.value))}
-              aria-label="Jumlah simpanan"
-            />
-            <p className="tnum flex justify-between text-[12px] text-ink-400">
-              <span>{formatRupiahShort(SIGEMAS.minAmount)}</span>
-              <span>{formatRupiahShort(SIGEMAS.maxAmount)}</span>
-            </p>
+            <Amount label="Jumlah simpanan" value={amount} hint={sim.step ? `Kelipatan ${formatRupiahShort(sim.step)}.` : undefined} />
+            <AmountSlider sim={sim} value={amount} onChange={onAmount} label="Jumlah simpanan" />
           </div>
 
-          <div>
-            <span className="mb-2.5 block text-[13px] font-semibold text-ink-700">Jangka waktu</span>
-            <Segments options={[...SIGEMAS.tenors]} value={months} suffix=" bln" ariaLabel="Jangka waktu simpanan" onChange={(v) => onMonths(v)} />
-          </div>
+          {sim.tenors.length > 1 ? (
+            <div>
+              <span className="mb-2.5 block text-[13px] font-semibold text-ink-700">Jangka waktu</span>
+              <Segments options={sim.tenors} value={months} suffix=" bln" ariaLabel="Jangka waktu simpanan" onChange={(v) => onMonths(v)} />
+            </div>
+          ) : null}
 
           <dl className="grid grid-cols-2 gap-4 border-t border-line pt-6 text-[13px]">
             <div>
               <dt className="text-ink-400">Bunga</dt>
-              <dd className="tnum mt-0.5 font-bold text-ink-900">{num(SIGEMAS.interestPercentPerYear)}% per tahun</dd>
+              <dd className="tnum mt-0.5 font-bold text-ink-900">{num(rate)}% per tahun</dd>
             </div>
             <div>
-              <dt className="text-ink-400">Reward emas</dt>
-              <dd className="tnum mt-0.5 font-bold text-ink-900">{num(SIGEMAS.rewardPercentPerYear)}% per tahun</dd>
+              <dt className="text-ink-400">{reward ? 'Reward' : 'Jangka waktu'}</dt>
+              <dd className="tnum mt-0.5 font-bold text-ink-900">{reward ? `${num(reward)}% per tahun` : `${months} bulan`}</dd>
             </div>
           </dl>
         </Panel>
 
         <Result
+          rateInfo={rateInfoOf(sim)}
           headlineLabel={`Total imbal hasil ${months} bulan`}
           headline={result.total}
           rows={[
             ['Jumlah simpanan', formatRupiah(amount)],
             ['Nilai bunga', formatRupiah(result.interest)],
-            ['Nilai reward emas', formatRupiah(result.reward)],
+            ...(reward ? [['Nilai reward', formatRupiah(result.reward)] as [string, string]] : []),
           ]}
           totalLabel="Diterima saat jatuh tempo"
           total={result.payout}
-          note={`Bunga ${num(SIGEMAS.interestPercentPerYear)}% dan reward emas ${num(SIGEMAS.rewardPercentPerYear)}% per tahun, persis seperti tabel SIGEMAS yang diterbitkan koperasi.`}
-          product={product}
-          footer="Reward diberikan dalam bentuk emas atau nilai setaranya sesuai ketentuan yang berlaku saat pencairan."
+          note={sim.note || (reward
+            ? `Bunga ${num(rate)}% dan reward ${num(reward)}% per tahun, sesuai tabel ${sim.name} yang diterbitkan koperasi.`
+            : `Bunga ${num(rate)}% per tahun dari jumlah simpanan, dibayarkan saat jatuh tempo.`)}
+          product={sim.product}
+          footer={reward ? 'Reward diberikan dalam bentuk barang atau nilai setaranya sesuai ketentuan yang berlaku saat pencairan.' : undefined}
         />
       </div>
 
-      <Table
-        caption={`Tabel SIGEMAS · jangka waktu ${months} bulan`}
-        head={['Jumlah simpanan', 'Nilai bunga', 'Reward emas', 'Total']}
-        rows={rows}
-        activeIndex={SIGEMAS.amounts.indexOf(amount)}
-      />
+      {rows.length ? (
+        <Table
+          caption={`Tabel ${sim.name} · jangka waktu ${months} bulan`}
+          head={reward ? ['Jumlah simpanan', 'Nilai bunga', 'Reward', 'Total'] : ['Jumlah simpanan', 'Nilai bunga', 'Diterima']}
+          rows={rows}
+          activeIndex={sim.tableAmounts.indexOf(amount)}
+        />
+      ) : null}
     </>
   )
 }
 
-/* ───────────────────────────────── SIMAPAN ──────────────────────────────── */
+/* ───────────────────────── monthly, compounding ─────────────────────────── */
 
-function Simapan({
-  deposit, years, onDeposit, onYears, product,
+function MonthlyDeposit({
+  sim, deposit, months, onDeposit, onMonths,
 }: {
-  deposit: number; years: number
-  onDeposit: (v: number) => void; onYears: (v: number) => void
-  product?: Product
+  sim: Simulation; deposit: number; months: number
+  onDeposit: (v: number) => void; onMonths: (v: number) => void
 }) {
-  const months = years * 12
-  const result = useMemo(() => calculateSimapan(deposit, months), [deposit, months])
-  const rows = SIMAPAN.deposits.map((d) => {
-    const r = calculateSimapan(d, months)
+  const rate = sim.ratePercent ?? 0
+  const years = months / 12
+  const result = useMemo(() => calculateMonthlyDeposit(deposit, months, rate), [deposit, months, rate])
+  const rows = sim.tableAmounts.map((d) => {
+    const r = calculateMonthlyDeposit(d, months, rate)
     return [formatRupiah(d), formatRupiah(r.deposited), formatRupiah(r.value)]
   })
 
@@ -298,29 +347,26 @@ function Simapan({
         <Panel>
           <div>
             <Amount label="Setoran per bulan" value={deposit} hint="Disetor rutin setiap bulan selama jangka waktu yang dipilih." />
-            <Slider
-              min={SIMAPAN.minDeposit}
-              max={SIMAPAN.maxDeposit}
-              step={50_000}
-              value={deposit}
-              onChange={(e) => onDeposit(Number(e.target.value))}
-              aria-label="Setoran per bulan"
-            />
-            <p className="tnum flex justify-between text-[12px] text-ink-400">
-              <span>{formatRupiahShort(SIMAPAN.minDeposit)}</span>
-              <span>{formatRupiahShort(SIMAPAN.maxDeposit)}</span>
-            </p>
+            <AmountSlider sim={sim} value={deposit} onChange={onDeposit} label="Setoran per bulan" />
           </div>
 
-          <div>
-            <span className="mb-2.5 block text-[13px] font-semibold text-ink-700">Jangka waktu</span>
-            <Segments options={[...SIMAPAN.years]} value={years} suffix=" th" ariaLabel="Jangka waktu simpanan" onChange={(v) => onYears(v)} />
-          </div>
+          {sim.tenors.length > 1 ? (
+            <div>
+              <span className="mb-2.5 block text-[13px] font-semibold text-ink-700">Jangka waktu</span>
+              <Segments
+                options={sim.tenors.map((m) => m / 12)}
+                value={years}
+                suffix=" th"
+                ariaLabel="Jangka waktu simpanan"
+                onChange={(v: number) => onMonths(v * 12)}
+              />
+            </div>
+          ) : null}
 
           <dl className="grid grid-cols-2 gap-4 border-t border-line pt-6 text-[13px]">
             <div>
               <dt className="text-ink-400">Bunga</dt>
-              <dd className="tnum mt-0.5 font-bold text-ink-900">{num(SIMAPAN.monthlyRatePercent)}% per bulan</dd>
+              <dd className="tnum mt-0.5 font-bold text-ink-900">{num(rate)}% per bulan</dd>
             </div>
             <div>
               <dt className="text-ink-400">Jumlah setoran</dt>
@@ -330,7 +376,8 @@ function Simapan({
         </Panel>
 
         <Result
-          headlineLabel={`Nilai simpanan setelah ${years} tahun`}
+          rateInfo={rateInfoOf(sim)}
+          headlineLabel={`Nilai simpanan setelah ${num(years)} tahun`}
           headline={result.value}
           rows={[
             ['Setoran per bulan', formatRupiah(deposit)],
@@ -339,28 +386,32 @@ function Simapan({
           ]}
           totalLabel="Nilai simpanan akhir"
           total={result.value}
-          note={`Bunga ${num(SIMAPAN.monthlyRatePercent)}% per bulan yang berbunga lagi setiap bulan, sama dengan tabel SIMAPAN koperasi.`}
-          product={product}
+          note={sim.note || `Bunga ${num(rate)}% per bulan yang berbunga lagi setiap bulan, sama dengan tabel ${sim.name} koperasi.`}
+          product={sim.product}
           footer="Setoran yang terlambat atau tidak penuh membuat hasil akhir berbeda dari tabel."
         />
       </div>
 
-      <Table
-        caption={`Tabel SIMAPAN · ${years} tahun (${months} bulan)`}
-        head={['Setoran per bulan', 'Jumlah disetor', 'Nilai simpanan akhir']}
-        rows={rows}
-        activeIndex={SIMAPAN.deposits.findIndex((d) => d === deposit)}
-      />
+      {rows.length ? (
+        <Table
+          caption={`Tabel ${sim.name} · ${num(years)} tahun (${months} bulan)`}
+          head={['Setoran per bulan', 'Jumlah disetor', 'Nilai simpanan akhir']}
+          rows={rows}
+          activeIndex={sim.tableAmounts.indexOf(deposit)}
+        />
+      ) : null}
     </>
   )
 }
 
-/* ────────────────────────────────── SIPURA ──────────────────────────────── */
+/* ─────────────────────────── daily, with a bonus ────────────────────────── */
 
-function Sipura({ daily, onDaily, product }: { daily: number; onDaily: (v: number) => void; product?: Product }) {
-  const result = useMemo(() => calculateSipura(daily), [daily])
-  const rows = SIPURA.deposits.map((d) => {
-    const r = calculateSipura(d)
+function DailyDeposit({ sim, daily, onDaily }: { sim: Simulation; daily: number; onDaily: (v: number) => void }) {
+  const days = sim.termDays ?? 210
+  const multiplier = sim.bonusMultiplier ?? 0
+  const result = useMemo(() => calculateDailyDeposit(daily, days, multiplier), [daily, days, multiplier])
+  const rows = sim.tableAmounts.map((d) => {
+    const r = calculateDailyDeposit(d, days, multiplier)
     return [formatRupiah(d), formatRupiah(r.deposited), formatRupiah(r.received)]
   })
 
@@ -369,55 +420,47 @@ function Sipura({ daily, onDaily, product }: { daily: number; onDaily: (v: numbe
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
         <Panel>
           <div>
-            <Amount label="Setoran per hari" value={daily} hint={`Disetor setiap hari selama ${SIPURA.days} hari, satu putaran wuku.`} />
-            <Slider
-              min={SIPURA.minDeposit}
-              max={SIPURA.maxDeposit}
-              step={5_000}
-              value={daily}
-              onChange={(e) => onDaily(Number(e.target.value))}
-              aria-label="Setoran per hari"
-            />
-            <p className="tnum flex justify-between text-[12px] text-ink-400">
-              <span>{formatRupiahShort(SIPURA.minDeposit)}</span>
-              <span>{formatRupiahShort(SIPURA.maxDeposit)}</span>
-            </p>
+            <Amount label="Setoran per hari" value={daily} hint={`Disetor setiap hari selama ${days} hari.`} />
+            <AmountSlider sim={sim} value={daily} onChange={onDaily} label="Setoran per hari" />
           </div>
 
           <dl className="grid grid-cols-2 gap-4 border-t border-line pt-6 text-[13px]">
             <div>
               <dt className="text-ink-400">Jangka waktu</dt>
-              <dd className="tnum mt-0.5 font-bold text-ink-900">{SIPURA.days} hari</dd>
+              <dd className="tnum mt-0.5 font-bold text-ink-900">{days} hari</dd>
             </div>
             <div>
               <dt className="text-ink-400">Bonus</dt>
-              <dd className="tnum mt-0.5 font-bold text-ink-900">{num(SIPURA.bonusMultiplier)}× setoran harian</dd>
+              <dd className="tnum mt-0.5 font-bold text-ink-900">{num(multiplier)}× setoran harian</dd>
             </div>
           </dl>
         </Panel>
 
         <Result
-          headlineLabel={`Diterima setelah ${SIPURA.days} hari`}
+          rateInfo={rateInfoOf(sim)}
+          headlineLabel={`Diterima setelah ${days} hari`}
           headline={result.received}
           rows={[
             ['Setoran per hari', formatRupiah(daily)],
-            [`Jumlah disetor (${SIPURA.days}×)`, formatRupiah(result.deposited)],
+            [`Jumlah disetor (${days}×)`, formatRupiah(result.deposited)],
             ['Bonus', formatRupiah(result.bonus)],
           ]}
           totalLabel="Diterima saat jatuh tempo"
           total={result.received}
-          note={`Bonus dihitung ${num(SIPURA.bonusMultiplier)}× setoran harian dan dibulatkan ke bawah ke ribuan terdekat, persis seperti tabel SIPURA koperasi.`}
-          product={product}
-          footer="Simpanan jatuh tempo menjelang hari raya, mengikuti perhitungan 210 hari kalender Bali."
+          note={sim.note || `Bonus dihitung ${num(multiplier)}× setoran harian dan dibulatkan ke bawah ke ribuan terdekat, persis seperti tabel ${sim.name} koperasi.`}
+          product={sim.product}
+          footer={`Simpanan jatuh tempo setelah ${days} hari setoran.`}
         />
       </div>
 
-      <Table
-        caption={`Tabel SIPURA · ${SIPURA.days} hari`}
-        head={['Setoran per hari', 'Jumlah disetor', 'Diterima']}
-        rows={rows}
-        activeIndex={SIPURA.deposits.findIndex((d) => d === daily)}
-      />
+      {rows.length ? (
+        <Table
+          caption={`Tabel ${sim.name} · ${days} hari`}
+          head={['Setoran per hari', 'Jumlah disetor', 'Diterima']}
+          rows={rows}
+          activeIndex={sim.tableAmounts.indexOf(daily)}
+        />
+      ) : null}
     </>
   )
 }

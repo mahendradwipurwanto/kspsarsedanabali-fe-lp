@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { SIGEMAS, SIMAPAN, SIPURA, type SavingsTableSlug } from '@/contracts'
-import type { Product } from '@/lib/api'
+import type { Simulation } from '@/lib/api'
 import { track } from '@/lib/client'
 import { Card, Tile, Icon, Blank, Action, Heading } from '../ui'
 import { SimulationCalculator } from './SimulationCalculator'
@@ -20,28 +19,31 @@ const LOAN_METHODS = [
 const num = (n: number) => n.toLocaleString('id-ID')
 
 /**
- * The explanations quote the same figures the calculators compute with, read
- * from the tables' own constants. Written out by hand they drifted the moment a
- * rate changed, and a wrong rate in a paragraph reads exactly as authoritative
- * as a right one.
+ * How each savings calculator works, written from the same figures it computes
+ * with. Written out by hand they drifted the moment a rate changed, and a wrong
+ * rate in a paragraph reads exactly as authoritative as a right one.
  */
-const SAVINGS_NOTES = [
-  {
-    n: '01',
-    title: 'SIGEMAS',
-    body: `Simpanan sekali setor ${SIGEMAS.tenors[0]}–${SIGEMAS.tenors[SIGEMAS.tenors.length - 1]} bulan. Mendapat bunga ${num(SIGEMAS.interestPercentPerYear)}% per tahun ditambah reward emas ${num(SIGEMAS.rewardPercentPerYear)}% per tahun, jadi ${num(SIGEMAS.interestPercentPerYear + SIGEMAS.rewardPercentPerYear)}% per tahun.`,
-  },
-  {
-    n: '02',
-    title: 'SIMAPAN',
-    body: `Setoran rutin setiap bulan selama ${SIMAPAN.years[0]}–${SIMAPAN.years[SIMAPAN.years.length - 1]} tahun. Bunga ${num(SIMAPAN.monthlyRatePercent)}% per bulan dan berbunga lagi, sehingga hasilnya menumpuk.`,
-  },
-  {
-    n: '03',
-    title: 'SIPURA',
-    body: `Setoran harian selama ${SIPURA.days} hari, satu putaran wuku. Bonus ${num(SIPURA.bonusMultiplier)} kali setoran harian dibayarkan saat jatuh tempo.`,
-  },
-]
+function savingsNote(sim: Simulation): string {
+  switch (sim.kind) {
+    case 'term_deposit': {
+      const range = sim.tenors.length > 1 ? `${sim.tenors[0]}–${sim.tenors[sim.tenors.length - 1]}` : `${sim.tenors[0] ?? 12}`
+      const rate = sim.ratePercent ?? 0
+      const reward = sim.rewardPercent ?? 0
+      return reward
+        ? `Simpanan sekali setor ${range} bulan. Mendapat bunga ${num(rate)}% per tahun ditambah reward ${num(reward)}% per tahun, jadi ${num(rate + reward)}% per tahun.`
+        : `Simpanan sekali setor ${range} bulan dengan bunga ${num(rate)}% per tahun.`
+    }
+    case 'monthly_deposit': {
+      const years = sim.tenors.map((m) => m / 12)
+      const range = years.length > 1 ? `${num(years[0]!)}–${num(years[years.length - 1]!)}` : num(years[0] ?? 1)
+      return `Setoran rutin setiap bulan selama ${range} tahun. Bunga ${num(sim.ratePercent ?? 0)}% per bulan dan berbunga lagi, sehingga hasilnya menumpuk.`
+    }
+    case 'daily_deposit':
+      return `Setoran harian selama ${sim.termDays ?? 210} hari. Bonus ${num(sim.bonusMultiplier ?? 0)} kali setoran harian dibayarkan saat jatuh tempo.`
+    default:
+      return ''
+  }
+}
 
 /**
  * The simulator has two sides. Loans answer "berapa angsuran saya", savings
@@ -49,19 +51,23 @@ const SAVINGS_NOTES = [
  * belongs to it rather than one shared paragraph that fits neither.
  */
 export function SimulationTabs({
-  loanProducts, savingsProducts, initialTab = 'pinjaman', initialPlan, initialProductId, initialAmount, initialTenor, disclaimer,
+  loans, savings, initialTab = 'pinjaman', initialSimulationId, initialAmount, initialTenor, disclaimer,
 }: {
-  loanProducts: Product[]
-  savingsProducts: Product[]
+  loans: Simulation[]
+  savings: Simulation[]
   initialTab?: Tab
-  initialPlan?: SavingsTableSlug
-  initialProductId?: string
+  /** A simulation on either side, opened from a link that named its product. */
+  initialSimulationId?: string
   initialAmount?: number
   initialTenor?: number
   disclaimer: string
 }) {
   const [tab, setTab] = useState<Tab>(initialTab)
-  const notes = tab === 'pinjaman' ? LOAN_METHODS : SAVINGS_NOTES
+  const notes = tab === 'pinjaman'
+    ? LOAN_METHODS
+    : savings.map((x, i) => ({ n: String(i + 1).padStart(2, '0'), title: x.name, body: savingsNote(x) }))
+  const loanStart = loans.some((x) => x.id === initialSimulationId) ? initialSimulationId : undefined
+  const savingsStart = savings.some((x) => x.id === initialSimulationId) ? initialSimulationId : undefined
 
   return (
     <div className="grid gap-10">
@@ -84,12 +90,12 @@ export function SimulationTabs({
 
         <div className="mt-5">
           {tab === 'pinjaman' ? (
-            loanProducts.length ? (
+            loans.length ? (
               <SimulationCalculator
-                products={loanProducts}
-                initialProductId={initialProductId}
-                initialAmount={initialAmount}
-                initialTenor={initialTenor}
+                simulations={loans}
+                initialSimulationId={loanStart}
+                initialAmount={loanStart ? initialAmount : undefined}
+                initialTenor={loanStart ? initialTenor : undefined}
                 disclaimer={disclaimer}
               />
             ) : (
@@ -99,8 +105,19 @@ export function SimulationTabs({
                 action={<Action href="/kontak">Hubungi kami</Action>}
               />
             )
+          ) : savings.length ? (
+            <SavingsCalculator
+              simulations={savings}
+              initialSimulationId={savingsStart}
+              initialAmount={savingsStart ? initialAmount : undefined}
+              initialTenor={savingsStart ? initialTenor : undefined}
+            />
           ) : (
-            <SavingsCalculator products={savingsProducts} initialPlan={initialPlan} />
+            <Blank
+              title="Simulasi simpanan belum tersedia"
+              body="Hubungi kantor terdekat dan petugas kami akan menghitungkan hasil simpanan yang berlaku saat ini."
+              action={<Action href="/kontak">Hubungi kami</Action>}
+            />
           )}
         </div>
       </div>
@@ -108,14 +125,14 @@ export function SimulationTabs({
       <div>
         <Heading
           label={tab === 'pinjaman' ? 'Metode bunga' : 'Cara kerja simpanan'}
-          title={tab === 'pinjaman' ? 'Cara membaca hasil simulasi' : 'Tiga cara menabung, tiga cara menghitung'}
+          title={tab === 'pinjaman' ? 'Cara membaca hasil simulasi' : 'Cara menghitung setiap simpanan'}
           lead={
             tab === 'pinjaman'
               ? 'Angsuran yang sama besarnya bisa dihitung dengan tiga cara. Metode yang dipakai selalu tertera di panel hasil.'
               : 'Setiap produk punya tabel resmi sendiri. Simulasi di atas memakai angka dari tabel itu, bukan perkiraan.'
           }
         />
-        <ul className="grid gap-4 md:grid-cols-3">
+        {notes.length ? <ul className="grid gap-4 md:grid-cols-3">
           {notes.map((item) => (
             <Card as="li" key={item.title} hover className="p-5 sm:p-6">
               <Tile tone="dark" size="sm"><span className="tnum text-[12px] font-bold text-gold-300">{item.n}</span></Tile>
@@ -123,7 +140,7 @@ export function SimulationTabs({
               <p className="mt-2 text-[14.5px] leading-relaxed text-ink-500">{item.body}</p>
             </Card>
           ))}
-        </ul>
+        </ul> : null}
 
         <Card className="relative mt-4 overflow-hidden p-5 pl-6">
           <span aria-hidden="true" className="absolute inset-y-0 left-0 w-[3px] bg-gold-300" />

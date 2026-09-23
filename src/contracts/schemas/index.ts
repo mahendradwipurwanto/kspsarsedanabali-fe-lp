@@ -487,6 +487,83 @@ export const productSchema = z.object({
   seo: seoSchema.default({}),
 })
 
+/* -------------------------------- simulations ------------------------------- */
+
+/**
+ * The calculators on /simulasi, one row per product that can be simulated.
+ *
+ * - `installment` — loan instalments. The rate and its method stay on the
+ *   product, behind the product's sign-off, so a figure is confirmed once.
+ * - `term_deposit` — a lump sum for a term, interest plus a reward per year (SIGEMAS).
+ * - `monthly_deposit` — a fixed deposit every month, compounding (SIMAPAN).
+ * - `daily_deposit` — a deposit every day for a set number of days, plus a bonus (SIPURA).
+ */
+export const SIMULATION_KINDS = ['installment', 'term_deposit', 'monthly_deposit', 'daily_deposit'] as const
+export type SimulationKind = (typeof SIMULATION_KINDS)[number]
+
+export const SIMULATION_KIND_LABELS: Record<SimulationKind, string> = {
+  installment: 'Angsuran pinjaman',
+  term_deposit: 'Simpanan berjangka (bunga + reward)',
+  monthly_deposit: 'Setoran bulanan berbunga',
+  daily_deposit: 'Setoran harian + bonus',
+}
+
+const money = z.number().int().min(0).max(100_000_000_000)
+const nullableMoney = money.nullable().optional()
+
+export const simulationSchema = z
+  .object({
+    name: z.string().min(2).max(120),
+    tagline: z.string().max(160).optional().or(z.literal('')),
+    kind: z.enum(SIMULATION_KINDS),
+    productId: z.string().uuid('Pilih produk yang disimulasikan.'),
+    minAmount: money,
+    maxAmount: money,
+    /** Slider step. Empty lets the calculator choose one from the range. */
+    step: nullableMoney,
+    /** Where the slider starts. Empty starts it inside the range. */
+    defaultAmount: nullableMoney,
+    /** Tenor choices in months. Not used by `daily_deposit`, which runs `termDays`. */
+    tenors: z.array(z.number().int().min(1).max(600)).default([]),
+    /** The label at the top right of the result card, e.g. "Bunga flat 1,3%/bln". */
+    rateInfo: z.string().max(80).optional().or(z.literal('')),
+    /** `term_deposit`: interest % per year. `monthly_deposit`: % per month. */
+    ratePercent: z.number().min(0).max(100).nullable().optional(),
+    /** `term_deposit`: reward % per year. */
+    rewardPercent: z.number().min(0).max(100).nullable().optional(),
+    /** `daily_deposit`: bonus as a multiple of one day's deposit. */
+    bonusMultiplier: z.number().min(0).max(1000).nullable().optional(),
+    /** `daily_deposit`: how many days the deposits run. */
+    termDays: z.number().int().min(1).max(3650).nullable().optional(),
+    /** Amounts listed in the reference table under a savings calculator. Empty shows no table. */
+    tableAmounts: z.array(money).default([]),
+    /** The explanation in the result card. Empty uses one written from the figures. */
+    note: z.string().max(400).optional().or(z.literal('')),
+    isActive: z.boolean().default(true),
+    sortOrder: z.number().int().default(0),
+  })
+
+/**
+ * The checks that need more than one field. Kept apart from the shape so the
+ * API can apply them to a PATCH once it has merged the stored row — a partial
+ * update carries only the fields that changed.
+ */
+export function simulationProblems(v: z.infer<typeof simulationSchema>): { field: string; message: string }[] {
+  const out: { field: string; message: string }[] = []
+  if (v.maxAmount < v.minAmount) out.push({ field: 'maxAmount', message: 'Nominal maksimum harus sama atau lebih besar dari minimum.' })
+  if (v.defaultAmount != null && (v.defaultAmount < v.minAmount || v.defaultAmount > v.maxAmount)) {
+    out.push({ field: 'defaultAmount', message: 'Nominal awal harus di antara minimum dan maksimum.' })
+  }
+  if (v.kind !== 'daily_deposit' && !v.tenors.length) out.push({ field: 'tenors', message: 'Isi minimal satu pilihan jangka waktu (bulan).' })
+  if (v.kind === 'monthly_deposit' && v.tenors.some((m) => m % 12 !== 0)) {
+    out.push({ field: 'tenors', message: 'Setoran bulanan ditampilkan per tahun, jadi jangka waktunya kelipatan 12 bulan.' })
+  }
+  if ((v.kind === 'term_deposit' || v.kind === 'monthly_deposit') && v.ratePercent == null) out.push({ field: 'ratePercent', message: 'Isi suku bunganya.' })
+  if (v.kind === 'daily_deposit' && v.termDays == null) out.push({ field: 'termDays', message: 'Isi lama setoran dalam hari.' })
+  if (v.kind === 'daily_deposit' && v.bonusMultiplier == null) out.push({ field: 'bonusMultiplier', message: 'Isi kelipatan bonusnya.' })
+  return out
+}
+
 /* --------------------------------- branches -------------------------------- */
 
 export const branchHoursSchema = z.array(

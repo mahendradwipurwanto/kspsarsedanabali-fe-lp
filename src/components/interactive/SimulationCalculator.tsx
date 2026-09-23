@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { calculateInstallment, formatRupiah, formatRupiahShort } from '@/contracts'
-import type { Product } from '@/lib/api'
+import type { Simulation } from '@/lib/api'
 import { track } from '@/lib/client'
 import { Action, Icon } from '../ui'
 import { Field, Slider, Segments, Select } from '../ui/form'
@@ -11,24 +11,34 @@ const RATE_LABELS: Record<string, string> = {
   flat: 'Bunga flat', annuity: 'Anuitas', effective: 'Efektif menurun', none: '—',
 }
 
+/** A step that gives the slider about two hundred stops, in whole millions. */
+const autoStep = (min: number, max: number) => Math.max(1_000_000, Math.round((max - min) / 200 / 1_000_000) * 1_000_000)
+
+/**
+ * Loan side of the simulator. Each option is a simulation filed in the console
+ * — its range, tenors and the label on the result card — while the rate and
+ * its method come from the product, behind the product's sign-off.
+ */
 export function SimulationCalculator({
-  products, initialProductId, disclaimer, initialAmount, initialTenor,
+  simulations, initialSimulationId, disclaimer, initialAmount, initialTenor,
 }: {
-  products: Product[]
-  initialProductId?: string
+  simulations: Simulation[]
+  initialSimulationId?: string
   disclaimer: string
   initialAmount?: number
   initialTenor?: number
 }) {
-  const [productId, setProductId] = useState(initialProductId ?? products[0]?.id ?? '')
-  const product = products.find((p) => p.id === productId) ?? products[0]
+  const [simulationId, setSimulationId] = useState(initialSimulationId ?? simulations[0]?.id ?? '')
+  const sim = simulations.find((x) => x.id === simulationId) ?? simulations[0]
+  const product = sim?.product
 
-  const min = product?.minAmount ?? 5_000_000
-  const max = product?.maxAmount ?? 500_000_000
-  const tenors = product?.tenorOptions.length ? product.tenorOptions : [12, 24, 36, 48]
+  const min = sim?.minAmount ?? 5_000_000
+  const max = sim?.maxAmount ?? 500_000_000
+  const tenors = sim?.tenors.length ? sim.tenors : [12, 24, 36, 48]
+  const step = sim?.step || autoStep(min, max)
 
-  const [amount, setAmount] = useState(initialAmount ?? Math.min(Math.max(75_000_000, min), max))
-  const [tenor, setTenor] = useState(initialTenor ?? tenors[Math.min(2, tenors.length - 1)]!)
+  const [amount, setAmount] = useState(initialAmount ?? sim?.defaultAmount ?? Math.min(Math.max(75_000_000, min), max))
+  const [tenor, setTenor] = useState(initialTenor && tenors.includes(initialTenor) ? initialTenor : tenors[Math.min(2, tenors.length - 1)]!)
 
   const clamped = Math.min(Math.max(amount, min), max)
 
@@ -47,7 +57,7 @@ export function SimulationCalculator({
     return calculateInstallment({ principal: clamped, annualRatePercent: rate, months: tenor, method })
   }, [rate, method, clamped, tenor])
 
-  if (!product) return null
+  if (!sim || !product) return null
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
@@ -57,16 +67,16 @@ export function SimulationCalculator({
           <Field label="Produk pinjaman" htmlFor="sim-product" required hint={product.rateNote ?? undefined}>
             <Select
               id="sim-product"
-              value={productId}
-              options={products.map((p) => ({ value: p.id, label: p.name, hint: p.tagline ?? undefined }))}
+              value={sim.id}
+              options={simulations.map((x) => ({ value: x.id, label: x.name, hint: x.tagline ?? x.product.tagline ?? undefined }))}
               onChange={(next) => {
-                const chosen = products.find((p) => p.id === next)
-                setProductId(next)
+                const chosen = simulations.find((x) => x.id === next)
+                setSimulationId(next)
                 if (chosen) {
-                  setAmount((a) => Math.min(Math.max(a, chosen.minAmount ?? 0), chosen.maxAmount ?? a))
-                  if (chosen.tenorOptions.length && !chosen.tenorOptions.includes(tenor)) setTenor(chosen.tenorOptions[0]!)
+                  setAmount((a) => Math.min(Math.max(a, chosen.minAmount), chosen.maxAmount))
+                  if (chosen.tenors.length && !chosen.tenors.includes(tenor)) setTenor(chosen.tenors[0]!)
                 }
-                track('simulation_change', { productId: next })
+                track('simulation_change', { productId: chosen?.product.id ?? next })
               }}
             />
           </Field>
@@ -84,7 +94,7 @@ export function SimulationCalculator({
               id="sim-amount"
               min={min}
               max={max}
-              step={Math.max(1_000_000, Math.round((max - min) / 200 / 1_000_000) * 1_000_000)}
+              step={step}
               value={clamped}
               onChange={(e) => setAmount(Number(e.target.value))}
               aria-describedby="sim-range"
@@ -116,7 +126,7 @@ export function SimulationCalculator({
         <div className="relative flex items-center justify-between gap-4">
           <p className="t-label !text-white/80">Estimasi</p>
           <span className="tnum text-[12px] font-medium text-white/45">
-            {RATE_LABELS[method] ?? '—'}
+            {sim.rateInfo || (RATE_LABELS[method] ?? '—')}
           </span>
         </div>
 
