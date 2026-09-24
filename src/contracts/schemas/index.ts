@@ -571,6 +571,8 @@ export const loanTableSchema = z
         label: z.string().min(1, 'Isi nama biayanya.').max(60),
         basis: z.enum(LOAN_FEE_BASES),
         value: z.number().min(0).max(100_000_000_000),
+        /** Hidden fees stay in the console but leave the website's table and its totals. */
+        visible: z.boolean().default(true),
       }))
       .max(20, 'Paling banyak 20 biaya.')
       .default([]),

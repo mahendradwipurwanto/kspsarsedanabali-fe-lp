@@ -388,11 +388,11 @@ export const DEFAULT_LOAN_TABLE: LoanTable = {
   ],
   feesCaption: '',
   fees: [
-    { label: 'Administrasi', basis: 'percent', value: 0.5 },
-    { label: 'Wajib peminjam', basis: 'percent', value: 0.5 },
-    { label: 'Anggota', basis: 'fixed', value: 120_000 },
-    { label: 'Asuransi', basis: 'percent', value: 1 },
-    { label: 'Brins', basis: 'fixed', value: 50_000 },
+    { label: 'Administrasi', basis: 'percent', value: 0.5, visible: true },
+    { label: 'Wajib peminjam', basis: 'percent', value: 0.5, visible: true },
+    { label: 'Anggota', basis: 'fixed', value: 120_000, visible: true },
+    { label: 'Asuransi', basis: 'percent', value: 1, visible: true },
+    { label: 'Brins', basis: 'fixed', value: 50_000, visible: true },
   ],
 }
 
@@ -422,9 +422,12 @@ export interface LoanFeesResult {
   received: number
 }
 
-/** The fees on a plafon, each a percentage of it or a fixed amount, and what is left. */
+/** The fees the website shows: every one not switched off. Saved before the switch existed, a fee is shown. */
+export const shownLoanFees = (fees: LoanTable['fees'] | undefined) => (fees ?? []).filter((f) => f.visible !== false)
+
+/** The fees on a plafon, each a percentage of it or a fixed amount, and what is left. Hidden fees are left out. */
 export function calculateLoanFees(principal: number, fees: LoanTable['fees']): LoanFeesResult {
-  const items = fees.map((f) => ({ label: f.label, amount: round(f.basis === 'percent' ? (principal * f.value) / 100 : f.value) }))
+  const items = shownLoanFees(fees).map((f) => ({ label: f.label, amount: round(f.basis === 'percent' ? (principal * f.value) / 100 : f.value) }))
   const total = items.reduce((sum, f) => sum + f.amount, 0)
   return { items, total, received: principal - total }
 }

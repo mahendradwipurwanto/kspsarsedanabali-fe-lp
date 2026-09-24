@@ -1,21 +1,21 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { calculateInstallment, calculateLoanFees, loanScheduleTable, loanReferenceRate, formatRupiah, LOAN_RATE_METHOD, type InstallmentResult, type LoanFeesResult } from '@/contracts'
+import { useMemo, useState } from 'react'
+import { calculateInstallment, calculateLoanFees, loanScheduleTable, loanReferenceRate, shownLoanFees, formatRupiah, LOAN_RATE_METHOD, type InstallmentResult, type LoanFeesResult } from '@/contracts'
 import type { Simulation } from '@/lib/api'
 import { track } from '@/lib/client'
 import { Action, Icon } from '../ui'
 import { Table } from './SavingsCalculator'
-import { Field, AmountInput, RateInput, Segments, Select } from '../ui/form'
+import { Field, AmountInput, Segments, Select } from '../ui/form'
 
 /** Indonesian decimals: 1,1 rather than 1.1. */
 const pct = (n: number) => `${String(Math.round(n * 1000) / 1000).replace('.', ',')}%`
 
 /**
  * Loan side of the simulator. Each option is a simulation filed in the console:
- * its range, tenors, reference rate and table. Every loan is bunga menurun, as
- * in the koperasi's spreadsheet, so only the rate differs between products,
- * and the visitor may change it to try another, starting from the reference.
+ * its range, tenors, rate and table. Every loan is bunga menurun, as in the
+ * koperasi's spreadsheet, so only the rate differs between products. The rate
+ * is the koperasi's to set; the visitor picks the amount and the tenor.
  */
 export function SimulationCalculator({
   simulations, initialSimulationId, disclaimer, initialAmount, initialTenor,
@@ -41,19 +41,14 @@ export function SimulationCalculator({
 
   // The simulation's own monthly rate, else the product's: signed off, or the
   // koperasi's brochure figure labelled as unconfirmed. `estimated` drives the notice.
-  const reference = loanReferenceRate(sim?.ratePercent, product)
-  const [monthlyRate, setMonthlyRate] = useState<number | null>(reference.monthly)
-  // Another simulation brings its own reference.
-  useEffect(() => { setMonthlyRate(reference.monthly) }, [sim?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  const tried = monthlyRate != null && reference.monthly != null && Math.abs(monthlyRate - reference.monthly) > 1e-9
-  const estimated = reference.estimated && !tried
+  const { monthly: monthlyRate, estimated } = loanReferenceRate(sim?.ratePercent, product)
 
   const result = useMemo(() => {
     if (monthlyRate == null) return null
     return calculateInstallment({ principal: clamped, annualRatePercent: monthlyRate * 12, months: tenor, method: LOAN_RATE_METHOD })
   }, [monthlyRate, clamped, tenor])
   const fees = useMemo(
-    () => (sim?.loanTable?.fees.length ? calculateLoanFees(clamped, sim.loanTable.fees) : null),
+    () => (shownLoanFees(sim?.loanTable?.fees).length ? calculateLoanFees(clamped, sim!.loanTable!.fees) : null),
     [sim?.loanTable, clamped],
   )
 
@@ -103,13 +98,6 @@ export function SimulationCalculator({
               />
             </div>
 
-            <RateInput
-              id="sim-rate"
-              label="Suku bunga (menurun)"
-              value={monthlyRate}
-              reference={reference.monthly}
-              onChange={setMonthlyRate}
-            />
           </div>
         </div>
 
@@ -121,7 +109,7 @@ export function SimulationCalculator({
           <div className="relative flex items-center justify-between gap-4">
             <p className="t-label !text-white/80">Estimasi</p>
             <span className="tnum text-[12px] font-medium text-white/45">
-              {tried || !sim.rateInfo ? (monthlyRate != null ? `Bunga menurun ${pct(monthlyRate)}/bln` : 'Bunga menurun') : sim.rateInfo}
+              {sim.rateInfo || (monthlyRate != null ? `Bunga menurun ${pct(monthlyRate)}/bln` : 'Bunga menurun')}
             </span>
           </div>
 
@@ -145,6 +133,7 @@ export function SimulationCalculator({
               {[
                 ['Pokok pinjaman', formatRupiah(clamped)],
                 ['Jangka waktu', `${tenor} bulan`],
+                ['Suku bunga', `${pct(monthlyRate!)} per bulan, menurun`],
                 // Bunga menurun: the instalment shrinks every month, so the last one and the interest in all say what the first cannot.
                 ['Angsuran terakhir', formatRupiah(result.schedule.at(-1)?.payment ?? result.monthly)],
                 ['Total bunga', formatRupiah(result.totalInterest)],
