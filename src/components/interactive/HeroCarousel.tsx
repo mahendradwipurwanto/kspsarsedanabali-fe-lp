@@ -8,7 +8,11 @@ import { Shell, Action, Icon, Pill, iconByName } from '../ui'
 import { Media } from '../ui/Media'
 
 interface Slide {
+  /** `image`: the artwork alone — no copy, no card, no wash. */
+  display?: 'content' | 'image'
   image?: string
+  /** Image-only slides: where the whole picture leads. */
+  link?: string
   heading: string
   subheading?: string
   bullets?: { text: string }[]
@@ -56,6 +60,8 @@ export function HeroCarousel({
   if (!slides.length) return null
   const slide = slides[index]!
   const product = slide.featuredProduct ? products.find((p) => p.id === slide.featuredProduct) : undefined
+  // Only with artwork: an image-only slide without one would be an empty panel.
+  const imageOnly = slide.display === 'image' && !!slide.image
 
   return (
     <section
@@ -71,16 +77,27 @@ export function HeroCarousel({
         <div className="absolute inset-0 -z-10" key={`img-${index}`}>
           <Media src={slide.image} alt="" ratio="auto" rounded={false} priority={index === 0} sizes="100vw"
             className="!absolute inset-0 size-full !rounded-none [&>*]:!object-cover" />
-          <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-night-900 via-night-900/92 to-night-900/55" />
+          {imageOnly ? null : <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-night-900 via-night-900/92 to-night-900/55" />}
         </div>
+      ) : null}
+      {imageOnly && slide.link ? (
+        <Link href={slide.link} aria-label={slide.heading} className="absolute inset-0 z-0" />
       ) : null}
 
       {/* A faint green glow from the top-left corner: the only soft element, and
           it reads as light on the panel rather than decoration. */}
-      <div aria-hidden="true" className="pointer-events-none absolute -left-40 -top-40 -z-10 size-[34rem] rounded-full bg-green-500/10 blur-[110px]" />
+      {imageOnly ? null : <div aria-hidden="true" className="pointer-events-none absolute -left-40 -top-40 -z-10 size-[34rem] rounded-full bg-green-500/10 blur-[110px]" />}
 
+      {/* An image-only slide is the artwork at its own 16:9, whole at every
+          width; its heading stays as the H1 for Google and screen readers. */}
+      {imageOnly ? (
+        <>
+          <h1 className="sr-only">{slide.heading}</h1>
+          <div aria-hidden="true" className="aspect-[16/9] w-full" />
+        </>
+      ) : (
       <Shell>
-        <div className="grid gap-10 py-14 sm:py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:py-24">
+        <div className={`grid gap-10 py-14 sm:py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:py-24`}>
           <div key={`copy-${index}`} className="max-w-[46ch]">
             {badge ? (
               <div className="rise d-1">
@@ -117,10 +134,12 @@ export function HeroCarousel({
           </div>
         </div>
       </Shell>
+      )}
 
       {slides.length > 1 ? (
-        <Shell>
-          <div className="flex items-center gap-2 pb-8">
+        <Shell className={imageOnly ? 'absolute inset-x-0 bottom-0' : undefined}>
+          {/* Over bare artwork the dots sit on a small dark pill, or a light picture swallows them. */}
+          <div className={`relative z-10 flex w-fit items-center gap-2 ${imageOnly ? 'mb-6 rounded-full bg-black/35 px-3 py-2 backdrop-blur-sm' : 'pb-8'}`}>
             {slides.map((s, i) => (
               <button
                 key={i}

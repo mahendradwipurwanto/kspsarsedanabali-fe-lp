@@ -108,8 +108,18 @@ export const BLOCKS = {
       slides: field.repeater({
         label: 'Slide banner', itemLabel: 'Slide', max: 6, help: 'Hanya untuk gaya komponen.',
         of: {
-          image: field.image({ label: 'Gambar banner', help: 'Ukuran ideal 1600×900 piksel. Kosongkan untuk latar polos bermotif.' }),
-          heading: field.text({ label: 'Judul di banner', required: true, max: 70 }),
+          display: field.select({
+            label: 'Tampilan slide',
+            options: [
+              { value: 'content', label: 'Judul, tombol, dan kartu di atas gambar' },
+              { value: 'image', label: 'Gambar saja: tanpa judul, tombol, kartu, dan bayangan gelap' },
+            ],
+            default: 'content',
+            help: 'Pilih "Gambar saja" bila gambar sudah memuat pesannya sendiri. Judul tetap diisi: tidak terlihat, tetapi dibaca Google dan pembaca layar.',
+          }),
+          image: field.image({ label: 'Gambar banner', help: 'Ukuran ideal 1600×900 piksel. Kosongkan untuk latar polos bermotif. Wajib untuk tampilan "Gambar saja".' }),
+          link: field.link({ label: 'Seluruh gambar menuju ke', help: 'Hanya untuk tampilan "Gambar saja": seluruh gambar bisa diklik. Kosongkan bila tidak perlu.' }),
+          heading: field.text({ label: 'Judul di banner', required: true, max: 70, help: 'Pada tampilan "Gambar saja", judul disembunyikan tetapi tetap menjadi judul halaman untuk Google.' }),
           subheading: field.textarea({ label: 'Kalimat pendukung', max: 180 }),
           bullets: field.repeater({ label: 'Poin keunggulan', itemLabel: 'Poin', max: 5, of: { text: field.text({ label: 'Teks', required: true, max: 90 }) } }),
           ctaLabel: field.text({ label: 'Tulisan tombol utama', max: 30, placeholder: 'Ajukan Sekarang' }),
