@@ -144,10 +144,14 @@ body {
 
 ::selection { background: var(--color-gold-200); color: var(--color-ink-900); }
 
-:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
-  outline: 2px solid var(--color-green-600);
-  outline-offset: 2px;
-  border-radius: 4px;
+/* In the base layer, so a control that draws its own focus ring (the amount
+   and rate fields, via outline-none) can turn this one off. */
+@layer base {
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-green-600);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 }
 /* Everything that acts on click reads as clickable. Tailwind 4 stopped giving
    buttons a pointer, so it is restored here for every interactive element,

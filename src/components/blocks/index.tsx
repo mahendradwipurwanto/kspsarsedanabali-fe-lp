@@ -48,7 +48,7 @@ export interface BlockContext {
 }
 
 /** A loan calculator needs a rate to compute with: signed off, or the figure on record labelled as an estimate. */
-const hasLoanRate = (x: Simulation) => (x.product.ratePercent ?? x.product.ratePercentIndicative) != null
+const hasLoanRate = (x: Simulation) => (x.ratePercent ?? x.product.ratePercent ?? x.product.ratePercentIndicative) != null
 
 type P = Record<string, unknown>
 const s = (v: unknown, fallback = '') => (typeof v === 'string' ? v : fallback)

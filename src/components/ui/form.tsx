@@ -423,3 +423,66 @@ export function Select({
     </div>
   )
 }
+
+/**
+ * A percentage typed the Indonesian way ("1,1") or the English way ("1.1"),
+ * with the reference figure it started from and a way back to it. Used for the
+ * loan rate, which a visitor may try out but should always see the source of.
+ */
+export function RateInput({
+  id, label, value, reference, onChange, suffix = '% per bulan', max = 10,
+}: {
+  id: string
+  label: string
+  value: number | null
+  /** The koperasi's figure; shown under the field, and restored by the reset link. */
+  reference: number | null
+  onChange: (v: number | null) => void
+  suffix?: string
+  max?: number
+}) {
+  const fmt = (n: number | null) => (n == null ? '' : String(Math.round(n * 1000) / 1000).replace('.', ','))
+  const [text, setText] = useState(fmt(value))
+  const focused = useRef(false)
+  useEffect(() => { if (!focused.current) setText(fmt(value)) }, [value]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const parsed = text.trim() === '' ? null : Number(text.replace(',', '.'))
+  const error = parsed == null ? 'Isi suku bunganya.' : Number.isNaN(parsed) || parsed < 0 ? 'Tulis angka, misalnya 1,1.' : parsed > max ? `Maksimal ${max}%.` : undefined
+  const changed = reference != null && value != null && Math.abs(value - reference) > 1e-9
+
+  return (
+    <div>
+      <label htmlFor={id} className="block text-[13px] font-semibold text-ink-700">{label}</label>
+      <div
+        className={`mt-2 flex w-full max-w-[260px] items-baseline gap-2 rounded-[var(--radius-input)] border bg-white px-4 py-2 transition-[border-color,box-shadow] duration-200 focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-green-600)_18%,transparent)] ${
+          error ? 'border-[#d1483c]' : 'border-line hover:border-line-strong focus-within:border-green-600'
+        }`}
+      >
+        <input
+          id={id}
+          inputMode="decimal"
+          autoComplete="off"
+          value={text}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={`${id}-help`}
+          onFocus={() => { focused.current = true }}
+          onBlur={() => { focused.current = false; setText(fmt(value)) }}
+          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+          onChange={(e) => {
+            const t = e.target.value.replace(/[^\d.,]/g, '').slice(0, 6)
+            setText(t)
+            const n = t === '' ? null : Number(t.replace(',', '.'))
+            if (n == null) onChange(null)
+            else if (!Number.isNaN(n) && n >= 0 && n <= max) onChange(n)
+          }}
+          className="figure w-20 min-w-0 flex-1 bg-transparent text-[1.5rem] text-ink-900 outline-none placeholder:text-ink-300"
+          placeholder="0"
+        />
+        <span className="shrink-0 text-[13px] font-semibold text-ink-400">{suffix}</span>
+      </div>
+      <p id={`${id}-help`} className={`tnum mt-1.5 text-[12.5px] ${error ? 'text-[#d1483c]' : 'text-ink-400'}`}>
+        {error ?? (reference != null ? <>Acuan koperasi {fmt(reference)}%. {changed ? <button type="button" onClick={() => { onChange(reference); setText(fmt(reference)) }} className="font-semibold text-green-700 underline-offset-2 hover:underline">Kembalikan ke acuan</button> : 'Ubah untuk mencoba suku bunga lain.'}</> : 'Ubah untuk mencoba suku bunga lain.')}
+      </p>
+    </div>
+  )
+}

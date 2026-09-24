@@ -596,7 +596,7 @@ export const simulationSchema = z
     tenors: z.array(z.number().int().min(1).max(600)).default([]),
     /** The label at the top right of the result card, e.g. "Bunga flat 1,3%/bln". */
     rateInfo: z.string().max(80).optional().or(z.literal('')),
-    /** `term_deposit`: interest % per year. `monthly_deposit`: % per month. */
+    /** `term_deposit`: interest % per year. `monthly_deposit` and `installment`: % per month (a loan's is the reference rate; empty uses the product's). */
     ratePercent: z.number().min(0).max(100).nullable().optional(),
     /** `term_deposit`: reward % per year. */
     rewardPercent: z.number().min(0).max(100).nullable().optional(),

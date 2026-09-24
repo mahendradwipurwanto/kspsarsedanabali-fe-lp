@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { calculateInstallment, formatRupiah, formatRupiahShort } from '@/contracts'
+import { calculateInstallment, formatRupiah, formatRupiahShort, LOAN_RATE_METHOD } from '@/contracts'
 import type { Product } from '@/lib/api'
 import { Shell, Action, Icon, Pill, iconByName } from '../ui'
 import { Media } from '../ui/Media'
@@ -170,7 +170,8 @@ export function HeroCarousel({
 function RateCard({ product, bullets }: { product: Product; bullets: { text: string }[] }) {
   const verified = product.ratePercent != null
   const annual = product.ratePercent ?? product.ratePercentIndicative ?? null
-  const method = verified ? product.rateMethod : (product.rateMethodIndicative ?? product.rateMethod)
+  // Every loan is bunga menurun; a savings product has no instalment to show.
+  const method = product.category === 'pinjaman' ? LOAN_RATE_METHOD : 'none'
   const rate = perMonth(annual)
   const plafon = product.minAmount != null && product.maxAmount != null
     ? `${formatRupiahShort(product.minAmount)}–${formatRupiahShort(product.maxAmount)}` : null

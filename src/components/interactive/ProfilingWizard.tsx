@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { LEAD_PURPOSES, calculateInstallment, formatRupiah, formatRupiahShort, waLink, isValidPhone, cleanPhoneInput, PHONE_ERROR, PHONE_HINT } from '@/contracts'
+import { LEAD_PURPOSES, LOAN_RATE_METHOD, calculateInstallment, formatRupiah, formatRupiahShort, waLink, isValidPhone, cleanPhoneInput, PHONE_ERROR, PHONE_HINT } from '@/contracts'
 import type { Product, Branch } from '@/lib/api'
 import { apiPost, sessionId, track, API_BASE } from '@/lib/client'
 import { Action, Icon } from '../ui'
@@ -68,7 +68,7 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
     const cheapest = loanProducts.filter((p) => p.ratePercent != null).sort((a, b) => (a.ratePercent ?? 0) - (b.ratePercent ?? 0))[0]
     if (!cheapest?.ratePercent) return null
     return calculateInstallment({
-      principal: answers.amount, annualRatePercent: cheapest.ratePercent, months: answers.tenorMonths, method: cheapest.rateMethod,
+      principal: answers.amount, annualRatePercent: cheapest.ratePercent, months: answers.tenorMonths, method: LOAN_RATE_METHOD,
     })
   }, [answers, loanProducts])
 

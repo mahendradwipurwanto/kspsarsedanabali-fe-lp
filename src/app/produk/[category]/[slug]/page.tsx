@@ -63,7 +63,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   // of nothing beside the terms, so the column collapses and the copy runs at a
   // readable measure instead.
   const hasArtwork = Boolean(p.image)
-  const loans = simulations.filter((x) => x.kind === 'installment' && x.product.isVerified && x.product.ratePercent != null)
+  const loans = simulations.filter((x) => x.kind === 'installment' && (x.ratePercent != null || (x.product.isVerified && x.product.ratePercent != null)))
   const ownLoan = loans.find((x) => x.product.id === p.id)
   // The one condition behind both the button and the section it points at. A
   // loan whose rate is still unverified publishes no figure to calculate with,

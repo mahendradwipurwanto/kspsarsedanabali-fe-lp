@@ -86,6 +86,29 @@ function effective({ principal, annualRatePercent, months }: InstallmentInput): 
   return { monthly: schedule[0].payment, total: round(total), totalInterest: round(totalInterest), method: 'effective', schedule }
 }
 
+/**
+ * Every loan the koperasi offers is bunga menurun: principal repaid in equal
+ * parts, interest on what is still owed. Products differ only in the rate, so
+ * the simulator never reads a method from a product.
+ */
+export const LOAN_RATE_METHOD: RateMethod = 'effective'
+
+/**
+ * The monthly rate a loan simulation starts from, as the koperasi quotes it
+ * (1,1% a month, not 13,2% a year): the simulation's own figure when the editor
+ * set one, else the product's annual rate over twelve. `estimated` when that
+ * fallback is the product's unconfirmed brochure figure.
+ */
+export function loanReferenceRate(
+  simulationMonthlyPercent: number | null | undefined,
+  product?: { ratePercent?: number | null; ratePercentIndicative?: number | null } | null,
+): { monthly: number | null; estimated: boolean } {
+  if (simulationMonthlyPercent != null) return { monthly: simulationMonthlyPercent, estimated: false }
+  if (product?.ratePercent != null) return { monthly: product.ratePercent / 12, estimated: false }
+  if (product?.ratePercentIndicative != null) return { monthly: product.ratePercentIndicative / 12, estimated: true }
+  return { monthly: null, estimated: false }
+}
+
 export function calculateInstallment(input: InstallmentInput): InstallmentResult {
   if (input.principal <= 0 || input.months <= 0) {
     return { monthly: 0, total: 0, totalInterest: 0, method: input.method, schedule: [] }

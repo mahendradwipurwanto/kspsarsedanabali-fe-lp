@@ -9,10 +9,11 @@ import { SavingsCalculator } from './SavingsCalculator'
 
 type Tab = 'pinjaman' | 'simpanan'
 
+/** How a bunga menurun schedule reads, column by column: every loan the koperasi offers works this way. */
 const LOAN_METHODS = [
-  { n: '01', title: 'Bunga flat', body: 'Bunga dihitung dari pokok pinjaman awal, tetap sepanjang masa angsuran. Angsuran bulanan sama besar setiap bulan.' },
-  { n: '02', title: 'Anuitas', body: 'Angsuran bulanan tetap, tetapi porsi bunga mengecil dan porsi pokok membesar seiring waktu.' },
-  { n: '03', title: 'Efektif menurun', body: 'Bunga dihitung dari sisa pokok, sehingga angsuran mengecil setiap bulan. Total bunga paling ringan.' },
+  { n: '01', title: 'Pokok tetap', body: 'Plafon dibagi rata sepanjang jangka waktu. Porsi pokok setiap bulan sama besarnya.' },
+  { n: '02', title: 'Bunga dari sisa pinjaman', body: 'Bunga dihitung dari saldo yang belum dibayar, sehingga makin kecil setiap bulan.' },
+  { n: '03', title: 'Angsuran makin ringan', body: 'Pokok ditambah bunga: angsuran pertama paling besar, lalu turun setiap bulan sampai lunas.' },
 ]
 
 /** Indonesian decimals: 0,35 rather than 0.35. */
@@ -124,11 +125,11 @@ export function SimulationTabs({
 
       <div>
         <Heading
-          label={tab === 'pinjaman' ? 'Metode bunga' : 'Cara kerja simpanan'}
+          label={tab === 'pinjaman' ? 'Bunga menurun' : 'Cara kerja simpanan'}
           title={tab === 'pinjaman' ? 'Cara membaca hasil simulasi' : 'Cara menghitung setiap simpanan'}
           lead={
             tab === 'pinjaman'
-              ? 'Angsuran yang sama besarnya bisa dihitung dengan tiga cara. Metode yang dipakai selalu tertera di panel hasil.'
+              ? 'Semua pinjaman memakai bunga menurun, seperti tabel angsuran koperasi. Yang membedakan antarproduk hanya besar suku bunganya.'
               : 'Setiap produk punya tabel resmi sendiri. Simulasi di atas memakai angka dari tabel itu, bukan perkiraan.'
           }
         />

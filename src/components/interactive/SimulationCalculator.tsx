@@ -1,21 +1,21 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { calculateInstallment, calculateLoanFees, loanScheduleTable, formatRupiah, type InstallmentResult, type LoanFeesResult } from '@/contracts'
+import { useEffect, useMemo, useState } from 'react'
+import { calculateInstallment, calculateLoanFees, loanScheduleTable, loanReferenceRate, formatRupiah, LOAN_RATE_METHOD, type InstallmentResult, type LoanFeesResult } from '@/contracts'
 import type { Simulation } from '@/lib/api'
 import { track } from '@/lib/client'
 import { Action, Icon } from '../ui'
 import { Table } from './SavingsCalculator'
-import { Field, AmountInput, Segments, Select } from '../ui/form'
+import { Field, AmountInput, RateInput, Segments, Select } from '../ui/form'
 
-const RATE_LABELS: Record<string, string> = {
-  flat: 'Bunga flat', annuity: 'Anuitas', effective: 'Efektif menurun', none: '—',
-}
+/** Indonesian decimals: 1,1 rather than 1.1. */
+const pct = (n: number) => `${String(Math.round(n * 1000) / 1000).replace('.', ',')}%`
 
 /**
- * Loan side of the simulator. Each option is a simulation filed in the console
- * — its range, tenors and the label on the result card — while the rate and
- * its method come from the product, behind the product's sign-off.
+ * Loan side of the simulator. Each option is a simulation filed in the console:
+ * its range, tenors, reference rate and table. Every loan is bunga menurun, as
+ * in the koperasi's spreadsheet, so only the rate differs between products,
+ * and the visitor may change it to try another, starting from the reference.
  */
 export function SimulationCalculator({
   simulations, initialSimulationId, disclaimer, initialAmount, initialTenor,
@@ -39,20 +39,19 @@ export function SimulationCalculator({
 
   const clamped = Math.min(Math.max(amount, min), max)
 
-  // A signed-off rate is used as published. Otherwise fall back to the figure on
-  // record — the koperasi's own brochure number — and say so, because a
-  // calculator that shows nothing helps nobody and the alternative is a visitor
-  // guessing. `estimated` drives the notice.
-  const rate = product?.ratePercent ?? product?.ratePercentIndicative ?? null
-  const method = product?.ratePercent != null
-    ? product.rateMethod
-    : (product?.rateMethodIndicative ?? 'none')
-  const estimated = product != null && product.ratePercent == null && rate != null
+  // The simulation's own monthly rate, else the product's: signed off, or the
+  // koperasi's brochure figure labelled as unconfirmed. `estimated` drives the notice.
+  const reference = loanReferenceRate(sim?.ratePercent, product)
+  const [monthlyRate, setMonthlyRate] = useState<number | null>(reference.monthly)
+  // Another simulation brings its own reference.
+  useEffect(() => { setMonthlyRate(reference.monthly) }, [sim?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const tried = monthlyRate != null && reference.monthly != null && Math.abs(monthlyRate - reference.monthly) > 1e-9
+  const estimated = reference.estimated && !tried
 
   const result = useMemo(() => {
-    if (!rate) return null
-    return calculateInstallment({ principal: clamped, annualRatePercent: rate, months: tenor, method })
-  }, [rate, method, clamped, tenor])
+    if (monthlyRate == null) return null
+    return calculateInstallment({ principal: clamped, annualRatePercent: monthlyRate * 12, months: tenor, method: LOAN_RATE_METHOD })
+  }, [monthlyRate, clamped, tenor])
   const fees = useMemo(
     () => (sim?.loanTable?.fees.length ? calculateLoanFees(clamped, sim.loanTable.fees) : null),
     [sim?.loanTable, clamped],
@@ -103,6 +102,14 @@ export function SimulationCalculator({
                 onChange={(t) => { setTenor(t); track('simulation_change', { tenor: t }) }}
               />
             </div>
+
+            <RateInput
+              id="sim-rate"
+              label="Suku bunga (menurun)"
+              value={monthlyRate}
+              reference={reference.monthly}
+              onChange={setMonthlyRate}
+            />
           </div>
         </div>
 
@@ -114,11 +121,11 @@ export function SimulationCalculator({
           <div className="relative flex items-center justify-between gap-4">
             <p className="t-label !text-white/80">Estimasi</p>
             <span className="tnum text-[12px] font-medium text-white/45">
-              {sim.rateInfo || (RATE_LABELS[method] ?? '—')}
+              {tried || !sim.rateInfo ? (monthlyRate != null ? `Bunga menurun ${pct(monthlyRate)}/bln` : 'Bunga menurun') : sim.rateInfo}
             </span>
           </div>
 
-          <p className="relative mt-7 text-[13px] text-white/60">Angsuran per bulan</p>
+          <p className="relative mt-7 text-[13px] text-white/60">Angsuran bulan pertama</p>
           <p className="figure relative mt-1.5 text-[clamp(2rem,1.4rem+2.4vw,2.9rem)] text-white">
             {result ? formatRupiah(result.monthly) : '—'}
           </p>
@@ -138,6 +145,9 @@ export function SimulationCalculator({
               {[
                 ['Pokok pinjaman', formatRupiah(clamped)],
                 ['Jangka waktu', `${tenor} bulan`],
+                // Bunga menurun: the instalment shrinks every month, so the last one and the interest in all say what the first cannot.
+                ['Angsuran terakhir', formatRupiah(result.schedule.at(-1)?.payment ?? result.monthly)],
+                ['Total bunga', formatRupiah(result.totalInterest)],
                 ...(fees ? [['Biaya administrasi', formatRupiah(fees.total)], ['Dana diterima', formatRupiah(fees.received)]] : []),
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4 border-b border-white/15 py-3">
@@ -148,7 +158,7 @@ export function SimulationCalculator({
             </dl>
           ) : (
             <p className="relative mt-6 text-[14px] leading-relaxed text-white/60">
-              Produk ini tidak memakai perhitungan angsuran. Hubungi kami untuk penjelasan.
+              Isi suku bunga untuk melihat angsuran, atau hubungi kami untuk penjelasan.
             </p>
           )}
 
