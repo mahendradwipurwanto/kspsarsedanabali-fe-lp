@@ -23,6 +23,7 @@ export function MobileNav({ items }: { items: BottomNavItem[] }) {
 
   return (
     <nav
+      data-area="header"
       aria-label="Menu bawah"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
     >

@@ -71,7 +71,7 @@ export default async function JobPage({ params }: { params: Promise<{ slug: stri
                   <ul className="mt-4 space-y-2.5">
                     {job.requirements.map((req, i) => (
                       <li key={i} className="flex gap-3 text-ink-700">
-                        <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-[5px] bg-ink-900 text-gold-300">
+                        <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-[5px] bg-night-900 text-gold-300">
                           <Icon.check className="size-3.5" />
                         </span>
                         {req}

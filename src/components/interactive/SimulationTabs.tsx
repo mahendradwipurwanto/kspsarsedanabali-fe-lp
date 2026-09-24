@@ -80,7 +80,7 @@ export function SimulationTabs({
               aria-selected={tab === key}
               onClick={() => { setTab(key); track('simulation_change', { tab: key }) }}
               className={`rounded-[7px] px-4 py-2 text-[13.5px] font-semibold transition-colors ${
-                tab === key ? 'bg-ink-900 text-white' : 'text-ink-600 hover:text-ink-900'
+                tab === key ? 'bg-night-900 text-white' : 'text-ink-600 hover:text-ink-900'
               }`}
             >
               {label}

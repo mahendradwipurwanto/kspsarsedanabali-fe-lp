@@ -109,7 +109,7 @@ export function JobApplicationForm({ jobId, jobTitle }: { jobId: string; jobTitl
           <input
             id="job-cv" name="cv" type="file" required accept=".pdf,.doc,.docx"
             onChange={(e) => setFileName(e.target.files?.[0]?.name ?? '')}
-            className="w-full rounded-[var(--radius-input)] border border-dashed border-line-strong bg-paper px-4 py-3.5 text-[14px] text-ink-500 file:mr-4 file:rounded-[6px] file:border-0 file:bg-ink-900 file:px-4 file:py-2 file:text-[13px] file:font-semibold file:text-white hover:file:bg-ink-800"
+            className="w-full rounded-[var(--radius-input)] border border-dashed border-line-strong bg-paper px-4 py-3.5 text-[14px] text-ink-500 file:mr-4 file:rounded-[6px] file:border-0 file:bg-night-900 file:px-4 file:py-2 file:text-[13px] file:font-semibold file:text-white hover:file:bg-night-800"
           />
         </Field>
 

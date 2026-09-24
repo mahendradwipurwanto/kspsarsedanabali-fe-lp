@@ -61,7 +61,7 @@ export function HeroCarousel({
     <section
       aria-roledescription="carousel"
       aria-label="Sorotan produk"
-      className="relative isolate overflow-hidden bg-ink-900 text-white grid-dark"
+      className="relative isolate overflow-hidden bg-night-900 text-white grid-dark"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocusCapture={() => setPaused(true)}
@@ -71,7 +71,7 @@ export function HeroCarousel({
         <div className="absolute inset-0 -z-10" key={`img-${index}`}>
           <Media src={slide.image} alt="" ratio="auto" rounded={false} priority={index === 0} sizes="100vw"
             className="!absolute inset-0 size-full !rounded-none [&>*]:!object-cover" />
-          <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-ink-900 via-ink-900/92 to-ink-900/55" />
+          <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-night-900 via-night-900/92 to-night-900/55" />
         </div>
       ) : null}
 
@@ -258,7 +258,7 @@ export function QuickAccess({ items }: { items: { icon?: string; title: string; 
             return (
               <li key={item.href + item.title}>
                 <Link href={item.href} className="surface surface-i group/qa flex h-full items-center gap-4 p-4 lg:p-5">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-[var(--radius-tile)] bg-ink-900 text-gold-300 transition-colors duration-300 group-hover/qa:bg-green-600 group-hover/qa:text-white">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-[var(--radius-tile)] bg-night-900 text-gold-300 transition-colors duration-300 group-hover/qa:bg-green-600 group-hover/qa:text-white">
                     <IconCmp className="size-5" />
                   </span>
                   <span className="min-w-0 flex-1">

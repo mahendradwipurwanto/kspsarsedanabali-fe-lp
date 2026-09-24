@@ -121,7 +121,7 @@ export function FeedbackForm({
                   aria-checked={active}
                   onClick={() => setCategory(c)}
                   className={`min-h-[44px] cursor-pointer rounded-[var(--radius-input)] border px-4 text-[14px] font-semibold transition-colors duration-200 [transition-timing-function:var(--ease-swift)] ${
-                    active ? 'border-ink-900 bg-ink-900 text-white' : 'border-line bg-white text-ink-600 hover:border-ink-900 hover:text-ink-900'
+                    active ? 'border-night-900 bg-night-900 text-white' : 'border-line bg-white text-ink-600 hover:border-ink-900 hover:text-ink-900'
                   }`}
                 >
                   {FEEDBACK_CATEGORY_LABELS[c]}

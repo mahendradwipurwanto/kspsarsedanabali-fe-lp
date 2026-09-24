@@ -78,7 +78,7 @@ export function Band({
     default: 'bg-surface',
     alt: 'bg-paper ground-texture',
     green: 'bg-green-700 text-white',
-    dark: 'bg-ink-900 text-white grid-dark',
+    dark: 'bg-night-900 text-white grid-dark',
   }
   return (
     <section id={id} className={`${tones[tone]} ${rule ? 'border-t border-line' : ''} py-14 sm:py-16 lg:py-24 ${className}`}>
@@ -154,7 +154,7 @@ export function Heading({
 
 const VARIANTS = {
   primary: 'bg-green-600 text-white shadow-[var(--shadow-green)] hover:bg-green-700 hover:shadow-[var(--shadow-green-lift)] active:bg-green-800',
-  dark: 'bg-ink-900 text-white hover:bg-ink-800 active:bg-ink-950',
+  dark: 'bg-night-900 text-white hover:bg-night-800 active:bg-night-950',
   gold: 'bg-gold-300 text-ink-900 hover:bg-gold-200 active:bg-gold-400',
   outline: 'bg-white text-ink-800 ring-1 ring-inset ring-line-strong hover:bg-ink-50 hover:ring-ink-400',
   soft: 'bg-green-50 text-green-800 ring-1 ring-inset ring-green-100 hover:bg-green-100',
@@ -242,7 +242,7 @@ export function Tile({
     green: 'bg-green-600 text-white',
     soft: 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-100',
     gold: 'bg-gold-100 text-gold-700 ring-1 ring-inset ring-gold-200',
-    dark: 'bg-ink-800 text-gold-300 ring-1 ring-inset ring-white/10',
+    dark: 'bg-night-800 text-gold-300 ring-1 ring-inset ring-white/10',
     outline: 'bg-white text-ink-700 ring-1 ring-inset ring-line',
   }
   return <span className={`grid shrink-0 place-items-center rounded-[var(--radius-tile)] ${sizes[size]} ${tones[tone]}`}>{children}</span>
@@ -254,7 +254,7 @@ export function Pill({ children, tone = 'green' }: { children: ReactNode; tone?:
     gold: 'bg-gold-50 text-gold-700 ring-1 ring-inset ring-gold-200',
     quiet: 'bg-ink-50 text-ink-600 ring-1 ring-inset ring-ink-200',
     light: 'bg-white/10 text-white ring-1 ring-inset ring-white/25',
-    dark: 'bg-ink-900 text-white',
+    dark: 'bg-night-900 text-white',
   }
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold ${tones[tone]}`}>
@@ -321,7 +321,7 @@ export function PageIntro({
 }: { label: string; title: ReactNode; lead?: ReactNode; aside?: ReactNode; tone?: 'dark' | 'light' }) {
   const dark = tone === 'dark'
   return (
-    <div className={`relative overflow-hidden ${dark ? 'bg-ink-900 text-white grid-dark' : 'border-b border-line bg-paper ground-texture'}`}>
+    <div data-area={dark ? 'banner' : undefined} className={`relative overflow-hidden ${dark ? 'bg-night-900 text-white grid-dark' : 'border-b border-line bg-paper ground-texture'}`}>
       {dark ? <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-gold-400/60 to-transparent" /> : null}
       <Shell>
         <div className={`relative py-12 sm:py-16 lg:py-20 ${aside ? 'grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-end lg:gap-14' : ''}`}>

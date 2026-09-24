@@ -15,7 +15,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',
-    theme_color: colors.secondary,
+    theme_color: colors.surface,
     lang: 'id-ID',
     categories: ['finance', 'business'],
   }

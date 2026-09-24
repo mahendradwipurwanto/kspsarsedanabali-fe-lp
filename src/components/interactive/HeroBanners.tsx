@@ -61,7 +61,7 @@ export function HeroBanners({
     <section
       aria-roledescription="carousel"
       aria-label="Banner utama"
-      className="relative isolate overflow-hidden bg-ink-900"
+      className="relative isolate overflow-hidden bg-night-900"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocusCapture={() => setPaused(true)}
@@ -80,7 +80,7 @@ export function HeroBanners({
         ))}
 
         {showText ? (
-          <div className="absolute inset-0 flex items-end bg-gradient-to-t from-ink-900/85 via-ink-900/25 to-transparent">
+          <div className="absolute inset-0 flex items-end bg-gradient-to-t from-night-900/85 via-night-900/25 to-transparent">
             <Shell className="pb-12 sm:pb-14 lg:pb-20">
               <div key={index} className="max-w-[46ch]">
                 {current.heading ? <h1 className="t-display rise d-1 !text-white">{current.heading}</h1> : <h1 className="sr-only">{title}</h1>}

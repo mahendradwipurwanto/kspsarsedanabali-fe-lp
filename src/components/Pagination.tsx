@@ -37,7 +37,7 @@ export function Pagination({ page, totalPages, basePath }: { page: number; total
                   href={href(p)}
                   aria-current={p === page ? 'page' : undefined}
                   className={`grid size-10 place-items-center rounded-[var(--radius-input)] text-[14px] font-semibold transition-colors ${
-                    p === page ? 'bg-ink-900 text-white' : 'text-ink-500 hover:bg-paper hover:text-ink-900'
+                    p === page ? 'bg-night-900 text-white' : 'text-ink-500 hover:bg-paper hover:text-ink-900'
                   }`}
                 >
                   {p}

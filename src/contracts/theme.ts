@@ -1,8 +1,10 @@
 /**
- * The website's three brand colours, set under Pengaturan → Identitas.
+ * The website's brand colours, set under Pengaturan → Identitas.
  *
- * The site is styled with three ramps — `green-*` (primary), `ink-*`
- * (secondary) and `gold-*` (accent) — each eleven or so shades deep. An editor
+ * The site is styled with four ramps — `green-*` (primary), `ink-*` (text),
+ * `night-*` (dark surfaces) and `gold-*` (accent) — each eleven or so shades
+ * deep. Text and dark surfaces were one ramp once, so a green banner meant
+ * green headings everywhere; they are chosen apart now. An editor
  * picks one colour per ramp; the rest of the ramp is derived from it so every
  * class that names a shade follows along.
  *
@@ -13,12 +15,12 @@
  * proportional chroma. Picking the shipped colour returns the shipped ramp.
  */
 
-export type ThemeColorKey = 'primary' | 'secondary' | 'accent'
+export type ThemeColorKey = 'primary' | 'secondary' | 'surface' | 'accent'
 
 export interface ThemeFamily {
   key: ThemeColorKey
   /** The CSS variable prefix on the website: `--color-<token>-<step>`. */
-  token: 'green' | 'ink' | 'gold'
+  token: 'green' | 'ink' | 'night' | 'gold'
   /** The shade the chosen colour becomes. */
   anchor: number
   label: string
@@ -39,8 +41,17 @@ export const THEME_FAMILIES: ThemeFamily[] = [
   },
   {
     key: 'secondary', token: 'ink', anchor: 900,
-    label: 'Warna kedua',
-    hint: 'Banner, footer, judul, dan panel gelap seperti kartu hasil simulasi. Bawaan: biru tua.',
+    label: 'Warna teks & judul',
+    hint: 'Judul halaman, teks isi, dan garis tepi di latar terang. Pilih warna gelap agar mudah dibaca. Bawaan: biru tua.',
+    ramp: {
+      50: '#f5f7f9', 100: '#eceff3', 200: '#d9dee5', 300: '#b7c0cc', 400: '#8593a6', 500: '#5b6b82',
+      600: '#3b4d68', 700: '#223452', 800: '#16263d', 900: '#0f1b2d', 950: '#0a1220',
+    },
+  },
+  {
+    key: 'surface', token: 'night', anchor: 900,
+    label: 'Warna latar gelap',
+    hint: 'Banner judul halaman, footer, tombol gelap, dan panel gelap seperti kartu hasil simulasi. Teks di atasnya putih. Bawaan: biru tua.',
     ramp: {
       50: '#f5f7f9', 100: '#eceff3', 200: '#d9dee5', 300: '#b7c0cc', 400: '#8593a6', 500: '#5b6b82',
       600: '#3b4d68', 700: '#223452', 800: '#16263d', 900: '#0f1b2d', 950: '#0a1220',
@@ -73,6 +84,94 @@ export function themeColors(raw: Partial<Record<ThemeColorKey, unknown>> | undef
   for (const f of THEME_FAMILIES) {
     const v = raw?.[f.key]
     if (isHexColor(v)) out[f.key] = v.toLowerCase()
+  }
+  // Saved before the two were split, the one "secondary" colour painted the
+  // dark surfaces too; keep them that colour until the editor picks one.
+  if (!isHexColor(raw?.surface) && isHexColor(raw?.secondary)) out.surface = out.secondary
+  return out
+}
+
+/* ─────────────────────────────── per-area colours ─────────────────────────── */
+
+/**
+ * The header, the footer and the page banners can each take their own colours
+ * instead of the site's. An area's colour re-declares the ramp its classes
+ * already use, on that area only, so nothing inside it needs a new class: the
+ * header's text is `ink-*`, the footer's and a banner's text is `white`, and so on.
+ * Left empty, a part follows the site's colours.
+ */
+export type ThemeAreaKey = 'header' | 'footer' | 'banner'
+export type ThemeAreaPart = 'background' | 'text' | 'accent'
+
+export interface ThemeAreaDef {
+  key: ThemeAreaKey
+  label: string
+  hint: string
+  /** What each part repaints: a ramp (re-derived from the colour) or `white`. */
+  parts: Record<ThemeAreaPart, { label: string; hint: string; paints: ThemeFamily['token'] | 'white' }>
+}
+
+export const THEME_AREAS: ThemeAreaDef[] = [
+  {
+    key: 'header', label: 'Header & navigasi', hint: 'Bar atas dengan logo, menu, dan tombol kontak, termasuk menu turun dan navigasi bawah di ponsel.',
+    parts: {
+      background: { label: 'Latar', hint: 'Bawaan: putih.', paints: 'white' },
+      text: { label: 'Teks menu', hint: 'Bawaan: warna teks & judul.', paints: 'ink' },
+      accent: { label: 'Aksen', hint: 'Menu aktif, garis bawah, dan tombol. Bawaan: warna utama.', paints: 'green' },
+    },
+  },
+  {
+    key: 'footer', label: 'Footer', hint: 'Bagian paling bawah setiap halaman: alamat, tautan, dan kantor.',
+    parts: {
+      background: { label: 'Latar', hint: 'Bawaan: warna latar gelap.', paints: 'night' },
+      text: { label: 'Teks', hint: 'Bawaan: putih.', paints: 'white' },
+      accent: { label: 'Aksen', hint: 'Garis kecil di bawah judul kolom. Bawaan: warna aksen.', paints: 'gold' },
+    },
+  },
+  {
+    key: 'banner', label: 'Banner judul halaman', hint: 'Pembuka setiap halaman dengan judul besar, dan banner ajakan (CTA) polos.',
+    parts: {
+      background: { label: 'Latar', hint: 'Bawaan: warna latar gelap.', paints: 'night' },
+      text: { label: 'Judul & teks', hint: 'Bawaan: putih.', paints: 'white' },
+      accent: { label: 'Aksen', hint: 'Label kecil di atas judul dan garis bawah. Bawaan: warna aksen.', paints: 'gold' },
+    },
+  },
+]
+
+export const THEME_AREA_PARTS: ThemeAreaPart[] = ['background', 'text', 'accent']
+
+/** Only the parts an editor set; an empty part follows the site's colours. */
+export type ThemeAreas = Partial<Record<ThemeAreaKey, Partial<Record<ThemeAreaPart, string>>>>
+
+/** The saved area colours, keeping only six-digit hex on known areas and parts. */
+export function themeAreas(raw: unknown): ThemeAreas {
+  const out: ThemeAreas = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const area of THEME_AREAS) {
+    const saved = (raw as Record<string, unknown>)[area.key]
+    if (!saved || typeof saved !== 'object') continue
+    const parts: Partial<Record<ThemeAreaPart, string>> = {}
+    for (const part of THEME_AREA_PARTS) {
+      const v = (saved as Record<string, unknown>)[part]
+      if (isHexColor(v)) parts[part] = v.toLowerCase()
+    }
+    if (Object.keys(parts).length) out[area.key] = parts
+  }
+  return out
+}
+
+/** The declarations one area's colours make: a whole ramp for a ramp, one variable for white. */
+export function themeAreaVars(area: ThemeAreaKey, colors: Partial<Record<ThemeAreaPart, string>>): Record<string, string> {
+  const def = THEME_AREAS.find((a) => a.key === area)
+  const out: Record<string, string> = {}
+  if (!def) return out
+  for (const part of THEME_AREA_PARTS) {
+    const hex = colors[part]
+    if (!isHexColor(hex)) continue
+    const paints = def.parts[part].paints
+    if (paints === 'white') { out['--color-white'] = hex.toLowerCase(); continue }
+    const family = THEME_FAMILIES.find((f) => f.token === paints)!
+    for (const [step, shade] of Object.entries(buildRamp(family, hex))) out[`--color-${paints}-${step}`] = shade
   }
   return out
 }
@@ -161,7 +260,7 @@ export function buildRamp(family: ThemeFamily, base: string): Record<number, str
  * differs from the shipped one. Empty when nothing has changed, so a site on
  * its shipped colours carries no extra CSS.
  */
-export function themeCss(colors: ThemeColors): string {
+export function themeCss(colors: ThemeColors, areas: ThemeAreas = {}): string {
   const decls: string[] = []
   for (const f of THEME_FAMILIES) {
     const ramp = buildRamp(f, colors[f.key])
@@ -169,7 +268,14 @@ export function themeCss(colors: ThemeColors): string {
       if (hex !== f.ramp[Number(step)]) decls.push(`--color-${f.token}-${step}:${hex}`)
     }
   }
-  return decls.length ? `:root{${decls.join(';')}}` : ''
+  const rules = decls.length ? [`:root{${decls.join(';')}}`] : []
+  // Each area re-declares its ramps on its own element, marked `data-area`.
+  for (const area of THEME_AREAS) {
+    const vars = themeAreaVars(area.key, areas[area.key] ?? {})
+    const body = Object.entries(vars).map(([k, v]) => `${k}:${v}`).join(';')
+    if (body) rules.push(`[data-area="${area.key}"]{${body}}`)
+  }
+  return rules.join('')
 }
 
 /** WCAG contrast ratio between two hex colours, 1 to 21. */

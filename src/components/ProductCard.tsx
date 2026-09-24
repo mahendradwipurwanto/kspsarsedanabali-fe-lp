@@ -75,7 +75,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
             rounded={false}
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-2 bg-gradient-to-t from-ink-900/95 via-ink-900/75 to-transparent p-4 pt-12 opacity-0 transition-all duration-300 [transition-timing-function:var(--ease-settle)] group-hover/card:translate-y-0 group-hover/card:opacity-100 group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-2 bg-gradient-to-t from-night-900/95 via-night-900/75 to-transparent p-4 pt-12 opacity-0 transition-all duration-300 [transition-timing-function:var(--ease-settle)] group-hover/card:translate-y-0 group-hover/card:opacity-100 group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100">
             <Terms product={product} tone="dark" />
           </div>
         </div>
@@ -125,7 +125,7 @@ export function ProductRow({ product, index }: { product: Product; index: number
         ) : (
           <span
             aria-hidden="true"
-            className="tnum hidden size-12 shrink-0 place-items-center rounded-[var(--radius-tile)] bg-ink-900 text-[14px] font-extrabold text-gold-300 sm:grid"
+            className="tnum hidden size-12 shrink-0 place-items-center rounded-[var(--radius-tile)] bg-night-900 text-[14px] font-extrabold text-gold-300 sm:grid"
           >
             {String(index).padStart(2, '0')}
           </span>

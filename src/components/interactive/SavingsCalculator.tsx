@@ -65,7 +65,7 @@ export function SavingsCalculator({
                 onClick={() => { setSimulationId(x.id); track('simulation_change', { plan: x.product.slug }) }}
                 aria-pressed={active}
                 className={`rounded-[var(--radius-card)] border p-4 text-left transition-colors duration-200 ${
-                  active ? 'border-ink-900 bg-ink-900' : 'border-line bg-white hover:border-ink-900'
+                  active ? 'border-night-900 bg-night-900' : 'border-line bg-white hover:border-ink-900'
                 }`}
               >
                 <span className={`block text-[15px] font-bold ${active ? 'text-white' : 'text-ink-900'}`}>{x.name}</span>

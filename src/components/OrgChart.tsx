@@ -25,7 +25,7 @@ import type { OrgLevel, OrgColumn, OrgMember } from '@/contracts'
  */
 const TONE = {
   netral: 'border border-line bg-white text-ink-800',
-  gelap: 'bg-ink-900 text-white',
+  gelap: 'bg-night-900 text-white',
   hijau: 'bg-green-700 text-white',
   emas: 'border border-gold-400 bg-gold-50 text-ink-800',
 } as const
@@ -36,7 +36,7 @@ const toneOf = (value: string | undefined, fallback: keyof typeof TONE) =>
 /** The heading strip of a card, which keeps its own text colour when neutral. */
 const HEAD_TONE = {
   netral: 'border-b border-line bg-paper text-green-700',
-  gelap: 'bg-ink-900 text-white',
+  gelap: 'bg-night-900 text-white',
   hijau: 'bg-green-700 text-white',
   emas: 'border-b border-gold-400 bg-gold-50 text-ink-800',
 } as const

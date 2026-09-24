@@ -83,7 +83,7 @@ export interface Step { title: string; body?: string; icon?: string }
 function StepMarker({ step, index }: { step: Step; index: number }) {
   const IconCmp = step.icon ? iconByName(step.icon) : null
   return (
-    <span className="grid size-11 shrink-0 place-items-center rounded-[var(--radius-tile)] bg-ink-900 text-gold-300">
+    <span className="grid size-11 shrink-0 place-items-center rounded-[var(--radius-tile)] bg-night-900 text-gold-300">
       {IconCmp ? <IconCmp className="size-5" /> : <span className="figure text-[17px]">{String(index + 1).padStart(2, '0')}</span>}
     </span>
   )
@@ -175,7 +175,7 @@ export function VideoEmbed({ url, title, caption, width }: { url: string; title?
   if (!id) return null
   return (
     <figure className={width === 'narrow' ? 'mx-auto max-w-3xl' : ''}>
-      <div className="relative aspect-video overflow-hidden rounded-[var(--radius-card)] bg-ink-900 shadow-[var(--shadow-lift)]">
+      <div className="relative aspect-video overflow-hidden rounded-[var(--radius-card)] bg-night-900 shadow-[var(--shadow-lift)]">
         <iframe
           src={`https://www.youtube-nocookie.com/embed/${id}`}
           title={title || 'Video'}

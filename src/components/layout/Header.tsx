@@ -120,7 +120,7 @@ export function Header({
   return (
     <header ref={bar} className="sticky top-0 z-50">
       {header.announcement ? (
-        <div className="bg-ink-900 text-white">
+        <div className="bg-night-900 text-white">
           <Shell>
             <p className="flex min-h-[36px] items-center justify-center gap-3 py-1.5 text-center text-[12.5px] font-medium">
               <span aria-hidden="true" className="hidden size-1.5 rounded-full bg-gold-300 sm:block" />
@@ -132,7 +132,7 @@ export function Header({
         </div>
       ) : null}
 
-      <div className={`bg-white/92 backdrop-blur-md transition-[box-shadow,border-color] duration-300 border-b ${scrolled ? 'border-line shadow-[0_8px_24px_-20px_rgb(15_27_45/0.35)]' : 'border-transparent'}`}>
+      <div data-area="header" className={`bg-white/92 backdrop-blur-md transition-[box-shadow,border-color] duration-300 border-b ${scrolled ? 'border-line shadow-[0_8px_24px_-20px_rgb(15_27_45/0.35)]' : 'border-transparent'}`}>
         <Shell>
           <div className="flex h-[66px] items-center justify-between gap-4 lg:h-[74px]">
             <Link href="/" aria-label={`${brand.name} — Beranda`} className="min-w-0 flex-1 xl:flex-none">
@@ -313,6 +313,7 @@ export function Header({
       {/* ── Mobile drawer ─────────────────────────────────────────────────── */}
       <div
         id="nav-mobile"
+        data-area="header"
         className={`fixed inset-x-0 bottom-0 z-40 w-full max-w-[100vw] overflow-y-auto overflow-x-hidden overscroll-contain bg-white transition-[opacity,transform] duration-300 xl:hidden ${
           header.announcement ? 'top-[102px]' : 'top-[66px]'
         } ${open ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'}`}

@@ -119,7 +119,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
     /* ─────────────────────────── page openers ─────────────────────────── */
     case 'page_header':
       return (
-        <div className="relative overflow-hidden bg-ink-900 text-white grid-dark">
+        <div data-area="banner" className="relative overflow-hidden bg-night-900 text-white grid-dark">
           <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-gold-400/60 to-transparent" />
           <Shell>
             <div className={`relative py-12 sm:py-16 lg:py-20 ${s(p.align) === 'center' ? 'mx-auto max-w-3xl text-center' : 'max-w-[56ch]'}`}>
@@ -207,7 +207,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
       const list = chosen.length ? ctx.branches.filter((x) => chosen.includes(x.id)) : ctx.branches
       if (!list.length) return null
       return (
-        <div className="border-b border-line bg-ink-900 text-white">
+        <div className="border-b border-line bg-night-900 text-white">
           <Shell>
             <ul className="grid divide-y divide-white/10 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
               {list.map((branch, i) => {
@@ -326,11 +326,11 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
     case 'cta_banner': {
       const solid = s(p.variant, 'image') === 'solid' || !s(p.image)
       return (
-        <section className={`relative isolate overflow-hidden text-white ${solid ? 'bg-ink-900 grid-dark' : 'bg-ink-900'}`}>
+        <section data-area="banner" className={`relative isolate overflow-hidden text-white ${solid ? 'bg-night-900 grid-dark' : 'bg-night-900'}`}>
           {!solid ? (
             <div className="absolute inset-0 -z-10">
               <Media src={s(p.image)} alt="" ratio="auto" rounded={false} sizes="100vw" className="!absolute inset-0 size-full !rounded-none [&>*]:!object-cover" />
-              <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-ink-900 via-ink-900/90 to-ink-900/50" />
+              <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-night-900 via-night-900/90 to-night-900/50" />
             </div>
           ) : (
             <Mark className="pointer-events-none absolute -right-10 -bottom-16 hidden h-[22rem] w-auto opacity-[0.06] lg:block" />

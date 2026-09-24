@@ -38,7 +38,7 @@ export function Footer({
     : []
 
   return (
-    <footer className="bg-ink-900 text-white/70">
+    <footer data-area="footer" className="bg-night-900 text-white/70">
       {/* The closing call. Green on navy, one gold hairline above. */}
       {footer.ctaHeading ? (
         <div className="relative border-b border-white/10 bg-green-700 text-white">

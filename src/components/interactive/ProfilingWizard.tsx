@@ -127,7 +127,7 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
               <span
                 aria-hidden="true"
                 className={`block h-1.5 rounded-full transition-colors duration-500 [transition-timing-function:var(--ease-settle)] ${
-                  state === 'now' ? 'bg-ink-900' : state === 'done' ? 'bg-green-500' : 'bg-ink-100'
+                  state === 'now' ? 'bg-night-900' : state === 'done' ? 'bg-green-500' : 'bg-ink-100'
                 }`}
               />
               <span className="mt-2.5 block pb-1">
@@ -166,7 +166,7 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
                     <input type="radio" name="need" value={opt.value} checked={active}
                       onChange={() => setAnswers((a) => ({ ...a, need: opt.value }))} className="sr-only" />
                     <span className="flex items-center justify-between">
-                      <span className={`grid size-14 place-items-center rounded-[var(--radius-tile)] border transition-colors duration-300 ${active ? 'border-ink-900 bg-ink-900 text-gold-300' : 'border-line bg-paper text-ink-700 group-hover:border-ink-900'}`}>
+                      <span className={`grid size-14 place-items-center rounded-[var(--radius-tile)] border transition-colors duration-300 ${active ? 'border-night-900 bg-night-900 text-gold-300' : 'border-line bg-paper text-ink-700 group-hover:border-ink-900'}`}>
                         <opt.IconCmp className="size-7" />
                       </span>
                       <span className={`tnum text-[11px] font-bold tracking-[0.16em] ${active ? 'text-ink-900' : 'text-ink-300'}`}>{opt.n}</span>
@@ -178,7 +178,7 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
                     <span
                       aria-hidden="true"
                       className={`absolute right-5 top-5 grid size-5 place-items-center rounded-full border-2 transition-colors ${
-                        active ? 'border-ink-900 bg-ink-900 text-gold-300' : 'border-line-strong'
+                        active ? 'border-night-900 bg-night-900 text-gold-300' : 'border-line-strong'
                       }`}
                     >
                       {active ? <Icon.check className="size-3.5" /> : null}
@@ -226,12 +226,12 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
                       }
                     />
                     <span className="flex min-w-0 items-center gap-3">
-                      <span className={`grid size-10 shrink-0 place-items-center rounded-[var(--radius-tile)] border transition-colors duration-300 ${active ? 'border-ink-900 bg-ink-900 text-gold-300' : 'border-line bg-paper text-ink-700'}`}>
+                      <span className={`grid size-10 shrink-0 place-items-center rounded-[var(--radius-tile)] border transition-colors duration-300 ${active ? 'border-night-900 bg-night-900 text-gold-300' : 'border-line bg-paper text-ink-700'}`}>
                         <PurposeIcon className="size-5" />
                       </span>
                       <span className="leading-snug">{purpose.label}</span>
                     </span>
-                    <span aria-hidden="true" className={`grid size-5 shrink-0 place-items-center rounded-full border-2 transition-colors ${active ? 'border-ink-900 bg-ink-900 text-gold-300' : 'border-line-strong'}`}>
+                    <span aria-hidden="true" className={`grid size-5 shrink-0 place-items-center rounded-full border-2 transition-colors ${active ? 'border-night-900 bg-night-900 text-gold-300' : 'border-line-strong'}`}>
                       {active ? <Icon.check className="size-3.5" /> : null}
                     </span>
                   </label>
@@ -347,7 +347,7 @@ function ResultPanel({ result, answers, branches }: { result: Recommendation | n
   return (
     <div className="mx-auto max-w-2xl">
       <div className="surface relative z-0 overflow-hidden">
-        <div className="grid-dark relative bg-ink-900 p-7 text-white sm:p-9">
+        <div className="grid-dark relative bg-night-900 p-7 text-white sm:p-9">
           <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200 to-transparent" />
           <div className="flex items-start justify-between gap-5">
             <div>

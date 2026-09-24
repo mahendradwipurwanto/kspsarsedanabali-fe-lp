@@ -6,7 +6,7 @@ import {
   DEFAULT_ANALYTICS, DEFAULT_SEO_TECH, GA_ID_RULE,
   type MenuItem, type HeaderSettings, type FooterSettings, type BrandSettings,
   type AnalyticsSettings, type SeoTechSettings,
-  themeColors, themeCss,
+  themeColors, themeCss, themeAreas,
 } from '@/contracts'
 import { getBranches, getSettings, getLegalPages, getMenu } from '@/lib/api'
 import { SITE_URL } from '@/lib/seo'
@@ -78,12 +78,12 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-/** The browser's own chrome takes the secondary colour, as the header and footer do. */
+/** The browser's own chrome takes the dark-surface colour, as the footer and banners do. */
 export async function generateViewport(): Promise<Viewport> {
   const settings = await getSettings()
   const colors = themeColors((settings.brand as { colors?: Record<string, unknown> } | undefined)?.colors)
   return {
-    themeColor: colors.secondary,
+    themeColor: colors.surface,
     width: 'device-width',
     initialScale: 1,
     maximumScale: 5,
@@ -109,7 +109,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const brand = group<BrandSettings>(settings.brand, { ...DEFAULT_BRAND, name: site.name || DEFAULT_BRAND.name, tagline: site.tagline || DEFAULT_BRAND.tagline })
   // The colours chosen under Identitas, as overrides of the shipped ramps.
   // themeColors() admits only six-digit hex, so nothing but a colour reaches the style sheet.
-  const brandCss = themeCss(themeColors(brand.colors))
+  const brandCss = themeCss(themeColors(brand.colors), themeAreas(brand.areas))
   const legal = (Array.isArray(settings.legal) ? settings.legal : SITE.legal) as { label: string; value: string; date: string }[]
   const social = (settings.social ?? {}) as Record<string, string>
   // Menus fall back to the shipped defaults only when nothing has ever been saved.

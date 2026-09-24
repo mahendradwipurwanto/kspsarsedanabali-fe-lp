@@ -97,7 +97,7 @@ export function Segments({
             onClick={() => onChange(opt as never)}
             className={`tnum min-h-[44px] min-w-[68px] cursor-pointer rounded-[var(--radius-input)] border px-4 text-[14px] font-semibold transition-colors duration-200 [transition-timing-function:var(--ease-swift)] ${
               active
-                ? 'border-ink-900 bg-ink-900 text-white'
+                ? 'border-night-900 bg-night-900 text-white'
                 : 'border-line bg-white text-ink-600 hover:border-ink-900 hover:text-ink-900'
             }`}
           >

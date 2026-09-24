@@ -168,7 +168,7 @@ function Arrow({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className="grid size-9 place-items-center rounded-[var(--radius-tile)] border border-line bg-surface text-ink-700 transition-colors hover:border-ink-900 hover:bg-ink-900 hover:text-white disabled:pointer-events-none disabled:opacity-35"
+      className="grid size-9 place-items-center rounded-[var(--radius-tile)] border border-line bg-surface text-ink-700 transition-colors hover:border-ink-900 hover:bg-night-900 hover:text-white disabled:pointer-events-none disabled:opacity-35"
     >
       {children}
     </button>
@@ -206,7 +206,7 @@ function TestimonialCard({ item, className = '' }: { item: Testimonial; classNam
             className="size-10 shrink-0 rounded-[var(--radius-tile)] border border-line object-cover"
           />
         ) : (
-          <span className="grid size-10 shrink-0 place-items-center rounded-[var(--radius-tile)] bg-ink-900 text-[12.5px] font-bold text-gold-300">
+          <span className="grid size-10 shrink-0 place-items-center rounded-[var(--radius-tile)] bg-night-900 text-[12.5px] font-bold text-gold-300">
             {item.name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('')}
           </span>
         )}

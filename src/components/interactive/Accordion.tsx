@@ -33,7 +33,7 @@ export function Accordion({ items, defaultOpen = 0 }: { items: { title: string; 
                 <span
                   aria-hidden="true"
                   className={`grid size-7 shrink-0 place-items-center rounded-[var(--radius-tile)] border transition-all duration-300 [transition-timing-function:var(--ease-settle)] ${
-                    isOpen ? 'rotate-180 border-ink-900 bg-ink-900 text-gold-300' : 'border-line bg-white text-ink-500 group-hover/acc:border-ink-900 group-hover/acc:text-ink-900'
+                    isOpen ? 'rotate-180 border-night-900 bg-night-900 text-gold-300' : 'border-line bg-white text-ink-500 group-hover/acc:border-ink-900 group-hover/acc:text-ink-900'
                   }`}
                 >
                   <Icon.chevron className="size-4" />

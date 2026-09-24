@@ -28,7 +28,7 @@ export function BranchCard({ branch, showHours = true, distanceKm }: { branch: B
           <p className="mt-1.5 text-[13.5px] leading-relaxed text-ink-500">{branch.address}</p>
         </div>
         {distanceKm !== undefined ? (
-          <span className="tnum shrink-0 rounded-full bg-ink-900 px-2.5 py-1 text-[12px] font-bold text-gold-300">
+          <span className="tnum shrink-0 rounded-full bg-night-900 px-2.5 py-1 text-[12px] font-bold text-gold-300">
             {distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m` : `${distanceKm.toFixed(1).replace('.', ',')} km`}
           </span>
         ) : null}

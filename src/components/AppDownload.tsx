@@ -47,7 +47,7 @@ export function StoreBadges({
 
   const badgeCls = on === 'dark'
     ? 'bg-white text-ink-900 hover:bg-gold-50'
-    : 'bg-ink-900 text-white ring-1 ring-inset ring-white/15 hover:bg-ink-800'
+    : 'bg-night-900 text-white ring-1 ring-inset ring-white/15 hover:bg-night-800'
 
   return (
     <div className={`flex flex-wrap items-center gap-3 ${className}`}>
@@ -89,11 +89,11 @@ function PhoneFrame({ src, alt, name, dark }: { src?: string; alt: string; name:
     <div className="relative mx-auto w-[240px] sm:w-[272px]">
       <span aria-hidden="true" className={`absolute -inset-8 rounded-[4rem] blur-3xl ${dark ? 'bg-green-500/25' : 'bg-green-300/40'}`} />
       {/* Side keys sit outside the clipped screen. */}
-      <span aria-hidden="true" className="absolute -left-[3px] top-[88px] h-7 w-[3px] rounded-l-sm bg-ink-700" />
-      <span aria-hidden="true" className="absolute -left-[3px] top-[128px] h-12 w-[3px] rounded-l-sm bg-ink-700" />
-      <span aria-hidden="true" className="absolute -right-[3px] top-[112px] h-16 w-[3px] rounded-r-sm bg-ink-700" />
-      <div className={`relative aspect-[9/19.5] overflow-hidden rounded-[2.75rem] border-[10px] bg-ink-950 shadow-[0_40px_80px_-30px_rgba(0,0,0,0.65)] ${dark ? 'border-ink-800 ring-1 ring-white/15' : 'border-ink-900 ring-1 ring-ink-900/10'}`}>
-        <span aria-hidden="true" className="absolute left-1/2 top-2.5 z-10 h-[22px] w-[88px] -translate-x-1/2 rounded-full bg-ink-950" />
+      <span aria-hidden="true" className="absolute -left-[3px] top-[88px] h-7 w-[3px] rounded-l-sm bg-night-700" />
+      <span aria-hidden="true" className="absolute -left-[3px] top-[128px] h-12 w-[3px] rounded-l-sm bg-night-700" />
+      <span aria-hidden="true" className="absolute -right-[3px] top-[112px] h-16 w-[3px] rounded-r-sm bg-night-700" />
+      <div className={`relative aspect-[9/19.5] overflow-hidden rounded-[2.75rem] border-[10px] bg-night-950 shadow-[0_40px_80px_-30px_rgba(0,0,0,0.65)] ${dark ? 'border-ink-800 ring-1 ring-white/15' : 'border-ink-900 ring-1 ring-ink-900/10'}`}>
+        <span aria-hidden="true" className="absolute left-1/2 top-2.5 z-10 h-[22px] w-[88px] -translate-x-1/2 rounded-full bg-night-950" />
         {src ? (
           <Media src={src} alt={alt} ratio="auto" rounded={false} sizes="272px" className="!absolute inset-0 size-full !rounded-none [&>*]:!object-cover [&>*]:!object-top" />
         ) : (

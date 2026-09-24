@@ -205,8 +205,8 @@ export function BranchMap({
                   className="pointer-events-none absolute z-10 grid -translate-x-1/2 -translate-y-1/2 place-items-center"
                   style={{ left: p.x, top: p.y }}
                 >
-                  <span className="absolute size-8 animate-ping rounded-full bg-ink-900/15" />
-                  <span className="size-3.5 rounded-full border-2 border-white bg-ink-900 shadow-[0_1px_4px_rgb(15_27_45/0.5)]" />
+                  <span className="absolute size-8 animate-ping rounded-full bg-night-900/15" />
+                  <span className="size-3.5 rounded-full border-2 border-white bg-night-900 shadow-[0_1px_4px_rgb(15_27_45/0.5)]" />
                   <span className="sr-only">Perkiraan lokasi Anda</span>
                 </span>
               )
@@ -227,12 +227,12 @@ export function BranchMap({
                   className="absolute z-20 -translate-x-1/2 -translate-y-full"
                   style={{ left: p.x, top: p.y }}
                 >
-                  <span className={`grid size-8 place-items-center rounded-full border-2 border-white text-white shadow-[0_2px_8px_rgb(15_27_45/0.35)] transition-transform ${on ? 'scale-110 bg-ink-900' : 'bg-green-600 hover:scale-110'}`}>
+                  <span className={`grid size-8 place-items-center rounded-full border-2 border-white text-white shadow-[0_2px_8px_rgb(15_27_45/0.35)] transition-transform ${on ? 'scale-110 bg-night-900' : 'bg-green-600 hover:scale-110'}`}>
                     <Icon.pin className="size-4" />
                   </span>
-                  <span aria-hidden="true" className={`mx-auto -mt-0.5 block size-2 rotate-45 border-b-2 border-r-2 border-white ${on ? 'bg-ink-900' : 'bg-green-600'}`} />
+                  <span aria-hidden="true" className={`mx-auto -mt-0.5 block size-2 rotate-45 border-b-2 border-r-2 border-white ${on ? 'bg-night-900' : 'bg-green-600'}`} />
                   {on ? (
-                    <span className="absolute bottom-full left-1/2 mb-1.5 w-max max-w-[200px] -translate-x-1/2 truncate rounded-[var(--radius-tile)] bg-ink-900 px-2.5 py-1.5 text-[12px] font-semibold text-white shadow-[var(--shadow-lift)]">
+                    <span className="absolute bottom-full left-1/2 mb-1.5 w-max max-w-[200px] -translate-x-1/2 truncate rounded-[var(--radius-tile)] bg-night-900 px-2.5 py-1.5 text-[12px] font-semibold text-white shadow-[var(--shadow-lift)]">
                       {pt.name}
                     </span>
                   ) : null}
