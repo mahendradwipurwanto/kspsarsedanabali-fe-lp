@@ -74,9 +74,9 @@ export function HeroCarousel({
       onBlurCapture={() => setPaused(false)}
     >
       {slide.image ? (
-        <div className="absolute inset-0 -z-10" key={`img-${index}`}>
+        <div className="absolute inset-0 -z-10 overflow-hidden" key={`img-${index}`}>
           <Media src={slide.image} alt="" ratio="auto" rounded={false} priority={index === 0} sizes="100vw"
-            className="!absolute inset-0 size-full !rounded-none [&>*]:!object-cover" />
+            className="!absolute inset-0 size-full !rounded-none [&>*]:!object-cover [&>*]:!object-center" />
           {imageOnly ? null : <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-night-900 via-night-900/92 to-night-900/55" />}
         </div>
       ) : null}
@@ -88,12 +88,14 @@ export function HeroCarousel({
           it reads as light on the panel rather than decoration. */}
       {imageOnly ? null : <div aria-hidden="true" className="pointer-events-none absolute -left-40 -top-40 -z-10 size-[34rem] rounded-full bg-green-500/10 blur-[110px]" />}
 
-      {/* An image-only slide is the artwork at its own 16:9, whole at every
-          width; its heading stays as the H1 for Google and screen readers. */}
+      {/* An image-only slide is a fixed-height frame per screen size, the
+          artwork centred in it and cropped at the edges, so a wide screen does
+          not blow it up to a full viewport. Its heading stays as the H1 for
+          Google and screen readers. */}
       {imageOnly ? (
         <>
           <h1 className="sr-only">{slide.heading}</h1>
-          <div aria-hidden="true" className="aspect-[16/9] w-full" />
+          <div aria-hidden="true" className="h-[240px] w-full sm:h-[360px] md:h-[440px] lg:h-[520px] xl:h-[560px]" />
         </>
       ) : (
       <Shell>
