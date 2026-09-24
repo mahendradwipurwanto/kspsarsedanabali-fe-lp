@@ -35,14 +35,19 @@ const perMonth = (annual?: number | null) =>
  *
  * Every string here is CMS-editable through the Banner Utama block.
  */
+/** The banner's height from laptop width up, the same for every slide. Literal classes, so Tailwind sees them. */
+const HERO_HEIGHTS = { short: 'lg:h-[600px]', standard: 'lg:h-[680px]', tall: 'lg:h-[760px]' } as const
+export type HeroHeight = keyof typeof HERO_HEIGHTS
+
 export function HeroCarousel({
-  slides, autoplay, interval = 8, badge, products,
+  slides, autoplay, interval = 8, badge, products, height = 'standard',
 }: {
   slides: Slide[]
   autoplay: boolean
   interval?: number
   badge?: string
   products: Product[]
+  height?: HeroHeight
 }) {
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -67,7 +72,7 @@ export function HeroCarousel({
     <section
       aria-roledescription="carousel"
       aria-label="Sorotan produk"
-      className="relative isolate overflow-hidden bg-night-900 text-white grid-dark"
+      className={`relative isolate overflow-hidden bg-night-900 text-white grid-dark ${HERO_HEIGHTS[height] ?? HERO_HEIGHTS.standard}`}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocusCapture={() => setPaused(true)}
@@ -89,17 +94,19 @@ export function HeroCarousel({
       {imageOnly ? null : <div aria-hidden="true" className="pointer-events-none absolute -left-40 -top-40 -z-10 size-[34rem] rounded-full bg-green-500/10 blur-[110px]" />}
 
       {/* An image-only slide is a fixed-height frame per screen size, the
-          artwork centred in it and cropped at the edges, so a wide screen does
-          not blow it up to a full viewport. Its heading stays as the H1 for
-          Google and screen readers. */}
+          artwork centred in it and cropped at the edges; from laptop width it
+          takes the banner's set height like every slide. Its heading stays as
+          the H1 for Google and screen readers. */}
       {imageOnly ? (
         <>
           <h1 className="sr-only">{slide.heading}</h1>
-          <div aria-hidden="true" className="h-[240px] w-full sm:h-[360px] md:h-[440px] lg:h-[520px] xl:h-[560px]" />
+          <div aria-hidden="true" className="h-[240px] w-full sm:h-[360px] md:h-[440px] lg:hidden" />
         </>
       ) : (
-      <Shell>
-        <div className={`grid gap-10 py-14 sm:py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:py-24`}>
+      // From laptop width the copy and card sit centred in the banner's fixed
+      // height, clear of the dots at the bottom; overflow stays hidden.
+      <Shell className="lg:absolute lg:inset-x-0 lg:top-0 lg:bottom-14 lg:flex lg:items-center">
+        <div className="grid w-full gap-10 py-14 sm:py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:py-8">
           <div key={`copy-${index}`} className="max-w-[46ch]">
             {badge ? (
               <div className="rise d-1">
@@ -139,7 +146,7 @@ export function HeroCarousel({
       )}
 
       {slides.length > 1 ? (
-        <Shell className={imageOnly ? 'absolute inset-x-0 bottom-0' : undefined}>
+        <Shell className={imageOnly ? 'absolute inset-x-0 bottom-0' : 'lg:absolute lg:inset-x-0 lg:bottom-0'}>
           {/* Over bare artwork the dots sit on a small dark pill, or a light picture swallows them. */}
           <div className={`relative z-10 flex w-fit items-center gap-2 ${imageOnly ? 'mb-6 rounded-full bg-black/35 px-3 py-2 backdrop-blur-sm' : 'pb-8'}`}>
             {slides.map((s, i) => (

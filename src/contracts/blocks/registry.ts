@@ -104,6 +104,16 @@ export const BLOCKS = {
         default: 'component',
         help: 'Gaya "komponen" memakai kolom Slide banner di bawah. Gaya "gambar banner" memakai kolom Gambar banner penuh.',
       }),
+      heroHeight: field.select({
+        label: 'Tinggi banner (laptop & desktop)',
+        options: [
+          { value: 'short', label: 'Pendek (600 px)' },
+          { value: 'standard', label: 'Standar (680 px)' },
+          { value: 'tall', label: 'Tinggi (760 px)' },
+        ],
+        default: 'standard',
+        help: 'Hanya untuk gaya komponen. Semua slide, bergambar saja maupun berjudul, setinggi ini di layar laptop dan desktop; isinya di tengah dan gambar dipotong dari tengah. Di tablet dan ponsel, slide berjudul mengikuti panjang isinya karena kartu angka turun ke bawah judul.',
+      }),
       badge: field.text({ label: 'Label kecil di atas judul', max: 40, default: 'Program unggulan', help: 'Hanya untuk gaya komponen. Muncul sebagai lencana kecil; kosongkan untuk menyembunyikan.' }),
       slides: field.repeater({
         label: 'Slide banner', itemLabel: 'Slide', max: 6, help: 'Hanya untuk gaya komponen.',
@@ -117,7 +127,7 @@ export const BLOCKS = {
             default: 'content',
             help: 'Pilih "Gambar saja" bila gambar sudah memuat pesannya sendiri. Judul tetap diisi: tidak terlihat, tetapi dibaca Google dan pembaca layar.',
           }),
-          image: field.image({ label: 'Gambar banner', help: 'Ukuran ideal 1600×900 piksel. Kosongkan untuk latar polos bermotif. Untuk tampilan "Gambar saja" (wajib diisi): 1920×560 piksel, tinggi banner tetap dan gambar dipotong dari tengah, jadi letakkan tulisan dan logo di bagian tengah.' }),
+          image: field.image({ label: 'Gambar banner', help: 'Ukuran ideal 1600×900 piksel. Kosongkan untuk latar polos bermotif. Untuk tampilan "Gambar saja" (wajib diisi): 1920×680 piksel, sesuai Tinggi banner; gambar dipotong dari tengah, jadi letakkan tulisan dan logo di bagian tengah.' }),
           link: field.link({ label: 'Seluruh gambar menuju ke', help: 'Hanya untuk tampilan "Gambar saja": seluruh gambar bisa diklik. Kosongkan bila tidak perlu.' }),
           heading: field.text({ label: 'Judul di banner', required: true, max: 70, help: 'Pada tampilan "Gambar saja", judul disembunyikan tetapi tetap menjadi judul halaman untuk Google.' }),
           subheading: field.textarea({ label: 'Kalimat pendukung', max: 180 }),

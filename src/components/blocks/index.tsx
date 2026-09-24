@@ -4,7 +4,7 @@ import { getBlock, defaultPropsFor, telLink, getOpenState, orgLevelsFrom, tracki
 import type { Block, Branch, Product, Simulation, Post, Stat, Testimonial, DocumentItem, DocumentCategory, Job, Faq } from '@/lib/api'
 import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, iconByName } from '../ui'
 import { Media } from '../ui/Media'
-import { HeroCarousel, QuickAccess } from '../interactive/HeroCarousel'
+import { HeroCarousel, QuickAccess, type HeroHeight } from '../interactive/HeroCarousel'
 import { FeedbackForm } from '../interactive/FeedbackForm'
 import { LeadForm } from '../interactive/LeadForm'
 import { BranchFinder } from '../interactive/BranchFinder'
@@ -157,6 +157,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
           interval={n(p.interval, 8)}
           badge={s(p.badge)}
           products={ctx.products}
+          height={s(p.heroHeight, 'standard') as HeroHeight}
         />
       )
     }
