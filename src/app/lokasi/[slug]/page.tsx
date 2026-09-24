@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { DAY_NAMES_ID, telLink, waLink, directionsLink } from '@/contracts'
-import { getBranch, getBranches, getProducts } from '@/lib/api'
+import { getBranch, getBranches, getProducts, quiet } from '@/lib/api'
 import { buildMetadata, describe, titleFor } from '@/lib/seo'
 import { breadcrumbLd, localBusinessLd } from '@/lib/jsonld'
 import { Shell, Band, Breadcrumbs, JsonLd, Action, Card, Icon, Heading, Label } from '@/components/ui'
@@ -17,7 +17,7 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const branch = await getBranch(slug)
+  const branch = await quiet(getBranch(slug))
   if (!branch) return await buildMetadata({ title: 'Kantor tidak ditemukan', description: 'Kantor yang Anda cari tidak tersedia.', path: `/lokasi/${slug}`, noindex: true })
 
   return await buildMetadata({

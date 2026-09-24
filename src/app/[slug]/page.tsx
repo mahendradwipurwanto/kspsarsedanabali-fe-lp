@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { getPage } from '@/lib/api'
+import { getPage, quiet } from '@/lib/api'
 import { getBlockContext } from '@/lib/blocks-data'
 import { buildMetadata, describe } from '@/lib/seo'
 import { breadcrumbLd } from '@/lib/jsonld'
@@ -17,7 +17,7 @@ export const revalidate = 300
  */
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const page = await getPage(slug)
+  const page = await quiet(getPage(slug))
   if (!page) return await buildMetadata({ title: 'Halaman tidak ditemukan', description: 'Halaman yang Anda cari tidak tersedia.', path: `/${slug}`, noindex: true })
 
   return await buildMetadata({

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { getPage } from '@/lib/api'
+import { getPage, quiet } from '@/lib/api'
 import { getBlockContext } from '@/lib/blocks-data'
 import { buildMetadata, describe } from '@/lib/seo'
 import { breadcrumbLd, itemListLd, jobPostingLd } from '@/lib/jsonld'
@@ -12,7 +12,7 @@ const SLUG = 'karir'
 const TRAIL = [{ name: 'Beranda', path: '/' }, { name: 'Karir', path: '/karir' }]
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await getPage(SLUG)
+  const page = await quiet(getPage(SLUG))
   return buildMetadata({
     title: page?.seo?.metaTitle || page?.title || 'Lowongan Kerja KSP Sari Sedana Bali di Karangasem',
     description: describe(page?.seo?.metaDescription),

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { getJob, getJobs } from '@/lib/api'
+import { getJob, getJobs, quiet } from '@/lib/api'
 import { buildMetadata, describe, titleFor } from '@/lib/seo'
 import { breadcrumbLd, jobPostingLd } from '@/lib/jsonld'
 import { Shell, Band, Breadcrumbs, JsonLd, Card, Pill, Icon } from '@/components/ui'
@@ -19,7 +19,7 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const job = await getJob(slug)
+  const job = await quiet(getJob(slug))
   if (!job) return await buildMetadata({ title: 'Lowongan tidak ditemukan', description: 'Lowongan yang Anda cari tidak tersedia.', path: `/karir/${slug}`, noindex: true })
 
   return await buildMetadata({

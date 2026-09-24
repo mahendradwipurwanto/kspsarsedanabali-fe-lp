@@ -41,8 +41,11 @@ const RETRY_DELAYS_MS = [600, 2500, 6000]
  * turn into a not-found page. Anything else — 5xx, a timeout, a dead socket —
  * is an upstream fault and must never be mistaken for "this product does not
  * exist": doing so once baked permanent 404s for nine real products into a
- * build that still reported success. So a fault is retried once, and if it
- * persists it throws during a build and returns null at request time.
+ * build that still reported success. So a fault is retried, and if it persists
+ * it throws — during a build and at request time alike. Returning null at
+ * request time rendered the page's empty state ("Konten beranda belum
+ * tersedia") and ISR then cached that over the good page until the next
+ * refresh; a throw instead keeps the last good page served and retries later.
  */
 export async function apiGet<T>(
   path: string,
@@ -72,12 +75,11 @@ export async function apiGet<T>(
   }
 
   const message = `API fault for ${path}: ${lastFault}`
-  if (isBuilding) {
-    // Fail the build rather than ship a page whose content silently vanished.
-    throw new Error(`${message} — refusing to prerender against a failing API.`)
-  }
   console.error(message)
-  return null
+  // Fail the build, or this refresh of the page, rather than save a copy whose
+  // content silently vanished. A page that has rendered before keeps its last
+  // good copy; one that never has shows app/error.tsx.
+  throw new Error(`${message} — refusing to render against a failing API.`)
 }
 
 export interface Branch {
@@ -265,3 +267,11 @@ export async function getPreview(token: string): Promise<PreviewPage | null> {
 }
 
 export const apiBase = API
+
+/**
+ * For generateMetadata: an API fault there becomes a bare 500 that skips
+ * app/error.tsx, so metadata falls back to its defaults and leaves it to the
+ * page body to throw. The render still fails as a whole, so ISR keeps the last
+ * good copy either way.
+ */
+export const quiet = <T,>(p: Promise<T>): Promise<T | null> => p.catch(() => null)

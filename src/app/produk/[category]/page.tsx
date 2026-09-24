@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { getPage } from '@/lib/api'
+import { getPage, quiet } from '@/lib/api'
 import { getBlockContext } from '@/lib/blocks-data'
 import { buildMetadata, describe } from '@/lib/seo'
 import { breadcrumbLd, itemListLd } from '@/lib/jsonld'
@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: { params: Promise<{ category:
     return await buildMetadata({ title: 'Produk tidak ditemukan', description: 'Halaman produk yang Anda cari tidak tersedia.', path: '/produk', noindex: true })
   }
 
-  const page = await getPage(meta.slug)
+  const page = await quiet(getPage(meta.slug))
   return await buildMetadata({
     title: page?.seo?.metaTitle || page?.title || `Produk ${meta.label} KSP Sari Sedana Bali`,
     description: describe(page?.seo?.metaDescription),

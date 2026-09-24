@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { formatRupiahShort } from '@/contracts'
-import { getProduct, getProducts, getBranches, getSimulations } from '@/lib/api'
+import { getProduct, getProducts, getBranches, getSimulations, quiet } from '@/lib/api'
 import { buildMetadata, describe, titleFor } from '@/lib/seo'
 import { breadcrumbLd, productLd } from '@/lib/jsonld'
 import { Shell, Band, Breadcrumbs, JsonLd, Action, Card, Pill, Icon, Heading } from '@/components/ui'
@@ -21,7 +21,7 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: { params: Promise<{ category: string; slug: string }> }): Promise<Metadata> {
   const { category, slug } = await params
-  const res = await getProduct(slug)
+  const res = await quiet(getProduct(slug))
   if (!res) return await buildMetadata({ title: 'Produk tidak ditemukan', description: 'Produk yang Anda cari tidak tersedia.', path: `/produk/${category}/${slug}`, noindex: true })
 
   const p = res.data

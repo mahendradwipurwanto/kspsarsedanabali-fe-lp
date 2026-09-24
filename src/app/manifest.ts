@@ -4,7 +4,7 @@ import { getSettings } from '@/lib/api'
 
 /** Installed-app name and description follow the koperasi's own settings. */
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
-  const settings = await getSettings()
+  const settings = await getSettings().catch(() => ({} as Record<string, unknown>))
   const site = (settings.site ?? {}) as Record<string, string>
   const colors = themeColors((settings.brand as { colors?: Record<string, unknown> } | undefined)?.colors)
 

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { getSettings } from '@/lib/api'
+import { getSettings, quiet } from '@/lib/api'
 import { appSettings, isCrawler, platformOf, storeFor } from '@/lib/apps'
 import { buildMetadata } from '@/lib/seo'
 import { breadcrumbLd } from '@/lib/jsonld'
@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic'
 const TRAIL = [{ name: 'Beranda', path: '/' }, { name: 'Unduh Aplikasi', path: '/aplikasi' }]
 
 export async function generateMetadata(): Promise<Metadata> {
-  const apps = appSettings(await getSettings())
+  const apps = appSettings((await quiet(getSettings())) ?? {})
   return buildMetadata({
     title: `Unduh ${apps.appName}`,
     description: `Pasang ${apps.appName} dari App Store atau Google Play: cek saldo, ajukan pinjaman, dan pantau angsuran dari ponsel.`,

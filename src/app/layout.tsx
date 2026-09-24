@@ -36,8 +36,15 @@ const jakarta = Plus_Jakarta_Sans({
  * defaults are editable, so this is generated per request rather than frozen
  * into a constant at build time.
  */
+/**
+ * The layout's data is supporting: menus, offices, settings. When the API
+ * fails it falls back to the shipped defaults so the page itself can still
+ * render — unlike page content, which apiGet() refuses to render without.
+ */
+const soft = <T,>(p: Promise<T>, fallback: T): Promise<T> => p.catch(() => fallback)
+
 export async function generateMetadata(): Promise<Metadata> {
-  const settings = await getSettings()
+  const settings = await soft(getSettings(), {})
   const site = (settings.site ?? {}) as Record<string, string>
   const seo = (settings.seoDefaults ?? {}) as Record<string, string>
   const seoTech: SeoTechSettings = { ...DEFAULT_SEO_TECH, ...((settings.seoTech ?? {}) as Partial<SeoTechSettings>) }
@@ -80,7 +87,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** The browser's own chrome takes the dark-surface colour, as the footer and banners do. */
 export async function generateViewport(): Promise<Viewport> {
-  const settings = await getSettings()
+  const settings = await soft(getSettings(), {})
   const colors = themeColors((settings.brand as { colors?: Record<string, unknown> } | undefined)?.colors)
   return {
     themeColor: colors.surface,
@@ -96,11 +103,11 @@ const group = <T extends object>(raw: unknown, defaults: T): T =>
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const [branches, settings, legalPages, mainMenu, footerMenu] = await Promise.all([
-    getBranches(),
-    getSettings(),
-    getLegalPages(),
-    getMenu('main'),
-    getMenu('footer'),
+    soft(getBranches(), []),
+    soft(getSettings(), {}),
+    soft(getLegalPages(), []),
+    soft(getMenu('main'), []),
+    soft(getMenu('footer'), []),
   ])
 
   const site = (settings.site ?? {}) as Record<string, string>

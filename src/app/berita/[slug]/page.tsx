@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { getPost, getPosts } from '@/lib/api'
+import { getPost, getPosts, quiet } from '@/lib/api'
 import { buildMetadata, describe, titleFor } from '@/lib/seo'
 import { breadcrumbLd, articleLd } from '@/lib/jsonld'
 import { Shell, Band, Breadcrumbs, JsonLd, Pill, Icon, Heading, Action } from '@/components/ui'
@@ -18,7 +18,7 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const res = await getPost(slug)
+  const res = await quiet(getPost(slug))
   if (!res) return await buildMetadata({ title: 'Berita tidak ditemukan', description: 'Artikel yang Anda cari tidak tersedia.', path: `/berita/${slug}`, noindex: true })
 
   const p = res.data
