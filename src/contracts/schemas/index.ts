@@ -529,6 +529,57 @@ export const simulationTableSchema = z
   .refine((t) => t.rows.every((r) => r.length === t.columns.length), { message: 'Setiap baris harus punya sel sebanyak kolomnya.' })
 export type SimulationTable = z.infer<typeof simulationTableSchema>
 
+/**
+ * The columns a loan's repayment schedule can show, one row per month, in the
+ * koperasi's spreadsheet order: No, Pokok, Bunga, Total, Saldo.
+ */
+export const LOAN_TABLE_COLUMNS = ['period', 'principal', 'interest', 'installment', 'balance'] as const
+export type LoanTableColumn = (typeof LOAN_TABLE_COLUMNS)[number]
+
+export const LOAN_TABLE_COLUMN_LABELS: Record<LoanTableColumn, string> = {
+  period: 'Bulan ke',
+  principal: 'Pokok',
+  interest: 'Bunga',
+  installment: 'Angsuran',
+  balance: 'Sisa pinjaman',
+}
+
+/** A fee taken from the plafon: a percentage of it, or a fixed rupiah amount. */
+export const LOAN_FEE_BASES = ['percent', 'fixed'] as const
+export type LoanFeeBasis = (typeof LOAN_FEE_BASES)[number]
+
+/**
+ * How a loan simulation's tables are laid out. The figures are never stored:
+ * the website works the schedule out from the plafon and tenor the visitor
+ * picks and the product's rate, the way the koperasi's spreadsheet does, so
+ * changing any of the three changes every row.
+ *
+ * `columns` picks which schedule columns show, in which order, under which
+ * heading. `fees` lists the costs taken at disbursement; empty shows no fee table.
+ */
+export const loanTableSchema = z
+  .object({
+    caption: z.string().max(160).optional().or(z.literal('')),
+    source: z.string().max(120).optional().or(z.literal('')),
+    columns: z
+      .array(z.object({ key: z.enum(LOAN_TABLE_COLUMNS), label: z.string().max(40), visible: z.boolean() }))
+      .min(1)
+      .max(LOAN_TABLE_COLUMNS.length),
+    feesCaption: z.string().max(160).optional().or(z.literal('')),
+    fees: z
+      .array(z.object({
+        label: z.string().min(1, 'Isi nama biayanya.').max(60),
+        basis: z.enum(LOAN_FEE_BASES),
+        value: z.number().min(0).max(100_000_000_000),
+      }))
+      .max(20, 'Paling banyak 20 biaya.')
+      .default([]),
+  })
+  .refine((t) => new Set(t.columns.map((c) => c.key)).size === t.columns.length, { message: 'Setiap kolom hanya boleh muncul sekali.' })
+  .refine((t) => t.columns.some((c) => c.visible), { message: 'Tampilkan minimal satu kolom.' })
+  .refine((t) => t.fees.every((f) => f.basis !== 'percent' || f.value <= 100), { message: 'Biaya persen tidak boleh lebih dari 100%.' })
+export type LoanTable = z.infer<typeof loanTableSchema>
+
 export const simulationSchema = z
   .object({
     name: z.string().min(2).max(120),
@@ -557,6 +608,8 @@ export const simulationSchema = z
     tableAmounts: z.array(money).default([]),
     /** The table the editor wrote. When set it replaces the table worked out from `tableAmounts`. */
     table: simulationTableSchema.nullable().optional(),
+    /** `installment`: the schedule and fee tables, worked out live on the website. Empty shows no table. */
+    loanTable: loanTableSchema.nullable().optional(),
     /** The explanation in the result card. Empty uses one written from the figures. */
     note: z.string().max(400).optional().or(z.literal('')),
     isActive: z.boolean().default(true),

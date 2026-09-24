@@ -1,4 +1,5 @@
 import 'server-only'
+import type { LoanTable } from '@/contracts'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4001'
 
@@ -126,6 +127,8 @@ export interface Simulation {
   tableAmounts: number[]; note?: string | null; sortOrder: number
   /** The table the editor wrote, shown as written in place of the worked-out one. */
   table?: { caption?: string; source?: string; columns: string[]; rows: string[][] } | null
+  /** Loans: the layout of the schedule and fee tables, worked out here from the amount and tenor picked. */
+  loanTable?: LoanTable | null
   product: Pick<Product, 'id' | 'name' | 'slug' | 'category' | 'tagline' | 'isVerified' | 'ratePercent' | 'rateMethod' | 'rateNote' | 'ratePercentIndicative' | 'rateMethodIndicative'>
 }
 

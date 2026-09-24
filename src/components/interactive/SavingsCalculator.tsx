@@ -53,7 +53,7 @@ export function SavingsCalculator({
   const onMonths = (v: number) => setTenors((t) => ({ ...t, [sim.id]: v }))
 
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
       {simulations.length > 1 ? (
         <div className={`grid gap-2.5 ${simulations.length % 3 === 0 || simulations.length > 4 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
           {simulations.map((x) => {
@@ -105,7 +105,7 @@ const rateInfoOf = (sim: Simulation) => sim.rateInfo || 'tabel resmi koperasi'
 function Panel({ children }: { children: ReactNode }) {
   // Spread the input groups down the panel: the result beside it is taller, and
   // a stretched panel with everything bunched at the top reads as unfinished.
-  return <div className="surface p-6 sm:p-8"><div className="grid h-full content-between gap-8">{children}</div></div>
+  return <div className="surface p-6 sm:p-8"><div className="grid h-full grid-cols-[minmax(0,1fr)] content-between gap-8">{children}</div></div>
 }
 
 function Result({
@@ -166,13 +166,17 @@ function Result({
 }
 
 export function Table({
-  caption, source, head, rows, activeIndex,
+  caption, source, head, rows, activeIndex, foot, scroll,
 }: {
   caption: string
   source?: string
   head: string[]
   rows: string[][]
   activeIndex: number
+  /** Summary rows under the body, set in bold. */
+  foot?: string[][]
+  /** Cap the height and scroll inside, keeping the header in view — for a long schedule. */
+  scroll?: boolean
 }) {
   return (
     <div className="surface overflow-hidden">
@@ -180,9 +184,9 @@ export function Table({
         <h3 className="text-[15px] font-bold text-ink-900">{caption}</h3>
         {source ? <p className="text-[12px] text-ink-400">Sumber: {source}</p> : null}
       </div>
-      <div className="rail overflow-x-auto">
-        <table className="w-full min-w-[520px] text-[13.5px]">
-          <thead>
+      <div className={`rail overflow-x-auto ${scroll ? 'max-h-[520px] overflow-y-auto' : ''}`}>
+        <table className={`w-full text-[13.5px] ${head.length > 2 ? 'min-w-[520px]' : ''}`}>
+          <thead className={scroll ? 'sticky top-0 z-10' : undefined}>
             <tr className="border-b border-line bg-paper text-left text-[12.5px] font-semibold text-ink-500">
               {head.map((h, i) => <th key={i} scope="col" className={`px-4 py-2.5 ${i === 0 ? '' : 'text-right'}`}>{h}</th>)}
             </tr>
@@ -206,6 +210,17 @@ export function Table({
               )
             })}
           </tbody>
+          {foot?.length ? (
+            <tfoot className="tnum border-t-2 border-line-strong">
+              {foot.map((row, r) => (
+                <tr key={r} className={r ? 'border-t border-line' : ''}>
+                  {row.map((cell, c) => (
+                    <td key={c} className={`px-4 py-2.5 font-bold text-ink-900 ${c === 0 ? '' : 'text-right'}`}>{cell}</td>
+                  ))}
+                </tr>
+              ))}
+            </tfoot>
+          ) : null}
         </table>
       </div>
     </div>
@@ -245,7 +260,7 @@ function TermDeposit({
 
   return (
     <>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
         <Panel>
           <div>
             <AmountInput id="sim-save-amount" label="Jumlah simpanan" value={amount} min={sim.minAmount} max={sim.maxAmount} step={sim.step} onChange={onAmount}
@@ -309,7 +324,7 @@ function MonthlyDeposit({
 
   return (
     <>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
         <Panel>
           <div>
             <AmountInput id="sim-save-amount" label="Setoran pokok per bulan" value={deposit} min={sim.minAmount} max={sim.maxAmount} step={sim.step} onChange={onDeposit}
@@ -372,7 +387,7 @@ function DailyDeposit({ sim, daily, onDaily }: { sim: Simulation; daily: number;
 
   return (
     <>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
         <Panel>
           <div>
             <AmountInput id="sim-save-amount" label="Setoran per hari" value={daily} min={sim.minAmount} max={sim.maxAmount} step={sim.step} onChange={onDaily}

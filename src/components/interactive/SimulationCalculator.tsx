@@ -1,11 +1,11 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { calculateInstallment, formatRupiah } from '@/contracts'
+import { calculateInstallment, calculateLoanFees, loanScheduleTable, formatRupiah, type InstallmentResult, type LoanFeesResult } from '@/contracts'
 import type { Simulation } from '@/lib/api'
 import { track } from '@/lib/client'
 import { Action, Icon } from '../ui'
-import { SavedTable } from './SavingsCalculator'
+import { Table } from './SavingsCalculator'
 import { Field, AmountInput, Segments, Select } from '../ui/form'
 
 const RATE_LABELS: Record<string, string> = {
@@ -53,15 +53,19 @@ export function SimulationCalculator({
     if (!rate) return null
     return calculateInstallment({ principal: clamped, annualRatePercent: rate, months: tenor, method })
   }, [rate, method, clamped, tenor])
+  const fees = useMemo(
+    () => (sim?.loanTable?.fees.length ? calculateLoanFees(clamped, sim.loanTable.fees) : null),
+    [sim?.loanTable, clamped],
+  )
 
   if (!sim || !product) return null
 
   return (
-    <div className="grid gap-5">
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
         {/* ── Inputs ── */}
         <div className="surface p-6 sm:p-8">
-          <div className="grid gap-8">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-8">
             <Field label="Produk pinjaman" htmlFor="sim-product" required hint={product.rateNote ?? undefined}>
               <Select
                 id="sim-product"
@@ -134,6 +138,7 @@ export function SimulationCalculator({
               {[
                 ['Pokok pinjaman', formatRupiah(clamped)],
                 ['Jangka waktu', `${tenor} bulan`],
+                ...(fees ? [['Biaya administrasi', formatRupiah(fees.total)], ['Dana diterima', formatRupiah(fees.received)]] : []),
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4 border-b border-white/15 py-3">
                   <dt className="text-white/55">{k}</dt>
@@ -162,7 +167,42 @@ export function SimulationCalculator({
           </p>
         </div>
       </div>
-      <SavedTable sim={sim} amount={clamped} />
+      {result ? <LoanTables sim={sim} result={result} fees={fees} amount={clamped} tenor={tenor} /> : null}
+    </div>
+  )
+}
+
+/**
+ * The loan's tables, laid out as the simulation's editor chose and worked out
+ * from the amount and tenor on screen: the month-by-month schedule, and beside
+ * it the fees taken from the plafon and what is left to receive.
+ */
+function LoanTables({ sim, result, fees, amount, tenor }: {
+  sim: Simulation; result: InstallmentResult; fees: LoanFeesResult | null; amount: number; tenor: number
+}) {
+  const layout = sim.loanTable
+  const schedule = useMemo(() => (layout ? loanScheduleTable(layout, result) : null), [layout, result])
+  if (!layout || !schedule?.rows.length) return null
+
+  return (
+    <div className={`grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 ${fees ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,0.55fr)] lg:items-start' : ''}`}>
+      <Table
+        caption={`${layout.caption || `Jadwal angsuran ${sim.name}`} · ${formatRupiah(amount)} · ${tenor} bulan`}
+        source={layout.source}
+        head={schedule.columns}
+        rows={schedule.rows}
+        activeIndex={-1}
+        scroll
+      />
+      {fees ? (
+        <Table
+          caption={layout.feesCaption || 'Biaya administrasi'}
+          head={['Biaya', 'Nominal']}
+          rows={fees.items.map((f) => [f.label, formatRupiah(f.amount)])}
+          foot={[['Total biaya', formatRupiah(fees.total)], ['Dana diterima', formatRupiah(fees.received)]]}
+          activeIndex={-1}
+        />
+      ) : null}
     </div>
   )
 }

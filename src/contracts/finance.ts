@@ -6,6 +6,8 @@
  * hardcode a rate here.
  */
 
+import type { LoanTable, LoanTableColumn } from './schemas/index'
+
 export type RateMethod = 'flat' | 'annuity' | 'effective' | 'none'
 
 export interface InstallmentInput {
@@ -24,7 +26,7 @@ export interface InstallmentResult {
   totalInterest: number
   method: RateMethod
   /** Per-period schedule; empty for `none`. */
-  schedule: { period: number; principal: number; interest: number; balance: number }[]
+  schedule: { period: number; principal: number; interest: number; payment: number; balance: number }[]
 }
 
 const round = (n: number) => Math.round(n)
@@ -42,7 +44,7 @@ function flat({ principal, annualRatePercent, months }: InstallmentInput): Insta
   let balance = principal
   for (let p = 1; p <= months; p++) {
     balance -= principalPerMonth
-    schedule.push({ period: p, principal: round(principalPerMonth), interest: round(interestPerMonth), balance: round(Math.max(balance, 0)) })
+    schedule.push({ period: p, principal: round(principalPerMonth), interest: round(interestPerMonth), payment: round(principalPerMonth + interestPerMonth), balance: round(Math.max(balance, 0)) })
   }
   return { monthly, total: monthly * months, totalInterest: round(interestPerMonth * months), method: 'flat', schedule }
 }
@@ -61,7 +63,7 @@ function annuity({ principal, annualRatePercent, months }: InstallmentInput): In
     const principalPart = monthly - interest
     balance -= principalPart
     totalInterest += interest
-    schedule.push({ period: p, principal: round(principalPart), interest: round(interest), balance: round(Math.max(balance, 0)) })
+    schedule.push({ period: p, principal: round(principalPart), interest: round(interest), payment: monthly, balance: round(Math.max(balance, 0)) })
   }
   return { monthly, total: monthly * months, totalInterest: round(totalInterest), method: 'annuity', schedule }
 }
@@ -79,9 +81,9 @@ function effective({ principal, annualRatePercent, months }: InstallmentInput): 
     balance -= principalPerMonth
     total += principalPerMonth + interest
     totalInterest += interest
-    schedule.push({ period: p, principal: round(principalPerMonth), interest: round(interest), balance: round(Math.max(balance, 0)) })
+    schedule.push({ period: p, principal: round(principalPerMonth), interest: round(interest), payment: round(principalPerMonth + interest), balance: round(Math.max(balance, 0)) })
   }
-  return { monthly: round(schedule[0].principal + schedule[0].interest), total: round(total), totalInterest: round(totalInterest), method: 'effective', schedule }
+  return { monthly: schedule[0].payment, total: round(total), totalInterest: round(totalInterest), method: 'effective', schedule }
 }
 
 export function calculateInstallment(input: InstallmentInput): InstallmentResult {
@@ -342,6 +344,66 @@ function formulaTableBody(t: FormulaTableInput): { caption: string; columns: str
         ]),
       }
   }
+}
+
+/* ──────────────────────── a loan's tables, worked out live ───────────────── */
+
+/**
+ * The koperasi's loan spreadsheet ("contoh admin"): a month-by-month schedule
+ * of pokok, bunga, total and saldo, and beside it the fees taken from the
+ * plafon at disbursement. A new loan simulation starts from this layout.
+ */
+export const DEFAULT_LOAN_TABLE: LoanTable = {
+  caption: '',
+  source: 'Tabel angsuran KSP Sari Sedana Bali',
+  columns: [
+    { key: 'period', label: 'No', visible: true },
+    { key: 'principal', label: 'Pokok', visible: true },
+    { key: 'interest', label: 'Bunga', visible: true },
+    { key: 'installment', label: 'Total', visible: true },
+    { key: 'balance', label: 'Saldo', visible: true },
+  ],
+  feesCaption: '',
+  fees: [
+    { label: 'Administrasi', basis: 'percent', value: 0.5 },
+    { label: 'Wajib peminjam', basis: 'percent', value: 0.5 },
+    { label: 'Anggota', basis: 'fixed', value: 120_000 },
+    { label: 'Asuransi', basis: 'percent', value: 1 },
+    { label: 'Brins', basis: 'fixed', value: 50_000 },
+  ],
+}
+
+/**
+ * The repayment schedule as the website shows it: the visible columns in the
+ * editor's order, one row per month, every cell formatted.
+ */
+export function loanScheduleTable(config: LoanTable, result: InstallmentResult): { columns: string[]; rows: string[][] } {
+  const shown = config.columns.filter((c) => c.visible)
+  const cell: Record<LoanTableColumn, (r: InstallmentResult['schedule'][number]) => string> = {
+    period: (r) => String(r.period),
+    principal: (r) => formatRupiah(r.principal),
+    interest: (r) => formatRupiah(r.interest),
+    installment: (r) => formatRupiah(r.payment),
+    balance: (r) => formatRupiah(r.balance),
+  }
+  return {
+    columns: shown.map((c) => c.label),
+    rows: result.schedule.map((r) => shown.map((c) => cell[c.key](r))),
+  }
+}
+
+export interface LoanFeesResult {
+  items: { label: string; amount: number }[]
+  total: number
+  /** The plafon less every fee: what the member actually receives. */
+  received: number
+}
+
+/** The fees on a plafon, each a percentage of it or a fixed amount, and what is left. */
+export function calculateLoanFees(principal: number, fees: LoanTable['fees']): LoanFeesResult {
+  const items = fees.map((f) => ({ label: f.label, amount: round(f.basis === 'percent' ? (principal * f.value) / 100 : f.value) }))
+  const total = items.reduce((sum, f) => sum + f.amount, 0)
+  return { items, total, received: principal - total }
 }
 
 /** The number a table cell names, if it names one: "Rp 2.500.000" → 2500000. */
