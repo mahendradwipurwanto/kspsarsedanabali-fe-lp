@@ -2,9 +2,9 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { calculateInstallment, formatRupiah, formatRupiahShort, LOAN_RATE_METHOD } from '@/contracts'
+import { calculateInstallment, formatRupiah, formatRupiahShort, formatTerm, productTerm, LOAN_RATE_METHOD } from '@/contracts'
 import type { Product } from '@/lib/api'
-import { Shell, Action, Icon, Pill, iconByName } from '../ui'
+import { Shell, Action, Icon, Pill, iconByName, RichText } from '../ui'
 import { Media } from '../ui/Media'
 
 interface Slide {
@@ -120,7 +120,7 @@ export function HeroCarousel({
             <h1 className="t-display rise d-2 mt-5 !text-white">{slide.heading}</h1>
 
             {slide.subheading ? (
-              <p className="rise d-3 mt-5 max-w-[48ch] text-[16px] leading-relaxed text-white/70 sm:text-[17px]">{slide.subheading}</p>
+              <RichText value={slide.subheading} className="rise d-3 mt-5 max-w-[48ch] text-[16px] leading-relaxed text-white/70 sm:text-[17px]" />
             ) : null}
 
             <div className="rise d-4 mt-8 flex flex-wrap gap-3">
@@ -184,8 +184,7 @@ function RateCard({ product, bullets }: { product: Product; bullets: { text: str
   const rate = perMonth(annual)
   const plafon = product.minAmount != null && product.maxAmount != null
     ? `${formatRupiahShort(product.minAmount)}–${formatRupiahShort(product.maxAmount)}` : null
-  const tenor = product.tenorOptions.length
-    ? `${Math.min(...product.tenorOptions)}–${Math.max(...product.tenorOptions)} bln` : null
+  const tenor = formatTerm(productTerm(product))
 
   // A worked example, so the card answers "so what would I pay?" before the
   // visitor opens the calculator. Middle of the tenor range, a round principal.

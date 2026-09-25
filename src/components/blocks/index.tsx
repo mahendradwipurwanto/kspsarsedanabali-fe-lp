@@ -1,8 +1,8 @@
 import { Fragment, Suspense } from 'react'
 import Link from 'next/link'
-import { getBlock, defaultPropsFor, telLink, getOpenState, orgLevelsFrom, trackingAttrs, DEFAULT_ANALYTICS, type OrgColumn, type AnalyticsSettings } from '@/contracts'
+import { getBlock, defaultPropsFor, isHtml, telLink, getOpenState, orgLevelsFrom, trackingAttrs, DEFAULT_ANALYTICS, type OrgColumn, type AnalyticsSettings } from '@/contracts'
 import type { Block, Branch, Product, Simulation, Post, Stat, Testimonial, DocumentItem, DocumentCategory, Job, Faq } from '@/lib/api'
-import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, iconByName } from '../ui'
+import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, iconByName, RichText } from '../ui'
 import { Media } from '../ui/Media'
 import { HeroCarousel, QuickAccess, type HeroHeight } from '../interactive/HeroCarousel'
 import { FeedbackForm } from '../interactive/FeedbackForm'
@@ -127,7 +127,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                 <div className={s(p.align) === 'center' ? 'flex justify-center' : ''}><Label tone="gold">{s(p.eyebrow)}</Label></div>
               ) : null}
               <h1 className="t-h1 mt-3 !text-white">{s(p.heading)}</h1>
-              {s(p.subheading) ? <p className="t-lead mt-4 text-white/70">{s(p.subheading)}</p> : null}
+              <RichText value={s(p.subheading)} className="t-lead mt-4 text-white/70" />
             </div>
           </Shell>
         </div>
@@ -341,7 +341,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
               <div className="max-w-[44ch]">
                 {s(p.eyebrow) ? <Label tone="gold">{s(p.eyebrow)}</Label> : null}
                 <h2 className="t-h1 mt-3 !text-white">{s(p.heading)}</h2>
-                {s(p.body) ? <p className="mt-4 text-[16px] leading-relaxed text-white/70">{s(p.body)}</p> : null}
+                <RichText value={s(p.body)} className="mt-4 text-[16px] leading-relaxed text-white/70" />
               </div>
               <div className="flex shrink-0 flex-wrap gap-3">
                 {s(p.ctaLabel) ? (
@@ -411,7 +411,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                   <Card as="li" key={i} className="p-6">
                     <Tile tone="dark"><IconCmp className="size-5" /></Tile>
                     <h3 className="t-h3 mt-5">{item.title}</h3>
-                    {item.body ? <p className="mt-2 text-[14.5px] leading-relaxed text-ink-500">{item.body}</p> : null}
+                    <RichText value={item.body} className="mt-2 text-[14.5px] leading-relaxed text-ink-500" />
                   </Card>
                 )
               })}
@@ -636,7 +636,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                 <div className="max-w-[48ch]">
                   {s(p.eyebrow) ? <Label tone="gold">{s(p.eyebrow)}</Label> : null}
                   <h2 className="t-h2 mt-3 !text-white">{s(p.heading)}</h2>
-                  {s(p.body) ? <p className="mt-3 text-[16px] leading-relaxed text-white/70">{s(p.body)}</p> : null}
+                  <RichText value={s(p.body)} className="mt-3 text-[16px] leading-relaxed text-white/70" />
                 </div>
                 <div className="shrink-0">
                   <Action href={s(p.ctaHref, '/profiling')} variant="light" size="lg" className="w-full sm:w-auto">
@@ -662,7 +662,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                   {s(p.heading, 'Kritik & Saran')}
                   {s(p.headingAccent) ? <> <span className="text-green-700">{s(p.headingAccent)}</span></> : null}
                 </h2>
-                {s(p.body) ? <p className="t-lead mt-4 max-w-[46ch]">{s(p.body)}</p> : null}
+                <RichText value={s(p.body)} className="t-lead mt-4 max-w-[46ch]" />
 
                 {arr(p.points).length ? (
                   <ul className="mt-8 divide-y divide-line border-y border-line">
@@ -704,7 +704,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                   {s(p.heading)}
                   {s(p.headingAccent) ? <> <span className="text-green-700">{s(p.headingAccent)}</span></> : null}
                 </h2>
-                {s(p.body) ? <p className="t-lead mt-4 max-w-[46ch]">{s(p.body)}</p> : null}
+                <RichText value={s(p.body)} className="t-lead mt-4 max-w-[46ch]" />
 
                 {arr(p.benefits).length ? (
                   <ul className="mt-8 divide-y divide-line border-y border-line">
@@ -881,7 +881,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                 {groups.map(([key, items]) => (
                   <div key={key || 'all'}>
                     {key ? <h3 className="t-h3 mb-4">{LABELS[key] ?? key}</h3> : null}
-                    <Accordion items={items.map((f) => ({ title: f.question, body: `<p>${f.answer}</p>` }))} defaultOpen={-1} />
+                    <Accordion items={items.map((f) => ({ title: f.question, body: isHtml(f.answer) ? f.answer : `<p>${f.answer}</p>` }))} defaultOpen={-1} />
                   </div>
                 ))}
 
@@ -889,7 +889,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                   <div className="surface-dark relative overflow-hidden p-7 text-center text-white sm:p-8">
                     <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200/60 to-transparent" />
                     <h3 className="t-h3 !text-white">{s(p.ctaHeading)}</h3>
-                    {s(p.ctaBody) ? <p className="mt-2 text-[15px] text-white/65">{s(p.ctaBody)}</p> : null}
+                    <RichText value={s(p.ctaBody)} className="mt-2 text-[15px] text-white/65" />
                     <div className="mt-6 flex flex-wrap justify-center gap-3">
                       {s(p.primaryLabel) ? (
                         <Action href={s(p.primaryHref, '/kontak')} variant="light">{s(p.primaryLabel)}<Icon.arrow className="size-4" /></Action>

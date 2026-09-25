@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { LEAD_PURPOSES, LOAN_RATE_METHOD, calculateInstallment, formatRupiah, formatRupiahShort, waLink, isValidPhone, cleanPhoneInput, PHONE_ERROR, PHONE_HINT } from '@/contracts'
+import { LEAD_PURPOSES, LOAN_RATE_METHOD, calculateInstallment, formatRupiah, waLink, isValidPhone, cleanPhoneInput, PHONE_ERROR, PHONE_HINT } from '@/contracts'
 import type { Product, Branch } from '@/lib/api'
 import { apiPost, sessionId, track, API_BASE } from '@/lib/client'
 import { Action, Icon } from '../ui'
-import { Field, Slider, Segments, Check, Note, Select, field } from '../ui/form'
+import { Field, AmountInput, Segments, Check, Note, Select, field } from '../ui/form'
 
 interface Answers { need?: 'pinjaman' | 'simpanan'; purposes: string[]; amount: number; tenorMonths: number }
 interface Recommendation {
@@ -67,10 +67,11 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
     if (answers.need !== 'pinjaman') return null
     const cheapest = loanProducts.filter((p) => p.ratePercent != null).sort((a, b) => (a.ratePercent ?? 0) - (b.ratePercent ?? 0))[0]
     if (!cheapest?.ratePercent) return null
+    // While the amount is being typed it can sit outside the range; the estimate uses the nearest allowed figure.
     return calculateInstallment({
-      principal: answers.amount, annualRatePercent: cheapest.ratePercent, months: answers.tenorMonths, method: LOAN_RATE_METHOD,
+      principal: Math.min(Math.max(answers.amount, bounds.min), bounds.max), annualRatePercent: cheapest.ratePercent, months: answers.tenorMonths, method: LOAN_RATE_METHOD,
     })
-  }, [answers, loanProducts])
+  }, [answers, loanProducts, bounds])
 
   async function onSubmitContact(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -260,18 +261,14 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
             </legend>
 
             <div className="mt-8">
-              <label htmlFor="wiz-amount" className="text-[13px] font-semibold text-ink-700">
-                {answers.need === 'simpanan' ? 'Target simpanan' : 'Nominal pinjaman'}
-              </label>
-              <output htmlFor="wiz-amount" className="figure mt-1.5 block text-[clamp(1.9rem,1.45rem+2vw,2.7rem)] text-ink-900">
-                {formatRupiah(answers.amount)}
-              </output>
-              <Slider id="wiz-amount" min={bounds.min} max={bounds.max} step={1_000_000} value={answers.amount}
-                onChange={(e) => setAnswers((a) => ({ ...a, amount: Number(e.target.value) }))} />
-              <p className="tnum flex justify-between text-[12px] text-ink-400">
-                <span>{formatRupiahShort(bounds.min)}</span>
-                <span>{formatRupiahShort(bounds.max)}</span>
-              </p>
+              <AmountInput
+                id="wiz-amount"
+                label={answers.need === 'simpanan' ? 'Target simpanan' : 'Nominal pinjaman'}
+                value={answers.amount}
+                min={bounds.min}
+                max={bounds.max}
+                onChange={(n) => setAnswers((a) => ({ ...a, amount: n }))}
+              />
             </div>
 
             <div className="mt-8">

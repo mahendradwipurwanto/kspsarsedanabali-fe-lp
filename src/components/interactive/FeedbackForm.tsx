@@ -7,7 +7,7 @@ import {
 } from '@/contracts'
 import type { Branch } from '@/lib/api'
 import { apiPost, sessionId, track } from '@/lib/client'
-import { Action, Icon } from '../ui'
+import { Action, Icon, RichText } from '../ui'
 import { Field, Note, Select, field } from '../ui/form'
 
 /**
@@ -88,7 +88,7 @@ export function FeedbackForm({
         <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-gold-300 to-transparent" />
         <span className="mx-auto grid size-14 place-items-center rounded-[var(--radius-tile)] bg-green-600 text-white"><Icon.check className="size-7" /></span>
         <h3 className="t-h2 mt-5 text-ink-900">Masukan Anda terkirim</h3>
-        <p className="t-lead mt-4">{successMessage}</p>
+        <RichText value={successMessage} className="t-lead mt-4" />
         <div className="mt-8 border-t border-line pt-6">
           <p className="text-[13.5px] text-ink-500">Ingin menyampaikan hal lain?</p>
           <button

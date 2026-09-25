@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react'
 import { isValidPhone, isValidEmail, cleanPhoneInput, PHONE_ERROR, PHONE_HINT, EMAIL_ERROR } from '@/contracts'
 import type { Product, Branch } from '@/lib/api'
 import { apiPost, sessionId, track } from '@/lib/client'
-import { Action, Icon } from '../ui'
+import { Action, Icon, RichText } from '../ui'
 import { Field, Note, Check, Select, field } from '../ui/form'
 
 export function LeadForm({
@@ -78,7 +78,7 @@ export function LeadForm({
                 
         <span className="mx-auto grid size-14 place-items-center rounded-[var(--radius-tile)] bg-green-600 text-white"><Icon.check className="size-7" /></span>
         <h3 className="t-h2 mt-5 text-ink-900">Pesan Anda sudah kami terima</h3>
-        <p className="t-lead mt-4">{successMessage}</p>
+        <RichText value={successMessage} className="t-lead mt-4" />
 
         <div className="mt-8 border-t border-line pt-6">
           <p className="text-[13.5px] text-ink-500">Butuh lebih cepat? Hubungi kantor terdekat langsung.</p>

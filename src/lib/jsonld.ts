@@ -1,4 +1,4 @@
-import { SITE, DEFAULT_SEO_TECH, type SeoTechSettings } from '@/contracts'
+import { SITE, DEFAULT_SEO_TECH, productTerm, type SeoTechSettings, type TermUnit } from '@/contracts'
 import { absoluteUrl, SITE_URL } from './seo'
 import type { Branch, Product, Post, Job } from './api'
 
@@ -131,8 +131,12 @@ export function localBusinessLd(branch: Branch) {
   }
 }
 
+/** UN/CEFACT codes schema.org expects for a duration's unit. */
+const TERM_UNIT_CODE: Record<TermUnit, string> = { day: 'DAY', week: 'WEE', month: 'MON' }
+
 export function productLd(product: Product) {
   const isLoan = product.category === 'pinjaman'
+  const term = productTerm(product)
   return {
     '@context': 'https://schema.org',
     '@type': isLoan ? 'LoanOrCredit' : 'BankAccount',
@@ -147,8 +151,8 @@ export function productLd(product: Product) {
           amount: product.minAmount != null && product.maxAmount != null
             ? { '@type': 'MonetaryAmount', currency: 'IDR', minValue: product.minAmount, maxValue: product.maxAmount }
             : undefined,
-          loanTerm: product.tenorOptions.length
-            ? { '@type': 'QuantitativeValue', minValue: Math.min(...product.tenorOptions), maxValue: Math.max(...product.tenorOptions), unitCode: 'MON' }
+          loanTerm: term
+            ? { '@type': 'QuantitativeValue', minValue: term.min, maxValue: term.max ?? term.min, unitCode: TERM_UNIT_CODE[term.unit] }
             : undefined,
         }
       : {}),

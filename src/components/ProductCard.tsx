@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { formatRupiahShort } from '@/contracts'
+import { formatRupiahShort, formatTerm, productTerm } from '@/contracts'
 import type { Product } from '@/lib/api'
 import { Card, Pill, Icon } from './ui'
 import { Media } from './ui/Media'
@@ -7,8 +7,7 @@ import { Media } from './ui/Media'
 const perMonth = (annual?: number | null) =>
   annual != null ? `${(annual / 12).toFixed(2).replace(/\.?0+$/, '').replace('.', ',')}%` : null
 
-const tenorRange = (options: number[]) =>
-  options.length ? `${Math.min(...options)}–${Math.max(...options)} bln` : null
+const tenorRange = (product: Product) => formatTerm(productTerm(product))
 
 const plafonRange = (min?: number | null, max?: number | null) =>
   min != null && max != null ? `${formatRupiahShort(min)}–${formatRupiahShort(max)}` : null
@@ -19,7 +18,7 @@ function Terms({ product, tone = 'light' }: { product: Product; tone?: 'light' |
   const rows = [
     ['Bunga', rate ? `${rate} / bln` : null],
     ['Plafon', plafonRange(product.minAmount, product.maxAmount)],
-    ['Jangka waktu', tenorRange(product.tenorOptions)],
+    ['Jangka waktu', tenorRange(product)],
   ].filter(([, v]) => v) as [string, string][]
 
   if (!rows.length) return null
@@ -113,7 +112,7 @@ export function ProductRow({ product, index }: { product: Product; index: number
   const href = `/produk/${product.category}/${product.slug}`
   const rate = perMonth(product.ratePercent)
   const plafon = plafonRange(product.minAmount, product.maxAmount)
-  const tenor = tenorRange(product.tenorOptions)
+  const tenor = tenorRange(product)
 
   return (
     <li className="group/row">

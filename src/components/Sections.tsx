@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import { Action, Label, Icon, iconByName } from './ui'
+import { Action, Label, Icon, iconByName, RichText } from './ui'
 import { Media } from './ui/Media'
 
 /*
@@ -101,7 +101,7 @@ export function Steps({ items, layout, primary }: { items: Step[]; layout: 'grid
               <StepMarker step={step} index={i} />
               <div className="min-w-0 pt-2">
                 <h3 className="t-h3">{step.title}</h3>
-                {step.body ? <p className="mt-2 text-[15px] leading-relaxed text-ink-500">{step.body}</p> : null}
+                <RichText value={step.body} className="mt-2 text-[15px] leading-relaxed text-ink-500" />
               </div>
             </li>
           ))}
@@ -118,7 +118,7 @@ export function Steps({ items, layout, primary }: { items: Step[]; layout: 'grid
           <li key={i} className="surface p-6">
             <StepMarker step={step} index={i} />
             <h3 className="t-h3 mt-5">{step.title}</h3>
-            {step.body ? <p className="mt-2 text-[14.5px] leading-relaxed text-ink-500">{step.body}</p> : null}
+            <RichText value={step.body} className="mt-2 text-[14.5px] leading-relaxed text-ink-500" />
           </li>
         ))}
       </ol>
@@ -140,7 +140,7 @@ export function Timeline({ items }: { items: Milestone[] }) {
           <span aria-hidden="true" className="absolute -left-[calc(2rem+9px)] top-1.5 size-4 rounded-full border-[3px] border-white bg-green-600 ring-1 ring-line sm:-left-[calc(2.5rem+9px)]" />
           <p className="figure text-[1.25rem] text-green-700">{m.period}</p>
           <h3 className="t-h3 mt-1">{m.title}</h3>
-          {m.body ? <p className="mt-2 max-w-[60ch] text-[15px] leading-relaxed text-ink-600">{m.body}</p> : null}
+          <RichText value={m.body} className="mt-2 max-w-[60ch] text-[15px] leading-relaxed text-ink-600" />
           {m.image ? (
             <div className="mt-4 max-w-md">
               <Media src={m.image} alt={m.alt || m.title} ratio="16/9" sizes="(max-width: 640px) 100vw, 448px" />
@@ -186,7 +186,7 @@ export function VideoEmbed({ url, title, caption, width }: { url: string; title?
           className="absolute inset-0 size-full border-0"
         />
       </div>
-      {caption ? <figcaption className="mt-3 text-[13.5px] text-ink-400">{caption}</figcaption> : null}
+      <RichText value={caption} as="figcaption" className="mt-3 text-[13.5px] text-ink-400" />
     </figure>
   )
 }

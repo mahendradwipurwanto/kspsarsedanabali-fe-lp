@@ -1,10 +1,10 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { calculateInstallment, calculateLoanFees, loanScheduleTable, loanReferenceRate, shownLoanFees, formatRupiah, LOAN_RATE_METHOD, type InstallmentResult, type LoanFeesResult } from '@/contracts'
+import { calculateInstallment, calculateLoanFees, loanScheduleTable, loanReferenceRate, simulationMonthlyRate, shownLoanFees, isHtml, formatRupiah, LOAN_RATE_METHOD, type InstallmentResult, type LoanFeesResult } from '@/contracts'
 import type { Simulation } from '@/lib/api'
 import { track } from '@/lib/client'
-import { Action, Icon } from '../ui'
+import { Action, Icon, RichText } from '../ui'
 import { Table } from './SavingsCalculator'
 import { Field, AmountInput, Segments, Select } from '../ui/form'
 
@@ -41,7 +41,7 @@ export function SimulationCalculator({
 
   // The simulation's own monthly rate, else the product's: signed off, or the
   // koperasi's brochure figure labelled as unconfirmed. `estimated` drives the notice.
-  const { monthly: monthlyRate, estimated } = loanReferenceRate(sim?.ratePercent, product)
+  const { monthly: monthlyRate, estimated } = loanReferenceRate(simulationMonthlyRate(sim?.ratePercent, sim?.ratePeriod), product)
 
   const result = useMemo(() => {
     if (monthlyRate == null) return null
@@ -161,9 +161,13 @@ export function SimulationCalculator({
             </Action>
           </div>
 
-          <p className="relative mt-6 border-t border-white/15 pt-5 text-[12px] leading-relaxed text-white/45">
-            *{disclaimer}
-          </p>
+          {isHtml(disclaimer) ? (
+            <RichText value={disclaimer} className="relative mt-6 border-t border-white/15 pt-5 text-[12px] leading-relaxed text-white/45" />
+          ) : (
+            <p className="relative mt-6 border-t border-white/15 pt-5 text-[12px] leading-relaxed text-white/45">
+              *{disclaimer}
+            </p>
+          )}
         </div>
       </div>
       {result ? <LoanTables sim={sim} result={result} fees={fees} amount={clamped} tenor={tenor} /> : null}

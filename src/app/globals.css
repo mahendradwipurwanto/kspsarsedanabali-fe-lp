@@ -279,6 +279,17 @@ body {
 }
 }
 
+/* ── Short copy from the console's rich editor ─────────────────────────────── */
+.rt > * + * { margin-top: 0.6em; }
+.rt p { margin: 0; }
+.rt ul { list-style: disc; padding-left: 1.3em; }
+.rt ol { list-style: decimal; padding-left: 1.4em; }
+.rt li + li { margin-top: 0.25em; }
+.rt li > p { margin: 0; }
+.rt strong { font-weight: 700; }
+.rt u { text-underline-offset: 3px; }
+.rt a { text-decoration: underline; text-underline-offset: 3px; }
+
 /* ── Prose from the CMS ───────────────────────────────────────────────────── */
 .prose-ksp { color: var(--color-ink-500); line-height: 1.75; font-size: 1rem; }
 .prose-ksp > * + * { margin-top: 1.15em; }

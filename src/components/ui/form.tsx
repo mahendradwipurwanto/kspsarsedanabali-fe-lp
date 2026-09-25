@@ -109,7 +109,6 @@ export function Segments({
   )
 }
 
-/** A range input styled to read as a ruled slider rather than an OS default. */
 /**
  * A rupiah amount typed by hand, set as large as the figure it replaced.
  *
@@ -184,37 +183,6 @@ export function AmountInput({
         {error ?? `${hint ? `${hint} ` : ''}Minimal ${short(min)}, maksimal ${short(max)}.`}
       </p>
     </div>
-  )
-}
-
-export function Slider(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <>
-      <input
-        type="range"
-        {...props}
-        className={`ksp-range h-11 w-full cursor-pointer appearance-none bg-transparent ${props.className ?? ''}`}
-      />
-      <style>{`
-        .ksp-range::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: var(--color-ink-100); }
-        .ksp-range::-moz-range-track { height: 4px; border-radius: 999px; background: var(--color-ink-100); }
-        .ksp-range::-webkit-slider-thumb {
-          -webkit-appearance: none; appearance: none;
-          width: 22px; height: 22px; margin-top: -9px; border-radius: 999px;
-          background: #fff; border: 5px solid var(--color-ink-900);
-          box-shadow: 0 1px 2px color-mix(in srgb, var(--color-ink-900) 20%, transparent);
-          transition: transform .18s var(--ease-swift), box-shadow .18s var(--ease-swift);
-        }
-        .ksp-range::-moz-range-thumb {
-          width: 18px; height: 18px; border-radius: 999px;
-          background: #fff; border: 5px solid var(--color-ink-900);
-          box-shadow: 0 1px 2px color-mix(in srgb, var(--color-ink-900) 20%, transparent);
-        }
-        .ksp-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-green-600) 25%, transparent); }
-        .ksp-range:hover::-webkit-slider-thumb { transform: scale(1.08); }
-        .ksp-range:active::-webkit-slider-thumb { transform: scale(0.96); }
-      `}</style>
-    </>
   )
 }
 

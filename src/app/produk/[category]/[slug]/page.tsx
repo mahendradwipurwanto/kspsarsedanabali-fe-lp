@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { formatRupiahShort } from '@/contracts'
+import { formatRupiahShort, formatTerm, isHtml, productTerm } from '@/contracts'
 import { getProduct, getProducts, getBranches, getSimulations, quiet } from '@/lib/api'
 import { buildMetadata, describe, titleFor } from '@/lib/seo'
 import { breadcrumbLd, productLd } from '@/lib/jsonld'
@@ -51,7 +51,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   ]
 
   const accordionItems = [
-    p.description ? { title: 'Deskripsi Produk', body: `<p>${p.description.replace(/\n\n/g, '</p><p>')}</p>` } : null,
+    // Written in the console's rich editor now; older descriptions are plain text, a blank line between paragraphs.
+    p.description ? { title: 'Deskripsi Produk', body: isHtml(p.description) ? p.description : `<p>${p.description.replace(/\n\n/g, '</p><p>')}</p>` } : null,
     p.benefits.length ? { title: 'Manfaat', body: `<ul>${p.benefits.map((x) => `<li>${x}</li>`).join('')}</ul>` } : null,
     p.requirements.length ? { title: 'Persyaratan', body: `<ul>${p.requirements.map((x) => `<li>${x}</li>`).join('')}</ul>` } : null,
   ].filter(Boolean) as { title: string; body: string }[]
@@ -102,8 +103,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   p.minAmount != null && p.maxAmount != null
                     ? ['Plafon', `${formatRupiahShort(p.minAmount)} – ${formatRupiahShort(p.maxAmount)}`]
                     : null,
-                  p.tenorOptions.length
-                    ? ['Jangka waktu', `${Math.min(...p.tenorOptions)}–${Math.max(...p.tenorOptions)} bulan`]
+                  formatTerm(productTerm(p))
+                    ? ['Jangka waktu', formatTerm(productTerm(p))!]
                     : null,
                   p.ratePercent != null
                     ? [isLoan ? 'Bunga' : 'Imbal hasil', `${(p.ratePercent / 12).toFixed(2).replace(/\.?0+$/, '').replace('.', ',')}% per bulan`]

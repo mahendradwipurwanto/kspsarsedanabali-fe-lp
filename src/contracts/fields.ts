@@ -25,6 +25,26 @@ export type FieldDef =
 
 export type FieldMap = Record<string, FieldDef>
 
+/** The text a visitor reads from a field that may hold HTML: tags dropped, entities for spaces and ampersands undone. */
+export function plainText(html: string | null | undefined): string {
+  if (!html) return ''
+  return html
+    .replace(/<\/(p|li|h[1-6]|div)>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** Whether a stored value is HTML from the rich editor rather than plain text written before it. */
+export const isHtml = (v: string | null | undefined): boolean => !!v && /<(p|ul|ol|li|strong|em|u|br|h[1-6]|div|span|a)\b/i.test(v)
+
 /** Convenience constructors — `field.text({ label: '…' })` reads better than a literal. */
 export const field = {
   text: (o: Omit<Extract<FieldDef, { kind: 'text' }>, 'kind'>) => ({ kind: 'text', ...o }) as FieldDef,
@@ -53,9 +73,11 @@ function leafToZod(f: FieldDef): ZodTypeAny {
     }
     case 'textarea':
     case 'richtext': {
-      let s = z.string()
-      if ('max' in f && f.max) s = s.max(f.max)
-      return f.required ? s.min(1, 'Wajib diisi') : s.optional().or(z.literal(''))
+      // Both are written in a rich editor and saved as HTML, so the limit is on
+      // the words a visitor reads, not on the tags around them.
+      const max = 'max' in f ? f.max : undefined
+      const s = z.string().refine((v) => !max || plainText(v).length <= max, { message: `Maksimal ${max} karakter` })
+      return f.required ? s.refine((v) => plainText(v).length > 0 || /<(img|table)\b/i.test(v), { message: 'Wajib diisi' }) : s.optional().or(z.literal(''))
     }
     case 'number': {
       let n = z.number()

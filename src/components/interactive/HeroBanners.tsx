@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { Shell, Action, Icon } from '../ui'
+import { Shell, Action, Icon, RichText } from '../ui'
 import { Media } from '../ui/Media'
 
 export interface Banner {
@@ -84,7 +84,7 @@ export function HeroBanners({
             <Shell className="pb-12 sm:pb-14 lg:pb-20">
               <div key={index} className="max-w-[46ch]">
                 {current.heading ? <h1 className="t-display rise d-1 !text-white">{current.heading}</h1> : <h1 className="sr-only">{title}</h1>}
-                {current.subheading ? <p className="rise d-2 mt-4 text-[16px] leading-relaxed text-white/80 sm:text-[17px]">{current.subheading}</p> : null}
+                <RichText value={current.subheading} className="rise d-2 mt-4 text-[16px] leading-relaxed text-white/80 sm:text-[17px]" />
                 {cta ? (
                   <div className="rise d-3 mt-6">
                     <Action href={cta.href} external={external(cta.href)} size="lg">

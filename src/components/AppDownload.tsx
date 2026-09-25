@@ -1,5 +1,5 @@
 import { APP_SMART_LINK, type AppSettings } from '@/contracts'
-import { Shell, Band, Label, Icon, Action, Pill } from './ui'
+import { Shell, Band, Label, Icon, Action, Pill, RichText } from './ui'
 import { Media } from './ui/Media'
 
 /*
@@ -139,7 +139,7 @@ export function AppDownload({
           <div className="max-w-[54ch]">
             {eyebrow ? <Label tone={dark ? 'gold' : 'green'}>{eyebrow}</Label> : null}
             <h2 className={`t-h2 ${eyebrow ? 'mt-3' : ''} ${dark ? '!text-white' : ''}`}>{heading}</h2>
-            {body ? <p className={`t-lead mt-4 ${dark ? 'text-white/70' : ''}`}>{body}</p> : null}
+            <RichText value={body} className={`t-lead mt-4 ${dark ? 'text-white/70' : ''}`} />
             {bullets.length ? (
               <ul className="mt-6 grid gap-3">
                 {bullets.map((item, i) => (

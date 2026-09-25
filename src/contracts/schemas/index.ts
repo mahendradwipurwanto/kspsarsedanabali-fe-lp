@@ -459,6 +459,52 @@ export const pageSchema = z.object({
 export const PRODUCT_CATEGORIES = ['simpanan', 'pinjaman'] as const
 export const RATE_METHODS = ['flat', 'annuity', 'effective', 'none'] as const
 
+/**
+ * How long a product runs, as the koperasi writes it on a brochure: one figure
+ * ("210 hari") or a range ("3–4 bulan"), in days, weeks or months. It is what
+ * the website prints as "Jangka waktu"; the month list in `tenorOptions` still
+ * feeds the recommender and follows this when the unit is months.
+ */
+export const TERM_UNITS = ['day', 'week', 'month'] as const
+export type TermUnit = (typeof TERM_UNITS)[number]
+export const TERM_UNIT_LABELS: Record<TermUnit, string> = { day: 'hari', week: 'minggu', month: 'bulan' }
+
+export const productTermSchema = z
+  .object({
+    min: z.number().int().min(1).max(3650),
+    /** Empty for a single figure. */
+    max: z.number().int().min(1).max(3650).nullable().optional(),
+    unit: z.enum(TERM_UNITS),
+  })
+  .refine((t) => t.max == null || t.max >= t.min, { message: 'Batas atas jangka waktu harus sama atau lebih besar dari batas bawah.', path: ['max'] })
+export type ProductTerm = z.infer<typeof productTermSchema>
+
+/** "210 hari", "3–4 bulan"; null when there is nothing to say. */
+export function formatTerm(term: ProductTerm | null | undefined): string | null {
+  if (!term || !term.min) return null
+  const unit = TERM_UNIT_LABELS[term.unit] ?? 'bulan'
+  return term.max != null && term.max !== term.min ? `${term.min}–${term.max} ${unit}` : `${term.min} ${unit}`
+}
+
+/** A product's term: the one the editor wrote, else the range of its older month list. */
+export function productTerm(p: { term?: ProductTerm | null; tenorOptions?: number[] | null }): ProductTerm | null {
+  if (p.term?.min) return p.term
+  const months = p.tenorOptions ?? []
+  if (!months.length) return null
+  const lo = Math.min(...months)
+  const hi = Math.max(...months)
+  return { min: lo, max: hi === lo ? null : hi, unit: 'month' }
+}
+
+/** The months a term covers, for the recommender: every whole month in a range of months, nothing otherwise. */
+export function termMonths(term: ProductTerm | null | undefined): number[] {
+  if (!term || term.unit !== 'month') return []
+  const hi = Math.min(term.max ?? term.min, 120)
+  const out: number[] = []
+  for (let m = term.min; m <= hi; m++) out.push(m)
+  return out
+}
+
 export const productSchema = z.object({
   name: z.string().min(2).max(120),
   slug: slugSchema,
@@ -475,6 +521,8 @@ export const productSchema = z.object({
   minAmount: z.number().int().min(0).optional(),
   maxAmount: z.number().int().min(0).optional(),
   tenorOptions: z.array(z.number().int().min(1).max(120)).optional(),
+  /** The "Jangka waktu" the website prints. Empty falls back to the range of `tenorOptions` in months. */
+  term: productTermSchema.nullable().optional(),
   purposes: z.array(z.string()).optional(),
   /**
    * Rates reach the public and drive the simulator, so they are published only
@@ -499,6 +547,16 @@ export const productSchema = z.object({
  * - `monthly_deposit` — a fixed deposit every month, compounding (SIMAPAN).
  * - `daily_deposit` — a deposit every day for a set number of days, plus a bonus (SIPURA).
  */
+export const RATE_PERIODS = ['month', 'year'] as const
+export type RatePeriod = (typeof RATE_PERIODS)[number]
+export const RATE_PERIOD_LABELS: Record<RatePeriod, string> = { month: 'per bulan', year: 'per tahun' }
+
+/** A simulation's own loan rate as a monthly figure, whichever period the editor wrote it in. */
+export function simulationMonthlyRate(ratePercent: number | null | undefined, ratePeriod?: string | null): number | null {
+  if (ratePercent == null) return null
+  return ratePeriod === 'year' ? ratePercent / 12 : ratePercent
+}
+
 export const SIMULATION_KINDS = ['installment', 'term_deposit', 'monthly_deposit', 'daily_deposit'] as const
 export type SimulationKind = (typeof SIMULATION_KINDS)[number]
 
@@ -600,6 +658,8 @@ export const simulationSchema = z
     rateInfo: z.string().max(80).optional().or(z.literal('')),
     /** `term_deposit`: interest % per year. `monthly_deposit` and `installment`: % per month (a loan's is the reference rate; empty uses the product's). */
     ratePercent: z.number().min(0).max(100).nullable().optional(),
+    /** `installment`: whether `ratePercent` is per month or per year. The calculator always works in months. */
+    ratePeriod: z.enum(RATE_PERIODS).default('month'),
     /** `term_deposit`: reward % per year. */
     rewardPercent: z.number().min(0).max(100).nullable().optional(),
     /** `daily_deposit`: bonus as a multiple of one day's deposit. */

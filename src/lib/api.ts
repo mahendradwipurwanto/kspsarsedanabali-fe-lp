@@ -1,5 +1,5 @@
 import 'server-only'
-import type { LoanTable } from '@/contracts'
+import type { LoanTable, ProductTerm } from '@/contracts'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4001'
 
@@ -107,6 +107,8 @@ export interface Product {
   rateMethodIndicative?: 'flat' | 'annuity' | 'effective' | 'none'
   minAmount?: number | null; maxAmount?: number | null
   tenorOptions: number[]; purposes: string[]
+  /** "Jangka waktu" as the koperasi writes it; empty falls back to the range of `tenorOptions`. */
+  term?: ProductTerm | null
   /** False until the koperasi signs the figures off; the API blanks the rate. */
   isVerified: boolean
   seo: Record<string, string>
@@ -126,6 +128,8 @@ export interface Simulation {
   /** The label at the top right of the result card. */
   rateInfo?: string | null
   ratePercent?: number | null; rewardPercent?: number | null; bonusMultiplier?: number | null; termDays?: number | null
+  /** `installment`: whether `ratePercent` is per month or per year. */
+  ratePeriod?: 'month' | 'year'
   tableAmounts: number[]; note?: string | null; sortOrder: number
   /** The table the editor wrote, shown as written in place of the worked-out one. */
   table?: { caption?: string; source?: string; columns: string[]; rows: string[][] } | null

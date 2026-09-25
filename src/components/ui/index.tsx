@@ -1,5 +1,8 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import { RichText } from './RichText'
+
+export { RichText }
 
 export function JsonLd({ data }: { data: object | object[] }) {
   const payload = Array.isArray(data) ? data : [data]
@@ -143,7 +146,9 @@ export function Heading({
           </div>
         ) : null}
         <Tag className={`t-${size} ${label ? 'mt-3' : ''} ${tone === 'light' ? '!text-white' : ''}`}>{title}</Tag>
-        {lead ? <p className={`t-lead mt-4 ${tone === 'light' ? 'text-white/70' : ''}`}>{lead}</p> : null}
+        {typeof lead === 'string'
+          ? <RichText value={lead} className={`t-lead mt-4 ${tone === 'light' ? 'text-white/70' : ''}`} />
+          : lead ? <p className={`t-lead mt-4 ${tone === 'light' ? 'text-white/70' : ''}`}>{lead}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
@@ -305,7 +310,7 @@ export function Blank({ title, body, action }: { title: string; body: string; ac
   return (
     <div className="rounded-[var(--radius-card)] border border-dashed border-ink-200 bg-paper px-6 py-16 text-center">
       <p className="t-h3">{title}</p>
-      <p className="mx-auto mt-2.5 max-w-md text-[14.5px] leading-relaxed text-ink-500">{body}</p>
+      <RichText value={body} className="mx-auto mt-2.5 max-w-md text-[14.5px] leading-relaxed text-ink-500" />
       {action ? <div className="mt-6 flex justify-center">{action}</div> : null}
     </div>
   )
