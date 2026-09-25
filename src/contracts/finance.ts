@@ -6,7 +6,7 @@
  * hardcode a rate here.
  */
 
-import type { LoanTable, LoanTableColumn } from './schemas/index'
+import { simulationRate, type LoanTable, type LoanTableColumn } from './schemas/index'
 
 export type RateMethod = 'flat' | 'annuity' | 'effective' | 'none'
 
@@ -293,6 +293,8 @@ export interface FormulaTableInput {
   tenors: number[]
   tableAmounts?: number[]
   ratePercent?: number | null
+  /** The period `ratePercent` was written in; the formulas convert it to their own. */
+  ratePeriod?: string | null
   rewardPercent?: number | null
   bonusMultiplier?: number | null
   termDays?: number | null
@@ -330,19 +332,20 @@ export function formulaTable(t: FormulaTableInput): { caption: string; source: s
 
 function formulaTableBody(t: FormulaTableInput): { caption: string; columns: string[]; rows: string[][] } {
   const amounts = tableAmountsOf(t)
+  const rate = simulationRate(t) ?? 0
   const years = (m: number) => (m % 12 === 0 ? `${m / 12} th` : `${m} bln`)
   switch (t.kind) {
     case 'term_deposit':
       return {
         caption: `Tabel ${t.name} · total imbal hasil`,
         columns: ['Jumlah simpanan', ...t.tenors.map((m) => `${m} bulan`)],
-        rows: amounts.map((a) => [formatRupiah(a), ...t.tenors.map((m) => formatRupiah(calculateTermDeposit(a, m, t.ratePercent ?? 0, t.rewardPercent ?? 0).total))]),
+        rows: amounts.map((a) => [formatRupiah(a), ...t.tenors.map((m) => formatRupiah(calculateTermDeposit(a, m, rate, t.rewardPercent ?? 0).total))]),
       }
     case 'monthly_deposit':
       return {
         caption: `Tabel ${t.name} · nilai simpanan akhir`,
         columns: ['Setoran pokok per bulan', ...t.tenors.map(years)],
-        rows: amounts.map((a) => [formatRupiah(a), ...t.tenors.map((m) => formatRupiah(calculateMonthlyDeposit(a, m, t.ratePercent ?? 0).value))]),
+        rows: amounts.map((a) => [formatRupiah(a), ...t.tenors.map((m) => formatRupiah(calculateMonthlyDeposit(a, m, rate).value))]),
       }
     case 'daily_deposit': {
       const days = t.termDays ?? 210

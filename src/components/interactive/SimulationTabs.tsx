@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { simulationRate } from '@/contracts'
 import type { Simulation } from '@/lib/api'
 import { track } from '@/lib/client'
 import { Card, Tile, Icon, Blank, Action, Heading } from '../ui'
@@ -28,7 +29,7 @@ function savingsNote(sim: Simulation): string {
   switch (sim.kind) {
     case 'term_deposit': {
       const range = sim.tenors.length > 1 ? `${sim.tenors[0]}–${sim.tenors[sim.tenors.length - 1]}` : `${sim.tenors[0] ?? 12}`
-      const rate = sim.ratePercent ?? 0
+      const rate = simulationRate(sim) ?? 0
       const reward = sim.rewardPercent ?? 0
       return reward
         ? `Simpanan sekali setor ${range} bulan. Mendapat bunga ${num(rate)}% per tahun ditambah reward ${num(reward)}% per tahun, jadi ${num(rate + reward)}% per tahun.`
@@ -37,7 +38,7 @@ function savingsNote(sim: Simulation): string {
     case 'monthly_deposit': {
       const years = sim.tenors.map((m) => m / 12)
       const range = years.length > 1 ? `${num(years[0]!)}–${num(years[years.length - 1]!)}` : num(years[0] ?? 1)
-      return `Setoran rutin setiap bulan selama ${range} tahun. Bunga ${num(sim.ratePercent ?? 0)}% per bulan dan berbunga lagi, sehingga hasilnya menumpuk.`
+      return `Setoran rutin setiap bulan selama ${range} tahun. Bunga ${num(simulationRate(sim) ?? 0)}% per bulan dan berbunga lagi, sehingga hasilnya menumpuk.`
     }
     case 'daily_deposit':
       return `Setoran harian selama ${sim.termDays ?? 210} hari. Bonus ${num(sim.bonusMultiplier ?? 0)} kali setoran harian dibayarkan saat jatuh tempo.`

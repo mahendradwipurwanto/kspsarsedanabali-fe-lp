@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { calculateInstallment, formatRupiah, formatRupiahShort, formatTerm, productTerm, LOAN_RATE_METHOD } from '@/contracts'
+import { calculateInstallment, formatRate, formatRupiah, formatRupiahShort, formatTerm, productRatePeriod, productTerm, LOAN_RATE_METHOD, PRODUCT_RATE_PERIOD_LABELS } from '@/contracts'
 import type { Product } from '@/lib/api'
 import { Shell, Action, Icon, Pill, iconByName, RichText } from '../ui'
 import { Media } from '../ui/Media'
@@ -23,8 +23,6 @@ interface Slide {
   featuredProduct?: string
 }
 
-const perMonth = (annual?: number | null) =>
-  annual != null ? `${(annual / 12).toFixed(2).replace(/\.?0+$/, '').replace('.', ',')}%` : null
 
 /**
  * The homepage opener. Navy, gridded, and built around one instrument: the
@@ -181,7 +179,7 @@ function RateCard({ product, bullets }: { product: Product; bullets: { text: str
   const annual = product.ratePercent ?? product.ratePercentIndicative ?? null
   // Every loan is bunga menurun; a savings product has no instalment to show.
   const method = product.category === 'pinjaman' ? LOAN_RATE_METHOD : 'none'
-  const rate = perMonth(annual)
+  const rate = formatRate(annual, product.ratePeriod)
   const plafon = product.minAmount != null && product.maxAmount != null
     ? `${formatRupiahShort(product.minAmount)}–${formatRupiahShort(product.maxAmount)}` : null
   const tenor = formatTerm(productTerm(product))
@@ -212,7 +210,7 @@ function RateCard({ product, bullets }: { product: Product; bullets: { text: str
 
       <dl className="tnum mt-6 grid grid-cols-2 gap-x-6 gap-y-5 border-t border-white/10 pt-6">
         <div>
-          <dt className="text-[12px] font-medium text-white/50">Bunga per bulan</dt>
+          <dt className="text-[12px] font-medium text-white/50">Bunga {PRODUCT_RATE_PERIOD_LABELS[productRatePeriod(product)]}</dt>
           <dd className="figure mt-1.5 text-[2rem] text-gold-300 sm:text-[2.25rem]">{rate ?? '—'}</dd>
           {rate && !verified ? <dd className="mt-1 text-[11.5px] text-white/45">Mengacu materi publikasi, belum diverifikasi ulang</dd> : null}
         </div>

@@ -1,11 +1,14 @@
 import Link from 'next/link'
-import { formatRupiahShort, formatTerm, productTerm } from '@/contracts'
+import { formatRate, formatRupiahShort, formatTerm, productRatePeriod, productTerm, PRODUCT_RATE_PERIOD_SHORT } from '@/contracts'
 import type { Product } from '@/lib/api'
 import { Card, Pill, Icon } from './ui'
 import { Media } from './ui/Media'
 
-const perMonth = (annual?: number | null) =>
-  annual != null ? `${(annual / 12).toFixed(2).replace(/\.?0+$/, '').replace('.', ',')}%` : null
+/** "1,1% / bln", "0,05% / hari" — in the period the product quotes its rate in. */
+const rateLabel = (product: Product) => {
+  const rate = formatRate(product.ratePercent, product.ratePeriod)
+  return rate ? `${rate} / ${PRODUCT_RATE_PERIOD_SHORT[productRatePeriod(product)]}` : null
+}
 
 const tenorRange = (product: Product) => formatTerm(productTerm(product))
 
@@ -14,9 +17,8 @@ const plafonRange = (min?: number | null, max?: number | null) =>
 
 /** The figures a member actually shops on, set like a terms table. */
 function Terms({ product, tone = 'light' }: { product: Product; tone?: 'light' | 'dark' }) {
-  const rate = perMonth(product.ratePercent)
   const rows = [
-    ['Bunga', rate ? `${rate} / bln` : null],
+    ['Bunga', rateLabel(product)],
     ['Plafon', plafonRange(product.minAmount, product.maxAmount)],
     ['Jangka waktu', tenorRange(product)],
   ].filter(([, v]) => v) as [string, string][]
@@ -110,7 +112,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
 /** Compact row with full terms, used on the product index pages. */
 export function ProductRow({ product, index }: { product: Product; index: number }) {
   const href = `/produk/${product.category}/${product.slug}`
-  const rate = perMonth(product.ratePercent)
+  const rate = rateLabel(product)
   const plafon = plafonRange(product.minAmount, product.maxAmount)
   const tenor = tenorRange(product)
 
@@ -135,7 +137,7 @@ export function ProductRow({ product, index }: { product: Product; index: number
             <Pill tone={product.category === 'pinjaman' ? 'gold' : 'green'}>
               {product.category === 'pinjaman' ? 'Pinjaman' : 'Simpanan'}
             </Pill>
-            {rate ? <span className="tnum text-[12.5px] font-semibold text-green-700">{rate} / bln</span> : null}
+            {rate ? <span className="tnum text-[12.5px] font-semibold text-green-700">{rate}</span> : null}
           </span>
           <span className="block text-[17px] font-bold text-ink-900 transition-colors group-hover/row:text-green-700">{product.name}</span>
           {product.tagline ? <span className="mt-1 block text-[13.5px] text-ink-500">{product.tagline}</span> : null}

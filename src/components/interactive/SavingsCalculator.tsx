@@ -3,7 +3,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import {
   calculateTermDeposit, calculateMonthlyDeposit, calculateDailyDeposit, cellAmount,
-  formatRupiah, formatRupiahShort,
+  formatRupiah, formatRupiahShort, simulationRate,
 } from '@/contracts'
 import type { Simulation } from '@/lib/api'
 import { track } from '@/lib/client'
@@ -254,7 +254,7 @@ function TermDeposit({
   sim: Simulation; amount: number; months: number
   onAmount: (v: number) => void; onMonths: (v: number) => void
 }) {
-  const rate = sim.ratePercent ?? 0
+  const rate = simulationRate(sim) ?? 0
   const reward = sim.rewardPercent ?? 0
   const result = useMemo(() => calculateTermDeposit(amount, months, rate, reward), [amount, months, rate, reward])
 
@@ -318,7 +318,7 @@ function MonthlyDeposit({
   sim: Simulation; deposit: number; months: number
   onDeposit: (v: number) => void; onMonths: (v: number) => void
 }) {
-  const rate = sim.ratePercent ?? 0
+  const rate = simulationRate(sim) ?? 0
   const years = months / 12
   const result = useMemo(() => calculateMonthlyDeposit(deposit, months, rate), [deposit, months, rate])
 

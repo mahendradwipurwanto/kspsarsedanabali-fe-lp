@@ -97,6 +97,8 @@ export interface Product {
   benefits: string[]; requirements: string[]; image?: string
   rateMethod: 'flat' | 'annuity' | 'effective' | 'none'
   ratePercent?: number | null; rateNote?: string | null
+  /** The period the rate is quoted in; `ratePercent` itself is per year. */
+  ratePeriod?: 'day' | 'month' | 'year'
   /**
    * The figure on record, whether or not the koperasi has signed it off. Only
    * the installment calculator may read these, and only while labelling the

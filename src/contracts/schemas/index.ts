@@ -505,6 +505,36 @@ export function termMonths(term: ProductTerm | null | undefined): number[] {
   return out
 }
 
+/**
+ * The period a product's rate is quoted in. The stored `ratePercent` stays a
+ * yearly figure, since every calculation works from it; this is the unit the
+ * editor typed it in and the website prints it in ("1,1% per bulan", "0,05% per hari").
+ */
+export const PRODUCT_RATE_PERIODS = ['day', 'month', 'year'] as const
+export type ProductRatePeriod = (typeof PRODUCT_RATE_PERIODS)[number]
+export const PRODUCT_RATE_PERIOD_LABELS: Record<ProductRatePeriod, string> = { day: 'per hari', month: 'per bulan', year: 'per tahun' }
+export const PRODUCT_RATE_PERIOD_SHORT: Record<ProductRatePeriod, string> = { day: 'hari', month: 'bln', year: 'thn' }
+const PERIODS_PER_YEAR: Record<ProductRatePeriod, number> = { day: 365, month: 12, year: 1 }
+
+const asPeriod = (p?: string | null): ProductRatePeriod => (PRODUCT_RATE_PERIODS as readonly string[]).includes(p ?? '') ? (p as ProductRatePeriod) : 'month'
+const roundRate = (n: number) => Math.round(n * 1e6) / 1e6
+
+/** A rate typed in a period, as the yearly figure that is stored. */
+export const annualRate = (value: number, period?: string | null): number => roundRate(value * PERIODS_PER_YEAR[asPeriod(period)])
+
+/** The stored yearly figure, in the period the product quotes it in. */
+export const rateInPeriod = (annual: number, period?: string | null): number => roundRate(annual / PERIODS_PER_YEAR[asPeriod(period)])
+
+/** "1,1%" — the rate in the product's period, up to three decimals, the Indonesian way. */
+export function formatRate(annual: number | null | undefined, period?: string | null): string | null {
+  if (annual == null) return null
+  const v = Math.round(rateInPeriod(annual, period) * 1000) / 1000
+  return `${String(v).replace('.', ',')}%`
+}
+
+/** The period a product quotes its rate in; products saved before the choice existed quote per month. */
+export const productRatePeriod = (p: { ratePeriod?: string | null }): ProductRatePeriod => asPeriod(p.ratePeriod)
+
 export const productSchema = z.object({
   name: z.string().min(2).max(120),
   slug: slugSchema,
@@ -516,7 +546,10 @@ export const productSchema = z.object({
   requirements: z.array(z.string()).optional(),
   image: z.string().optional().or(z.literal('')),
   rateMethod: z.enum(RATE_METHODS).default('none'),
-  ratePercent: z.number().min(0).max(100).optional(),
+  /** Stored per year whatever `ratePeriod` says; a daily rate of 0,3% is 109,5 here. */
+  ratePercent: z.number().min(0).max(1000).optional(),
+  /** The period the rate is typed in and shown in. */
+  ratePeriod: z.enum(PRODUCT_RATE_PERIODS).default('month'),
   rateNote: z.string().max(180).optional().or(z.literal('')),
   minAmount: z.number().int().min(0).optional(),
   maxAmount: z.number().int().min(0).optional(),
@@ -550,6 +583,21 @@ export const productSchema = z.object({
 export const RATE_PERIODS = ['month', 'year'] as const
 export type RatePeriod = (typeof RATE_PERIODS)[number]
 export const RATE_PERIOD_LABELS: Record<RatePeriod, string> = { month: 'per bulan', year: 'per tahun' }
+
+/**
+ * The period each kind's formula reads its rate in: a term deposit's interest
+ * is quoted per year, a monthly deposit's per month, a loan's per month.
+ */
+export const SIMULATION_RATE_BASIS = { installment: 'month', term_deposit: 'year', monthly_deposit: 'month', daily_deposit: 'month' } as const
+
+/** A simulation's rate in the period its formula works in, whichever period the editor wrote it in. */
+export function simulationRate(sim: { kind: string; ratePercent?: number | null; ratePeriod?: string | null }): number | null {
+  if (sim.ratePercent == null) return null
+  const basis = SIMULATION_RATE_BASIS[sim.kind as keyof typeof SIMULATION_RATE_BASIS] ?? 'month'
+  const period = sim.ratePeriod === 'year' || sim.ratePeriod === 'month' ? sim.ratePeriod : basis
+  if (period === basis) return sim.ratePercent
+  return Math.round((basis === 'year' ? sim.ratePercent * 12 : sim.ratePercent / 12) * 1e6) / 1e6
+}
 
 /** A simulation's own loan rate as a monthly figure, whichever period the editor wrote it in. */
 export function simulationMonthlyRate(ratePercent: number | null | undefined, ratePeriod?: string | null): number | null {
@@ -658,7 +706,7 @@ export const simulationSchema = z
     rateInfo: z.string().max(80).optional().or(z.literal('')),
     /** `term_deposit`: interest % per year. `monthly_deposit` and `installment`: % per month (a loan's is the reference rate; empty uses the product's). */
     ratePercent: z.number().min(0).max(100).nullable().optional(),
-    /** `installment`: whether `ratePercent` is per month or per year. The calculator always works in months. */
+    /** Whether `ratePercent` is per month or per year; `simulationRate` gives each formula the period it works in. */
     ratePeriod: z.enum(RATE_PERIODS).default('month'),
     /** `term_deposit`: reward % per year. */
     rewardPercent: z.number().min(0).max(100).nullable().optional(),

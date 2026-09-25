@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { formatRupiahShort, formatTerm, isHtml, productTerm } from '@/contracts'
+import { formatRate, formatRupiahShort, formatTerm, isHtml, productRatePeriod, productTerm, PRODUCT_RATE_PERIOD_LABELS } from '@/contracts'
 import { getProduct, getProducts, getBranches, getSimulations, quiet } from '@/lib/api'
 import { buildMetadata, describe, titleFor } from '@/lib/seo'
 import { breadcrumbLd, productLd } from '@/lib/jsonld'
@@ -107,7 +107,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                     ? ['Jangka waktu', formatTerm(productTerm(p))!]
                     : null,
                   p.ratePercent != null
-                    ? [isLoan ? 'Bunga' : 'Imbal hasil', `${(p.ratePercent / 12).toFixed(2).replace(/\.?0+$/, '').replace('.', ',')}% per bulan`]
+                    ? [isLoan ? 'Bunga' : 'Imbal hasil', `${formatRate(p.ratePercent, p.ratePeriod)} ${PRODUCT_RATE_PERIOD_LABELS[productRatePeriod(p)]}`]
                     : null,
                 ]
                   .filter(Boolean)
