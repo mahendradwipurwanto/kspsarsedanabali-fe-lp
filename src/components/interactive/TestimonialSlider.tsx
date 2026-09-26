@@ -179,11 +179,14 @@ function TestimonialCard({ item, className = '' }: { item: Testimonial; classNam
   return (
     <Card as="li" hover className={`flex shrink-0 snap-start flex-col p-6 ${className}`}>
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-0.5 text-gold-400" aria-label={`Penilaian ${item.rating} dari 5`}>
-          {Array.from({ length: 5 }, (_, i) => (
-            <Icon.star key={i} className={`size-[15px] ${i < item.rating ? '' : 'text-ink-100'}`} />
-          ))}
-        </div>
+        {/* No stars at all when nobody gave any: a row of grey stars reads as a zero. */}
+        {item.rating > 0 ? (
+          <div className="flex items-center gap-0.5 text-gold-400" aria-label={`Penilaian ${item.rating} dari 5`}>
+            {Array.from({ length: 5 }, (_, i) => (
+              <Icon.star key={i} className={`size-[15px] ${i < item.rating ? '' : 'text-ink-100'}`} />
+            ))}
+          </div>
+        ) : <span aria-hidden="true" />}
         {/* Set as a glyph rather than an icon: a quotation mark should look
             like typography, at the scale typography is set. */}
         <span aria-hidden="true" className="-mt-2 select-none font-serif text-[44px] leading-none text-gold-200">&rdquo;</span>

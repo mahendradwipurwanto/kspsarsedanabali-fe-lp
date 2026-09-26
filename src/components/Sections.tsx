@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import { isExternalHref } from '@/contracts'
 import { Action, Label, Icon, iconByName, RichText } from './ui'
 import { Media } from './ui/Media'
 
@@ -12,7 +13,6 @@ import { Media } from './ui/Media'
  */
 
 export interface Cta { label?: string; href?: string }
-const external = (href: string) => /^https?:\/\//i.test(href)
 const complete = (c?: Cta): { label: string; href: string } | null => (c?.label && c.href ? { label: c.label, href: c.href } : null)
 
 /** Primary and secondary buttons; renders nothing while neither has both a label and an address. */
@@ -23,13 +23,13 @@ export function CtaRow({ primary, secondary, tone = 'dark', className = '' }: { 
   return (
     <div className={`flex flex-wrap gap-3 ${className}`}>
       {p ? (
-        <Action href={p.href} external={external(p.href)} size="lg" variant={tone === 'light' ? 'light' : 'primary'}>
+        <Action href={p.href} external={isExternalHref(p.href)} size="lg" variant={tone === 'light' ? 'light' : 'primary'}>
           {p.label}
           <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
         </Action>
       ) : null}
       {s ? (
-        <Action href={s.href} external={external(s.href)} size="lg" variant={tone === 'light' ? 'ghostLight' : 'outline'}>{s.label}</Action>
+        <Action href={s.href} external={isExternalHref(s.href)} size="lg" variant={tone === 'light' ? 'ghostLight' : 'outline'}>{s.label}</Action>
       ) : null}
     </div>
   )
@@ -200,7 +200,7 @@ export function LogoCloud({ logos, muted }: { logos: Logo[]; muted: boolean }) {
   const cols = logos.length <= 3 ? 'sm:grid-cols-3' : logos.length <= 4 ? 'sm:grid-cols-4' : logos.length <= 5 ? 'sm:grid-cols-5' : 'sm:grid-cols-3 lg:grid-cols-6'
   const wrap = (logo: Logo, node: ReactNode) => {
     if (!logo.href) return node
-    return external(logo.href)
+    return isExternalHref(logo.href)
       ? <a href={logo.href} target="_blank" rel="noopener noreferrer" aria-label={logo.alt} className="block">{node}</a>
       : <Link href={logo.href} aria-label={logo.alt} className="block">{node}</Link>
   }

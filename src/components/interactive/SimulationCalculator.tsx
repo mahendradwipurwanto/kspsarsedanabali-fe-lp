@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { calculateInstallment, calculateLoanFees, loanScheduleTable, loanReferenceRate, simulationMonthlyRate, shownLoanFees, isHtml, formatRupiah, LOAN_RATE_METHOD, type InstallmentResult, type LoanFeesResult } from '@/contracts'
+import { calculateInstallment, calculateLoanFees, loanScheduleTable, loanReferenceRate, simulationMonthlyRate, shownLoanFees, isHtml, formatRupiah, loanMethod, schemePeriodMonths, type InstallmentResult, type LoanFeesResult } from '@/contracts'
 import type { Simulation } from '@/lib/api'
 import { track } from '@/lib/client'
 import { Action, Icon, RichText } from '../ui'
@@ -13,9 +13,10 @@ const pct = (n: number) => `${String(Math.round(n * 1000) / 1000).replace('.', '
 
 /**
  * Loan side of the simulator. Each option is a simulation filed in the console:
- * its range, tenors, rate and table. Every loan is bunga menurun, as in the
- * koperasi's spreadsheet, so only the rate differs between products. The rate
- * is the koperasi's to set; the visitor picks the amount and the tenor.
+ * its range, tenors, rate, how often its instalments fall due (monthly, or
+ * every six months for a seasonal loan), what its interest is charged on
+ * (the remaining balance, or the plafon), and its table. Those are the
+ * koperasi's to set; the visitor picks the amount and the tenor.
  */
 export function SimulationCalculator({
   simulations, initialSimulationId, disclaimer, initialAmount, initialTenor,
@@ -30,29 +31,46 @@ export function SimulationCalculator({
   const sim = simulations.find((x) => x.id === simulationId) ?? simulations[0]
   const product = sim?.product
 
-  const min = sim?.minAmount ?? 5_000_000
-  const max = sim?.maxAmount ?? 500_000_000
-  const tenors = sim?.tenors.length ? sim.tenors : [12, 24, 36, 48]
+  // Each product keeps its own figures, opened at its own "Nominal awal" and
+  // tenor. One shared amount, only clamped on a switch, meant the second
+  // product opened at whatever the first had been set to, and an editor who
+  // changed a product's starting amount saw nothing move.
+  const [amounts, setAmounts] = useState<Record<string, number>>(() =>
+    Object.fromEntries(simulations.map((x) => [x.id, startAmount(x, x.id === initialSimulationId ? initialAmount : undefined)])),
+  )
+  const [tenors, setTenors] = useState<Record<string, number>>(() =>
+    Object.fromEntries(simulations.map((x) => [x.id, startTenor(x, x.id === initialSimulationId ? initialTenor : undefined)])),
+  )
 
-  const [amount, setAmount] = useState(initialAmount ?? sim?.defaultAmount ?? Math.min(Math.max(75_000_000, min), max))
-  const [tenor, setTenor] = useState(initialTenor && tenors.includes(initialTenor) ? initialTenor : tenors[Math.min(2, tenors.length - 1)]!)
+  const min = sim?.minAmount ?? 0
+  const max = sim?.maxAmount ?? 0
+  const tenorOptions = tenorsOf(sim)
+  const amount = sim ? (amounts[sim.id] ?? startAmount(sim)) : 0
+  const tenor = sim ? (tenors[sim.id] ?? startTenor(sim)) : 0
+  const clamped = clamp(amount, min, max)
 
-  const clamped = Math.min(Math.max(amount, min), max)
+  // A seasonal loan is paid every six months; its interest is six months' worth per instalment.
+  const periodMonths = schemePeriodMonths(sim?.installmentScheme)
+  const flat = sim?.interestMethod === 'flat'
 
   // The simulation's own monthly rate, else the product's: signed off, or the
   // koperasi's brochure figure labelled as unconfirmed. `estimated` drives the notice.
   const { monthly: monthlyRate, estimated } = loanReferenceRate(simulationMonthlyRate(sim?.ratePercent, sim?.ratePeriod), product)
 
   const result = useMemo(() => {
-    if (monthlyRate == null) return null
-    return calculateInstallment({ principal: clamped, annualRatePercent: monthlyRate * 12, months: tenor, method: LOAN_RATE_METHOD })
-  }, [monthlyRate, clamped, tenor])
+    if (monthlyRate == null || !sim) return null
+    return calculateInstallment({ principal: clamped, annualRatePercent: monthlyRate * 12, months: tenor, method: loanMethod(sim.interestMethod), periodMonths })
+  }, [monthlyRate, clamped, tenor, sim, periodMonths])
   const fees = useMemo(
     () => (shownLoanFees(sim?.loanTable?.fees).length ? calculateLoanFees(clamped, sim!.loanTable!.fees) : null),
     [sim?.loanTable, clamped],
   )
 
   if (!sim || !product) return null
+
+  // Flat: every instalment is the same. Menurun: the first is the largest, so the headline says which one it is.
+  const per = periodMonths === 1 ? 'bulan' : `${periodMonths} bulan`
+  const headline = flat ? `Angsuran per ${per}` : `Angsuran ${per} pertama`
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
@@ -66,13 +84,8 @@ export function SimulationCalculator({
                 value={sim.id}
                 options={simulations.map((x) => ({ value: x.id, label: x.name, hint: x.tagline ?? x.product.tagline ?? undefined }))}
                 onChange={(next) => {
-                  const chosen = simulations.find((x) => x.id === next)
                   setSimulationId(next)
-                  if (chosen) {
-                    setAmount((a) => Math.min(Math.max(a, chosen.minAmount), chosen.maxAmount))
-                    if (chosen.tenors.length && !chosen.tenors.includes(tenor)) setTenor(chosen.tenors[0]!)
-                  }
-                  track('simulation_change', { productId: chosen?.product.id ?? next })
+                  track('simulation_change', { productId: simulations.find((x) => x.id === next)?.product.id ?? next })
                 }}
               />
             </Field>
@@ -84,17 +97,17 @@ export function SimulationCalculator({
               min={min}
               max={max}
               step={sim.step}
-              onChange={setAmount}
+              onChange={(v) => setAmounts((a) => ({ ...a, [sim.id]: v }))}
             />
 
             <div>
               <span className="mb-2.5 block text-[13px] font-semibold text-ink-700">Jangka waktu</span>
               <Segments
-                options={tenors}
+                options={tenorOptions}
                 value={tenor}
                 suffix=" bln"
                 ariaLabel="Jangka waktu angsuran"
-                onChange={(t) => { setTenor(t); track('simulation_change', { tenor: t }) }}
+                onChange={(t: number) => { setTenors((m) => ({ ...m, [sim.id]: t })); track('simulation_change', { tenor: t }) }}
               />
             </div>
 
@@ -108,13 +121,12 @@ export function SimulationCalculator({
 
           <div className="relative flex items-center justify-between gap-4">
             <p className="t-label !text-white/80">Estimasi</p>
-            <span className="tnum text-[12px] font-medium text-white/45">
-              {sim.rateInfo || (monthlyRate != null ? `Bunga menurun ${pct(monthlyRate)}/bln` : 'Bunga menurun')}
-            </span>
+            {/* Only what the editor wrote: the rate is already in the rows below, so an empty field shows nothing. */}
+            {sim.rateInfo ? <span className="tnum text-[12px] font-medium text-white/45">{sim.rateInfo}</span> : null}
           </div>
 
-          <p className="relative mt-7 text-[13px] text-white/60">Angsuran bulan pertama</p>
-          <p className="figure relative mt-1.5 text-[clamp(2rem,1.4rem+2.4vw,2.9rem)] text-white">
+          <p className="relative mt-7 text-[13px] text-white/60">{headline}</p>
+          <p className="figure relative mt-1.5 text-[clamp(2rem,1.4rem+2.4vw,2.9rem)] text-gold-300">
             {result ? formatRupiah(result.monthly) : '—'}
           </p>
 
@@ -132,11 +144,8 @@ export function SimulationCalculator({
             <dl className="tnum relative mt-8 border-t border-white/20 text-[14px]">
               {[
                 ['Pokok pinjaman', formatRupiah(clamped)],
-                ['Jangka waktu', `${tenor} bulan`],
-                ['Suku bunga', `${pct(monthlyRate!)} per bulan, menurun`],
-                // Bunga menurun: the instalment shrinks every month, so the last one and the interest in all say what the first cannot.
-                ['Angsuran terakhir', formatRupiah(result.schedule.at(-1)?.payment ?? result.monthly)],
-                ['Total bunga', formatRupiah(result.totalInterest)],
+                ['Jangka waktu', periodMonths === 1 ? `${tenor} bulan` : `${tenor} bulan · ${result.schedule.length}× angsuran`],
+                ['Suku bunga', `${pct(monthlyRate!)} per bulan`],
                 ...(fees ? [['Biaya administrasi', formatRupiah(fees.total)], ['Dana diterima', formatRupiah(fees.received)]] : []),
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4 border-b border-white/15 py-3">
@@ -173,6 +182,23 @@ export function SimulationCalculator({
       {result ? <LoanTables sim={sim} result={result} fees={fees} amount={clamped} tenor={tenor} /> : null}
     </div>
   )
+}
+
+const clamp = (n: number, lo: number, hi: number) => Math.min(Math.max(n, lo), hi)
+
+/** The tenors a product offers; a loan filed without any gets the usual four. */
+const tenorsOf = (sim: Simulation | undefined) => (sim?.tenors.length ? sim.tenors : [12, 24, 36, 48])
+
+/** Where a product's calculator opens: the amount its editor chose, else its minimum, as the console promises. */
+function startAmount(sim: Simulation, wanted?: number) {
+  return clamp(wanted ?? sim.defaultAmount ?? sim.minAmount, sim.minAmount, sim.maxAmount)
+}
+
+/** The tenor a product opens on: the one a link asked for, else the middle of its choices. */
+function startTenor(sim: Simulation, wanted?: number) {
+  const options = tenorsOf(sim)
+  if (wanted && options.includes(wanted)) return wanted
+  return options[Math.min(2, options.length - 1)]!
 }
 
 /**

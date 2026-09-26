@@ -9,7 +9,15 @@ import { z, type ZodTypeAny } from 'zod'
  * Add a field here and it appears in the CMS with no extra form code.
  */
 
-export type FieldDef =
+/**
+ * Shown only while a sibling field holds one of these values. The hidden
+ * field's value is kept, not cleared, so switching back loses nothing. A
+ * sibling left empty counts as holding its own default.
+ */
+export interface ShowWhen { field: string; is: string | boolean | (string | boolean)[] }
+type Conditional = { showWhen?: ShowWhen }
+
+export type FieldDef = Conditional & (
   | { kind: 'text'; label: string; help?: string; placeholder?: string; required?: boolean; max?: number; default?: string }
   | { kind: 'textarea'; label: string; help?: string; placeholder?: string; required?: boolean; max?: number; rows?: number; default?: string }
   | { kind: 'richtext'; label: string; help?: string; required?: boolean }
@@ -22,8 +30,20 @@ export type FieldDef =
   | { kind: 'color'; label: string; help?: string; required?: boolean; max?: number; default?: string }
   | { kind: 'reference'; label: string; help?: string; to: 'product' | 'post' | 'branch' | 'page' | 'document-category'; multiple?: boolean }
   | { kind: 'repeater'; label: string; help?: string; itemLabel?: string; min?: number; max?: number; of: FieldMap }
+)
 
 export type FieldMap = Record<string, FieldDef>
+
+/** Whether a field is shown for the values its siblings hold now (see `ShowWhen`). */
+export function isFieldShown(def: FieldDef, siblings: Record<string, unknown>, fields: FieldMap): boolean {
+  const cond = def.showWhen
+  if (!cond) return true
+  const other = fields[cond.field]
+  let v = siblings[cond.field]
+  if ((v === undefined || v === null || v === '') && other && 'default' in other && other.default !== undefined) v = other.default
+  const wanted = Array.isArray(cond.is) ? cond.is : [cond.is]
+  return wanted.some((w) => String(w) === String(v ?? ''))
+}
 
 /** The text a visitor reads from a field that may hold HTML: tags dropped, entities for spaces and ampersands undone. */
 export function plainText(html: string | null | undefined): string {

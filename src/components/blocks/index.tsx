@@ -1,7 +1,7 @@
 import { Fragment, Suspense } from 'react'
 import Link from 'next/link'
-import { getBlock, defaultPropsFor, isHtml, telLink, getOpenState, orgLevelsFrom, trackingAttrs, DEFAULT_ANALYTICS, type OrgColumn, type AnalyticsSettings } from '@/contracts'
-import type { Block, Branch, Product, Simulation, Post, Stat, Testimonial, DocumentItem, DocumentCategory, Job, Faq } from '@/lib/api'
+import { getBlock, defaultPropsFor, isHtml, telLink, getOpenState, orgLevelsFrom, trackingAttrs, DEFAULT_ANALYTICS, FEEDBACK_CATEGORY_LABELS, type OrgColumn, type AnalyticsSettings } from '@/contracts'
+import type { Block, Branch, Product, Simulation, Post, Stat, Testimonial, DocumentItem, DocumentCategory, Job, Faq, PublishedFeedback } from '@/lib/api'
 import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, iconByName, RichText } from '../ui'
 import { Media } from '../ui/Media'
 import { HeroCarousel, QuickAccess, type HeroHeight } from '../interactive/HeroCarousel'
@@ -33,6 +33,8 @@ export interface BlockContext {
   posts: Post[]
   stats: Stat[]
   testimonials: Testimonial[]
+  /** Kritik & saran the pengurus chose to show under the suggestion box. */
+  publishedFeedback?: PublishedFeedback[]
   documents: DocumentItem[]
   /** Every document kind, so the shelf can list one that is still empty. */
   documentCategories?: DocumentCategory[]
@@ -49,6 +51,20 @@ export interface BlockContext {
 
 /** A loan calculator needs a rate to compute with: signed off, or the figure on record labelled as an estimate. */
 const hasLoanRate = (x: Simulation) => (x.ratePercent ?? x.product.ratePercent ?? x.product.ratePercentIndicative) != null
+
+/**
+ * A published piece of feedback drawn as a quote card: the sender as they
+ * signed it (or "Anggota"), the kind and month where a testimonial has a role.
+ * Nothing else about the sender reaches the page.
+ */
+const publishedAsQuote = (f: PublishedFeedback): Testimonial => ({
+  id: f.id,
+  name: f.name?.trim() || 'Anggota',
+  role: FEEDBACK_CATEGORY_LABELS[f.category as keyof typeof FEEDBACK_CATEGORY_LABELS] ?? f.category,
+  location: new Date(f.createdAt).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }),
+  quote: f.message,
+  rating: f.rating ?? 0,
+})
 
 type P = Record<string, unknown>
 const s = (v: unknown, fallback = '') => (typeof v === 'string' ? v : fallback)
@@ -689,6 +705,16 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                 branches={ctx.branches}
               />
             </div>
+
+            {/* What the pengurus chose to show back: proof the box is read. */}
+            {b(p.showPublished, true) && ctx.publishedFeedback?.length ? (
+              <div className="mt-14 border-t border-line pt-10">
+                <h3 className="t-h3">{s(p.publishedHeading, 'Masukan yang sudah kami terima')}</h3>
+                <div className="mt-6">
+                  <TestimonialSlider items={ctx.publishedFeedback.slice(0, n(p.publishedLimit, 4)).map(publishedAsQuote)} />
+                </div>
+              </div>
+            ) : null}
           </Shell>
         </Band>
       )

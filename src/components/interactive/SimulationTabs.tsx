@@ -10,12 +10,33 @@ import { SavingsCalculator } from './SavingsCalculator'
 
 type Tab = 'pinjaman' | 'simpanan'
 
-/** How a bunga menurun schedule reads, column by column: every loan the koperasi offers works this way. */
+/** How a bunga menurun schedule reads, column by column: the way every loan worked before flat and seasonal ones were filed. */
 const LOAN_METHODS = [
   { n: '01', title: 'Pokok tetap', body: 'Plafon dibagi rata sepanjang jangka waktu. Porsi pokok setiap bulan sama besarnya.' },
   { n: '02', title: 'Bunga dari sisa pinjaman', body: 'Bunga dihitung dari saldo yang belum dibayar, sehingga makin kecil setiap bulan.' },
   { n: '03', title: 'Angsuran makin ringan', body: 'Pokok ditambah bunga: angsuran pertama paling besar, lalu turun setiap bulan sampai lunas.' },
 ]
+
+/**
+ * The notes beside the loan calculator, true of the loans actually filed. The
+ * three bunga menurun notes stand while every loan is monthly and menurun; a
+ * flat or seasonal loan among them widens the wording so no note contradicts
+ * the card a visitor is looking at.
+ */
+function loanNotes(loans: Simulation[]) {
+  const flat = loans.some((x) => x.interestMethod === 'flat')
+  const seasonal = loans.some((x) => x.installmentScheme === 'seasonal')
+  if (!flat && !seasonal) return LOAN_METHODS
+  return [
+    { n: '01', title: 'Pokok tetap', body: 'Plafon dibagi rata sepanjang jangka waktu. Porsi pokok setiap angsuran sama besarnya.' },
+    flat
+      ? { n: '02', title: 'Bunga menurun atau flat', body: 'Bunga menurun dihitung dari sisa pokok, jadi angsuran turun. Bunga flat dihitung dari plafon setiap periode, jadi angsuran sama besar. Kartu hasil menyebut mana yang dipakai.' }
+      : { n: '02', title: 'Bunga dari sisa pinjaman', body: 'Bunga dihitung dari saldo yang belum dibayar, sehingga makin kecil setiap angsuran.' },
+    seasonal
+      ? { n: '03', title: 'Bulanan atau musiman', body: 'Pinjaman bulanan diangsur tiap bulan. Pinjaman musiman diangsur tiap 6 bulan, paling lama 5 tahun (10 angsuran), untuk usaha yang panen atau ramai pada musim tertentu.' }
+      : { n: '03', title: 'Angsuran makin ringan', body: 'Pokok ditambah bunga: angsuran pertama paling besar, lalu turun sampai lunas.' },
+  ]
+}
 
 /** Indonesian decimals: 0,35 rather than 0.35. */
 const num = (n: number) => n.toLocaleString('id-ID')
@@ -66,7 +87,7 @@ export function SimulationTabs({
 }) {
   const [tab, setTab] = useState<Tab>(initialTab)
   const notes = tab === 'pinjaman'
-    ? LOAN_METHODS
+    ? loanNotes(loans)
     : savings.map((x, i) => ({ n: String(i + 1).padStart(2, '0'), title: x.name, body: savingsNote(x) }))
   const loanStart = loans.some((x) => x.id === initialSimulationId) ? initialSimulationId : undefined
   const savingsStart = savings.some((x) => x.id === initialSimulationId) ? initialSimulationId : undefined
@@ -94,6 +115,9 @@ export function SimulationTabs({
           {tab === 'pinjaman' ? (
             loans.length ? (
               <SimulationCalculator
+                // A link naming another product remounts the calculator, so its
+                // starting figures are read again; a search-param change alone would not.
+                key={loanStart ?? 'loan'}
                 simulations={loans}
                 initialSimulationId={loanStart}
                 initialAmount={loanStart ? initialAmount : undefined}

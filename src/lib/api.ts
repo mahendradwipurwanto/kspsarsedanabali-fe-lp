@@ -132,6 +132,10 @@ export interface Simulation {
   ratePercent?: number | null; rewardPercent?: number | null; bonusMultiplier?: number | null; termDays?: number | null
   /** `installment`: whether `ratePercent` is per month or per year. */
   ratePeriod?: 'month' | 'year'
+  /** `installment`: instalments every month, or every six months for a seasonal loan. */
+  installmentScheme?: 'monthly' | 'seasonal'
+  /** `installment`: interest on the remaining balance (menurun) or on the plafon every period (flat). */
+  interestMethod?: 'declining' | 'flat'
   tableAmounts: number[]; note?: string | null; sortOrder: number
   /** The table the editor wrote, shown as written in place of the worked-out one. */
   table?: { caption?: string; source?: string; columns: string[]; rows: string[][] } | null
@@ -161,6 +165,8 @@ export interface PreviewPage { title: string; slug: string; seo: Record<string, 
 export interface Page { id: string; title: string; slug: string; seo: Record<string, string>; blocks: Block[]; updatedAt: string }
 export interface Stat { id: string; label: string; value: string; icon?: string | null }
 export interface Testimonial { id: string; name: string; role?: string | null; location?: string | null; quote: string; rating: number; avatar?: string }
+/** Kritik & saran the pengurus chose to show: only what a visitor may read, never the sender's contact details. */
+export interface PublishedFeedback { id: string; category: string; rating?: number | null; name?: string | null; subject?: string | null; message: string; createdAt: string }
 export interface Faq { id: string; question: string; answer: string; category?: string | null }
 /** A document kind as the koperasi named it — the row behind a pill on the shelf. */
 export interface DocumentCategory { id: string; name: string; slug: string; icon?: string | null; sortOrder: number }
@@ -209,6 +215,8 @@ export const getJob = (slug: string) => apiGet<Wrapped<Job>>(`/jobs/${slug}`, { 
 export const getStats = () => apiGet<Wrapped<Stat[]>>('/stats', { tags: ['stats'] }).then((r) => r?.data ?? [])
 export const getTestimonials = (limit = 12) =>
   apiGet<Wrapped<Testimonial[]>>(`/testimonials?limit=${limit}`, { tags: ['testimonials'] }).then((r) => r?.data ?? [])
+export const getPublishedFeedback = (limit = 4) =>
+  apiGet<Wrapped<PublishedFeedback[]>>(`/feedback?limit=${limit}`, { tags: ['feedback'] }).then((r) => r?.data ?? [])
 export const getFaqs = () => apiGet<Wrapped<Faq[]>>('/faqs', { tags: ['faqs'] }).then((r) => r?.data ?? [])
 export const getDocumentCategories = () =>
   apiGet<Wrapped<DocumentCategory[]>>('/document-categories', { tags: ['documents'] }).then((r) => r?.data ?? [])

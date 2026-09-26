@@ -1,5 +1,5 @@
 import {
-  getBranches, getDocumentCategories, getDocuments, getFaqs, getJobs, getPosts, getProducts, getSettings, getSimulations, getStats, getTestimonials,
+  getBranches, getDocumentCategories, getDocuments, getFaqs, getJobs, getPosts, getProducts, getPublishedFeedback, getSettings, getSimulations, getStats, getTestimonials,
 } from './api'
 import type { BlockContext } from '@/components/blocks'
 
@@ -17,6 +17,7 @@ const NEEDS: Record<string, (keyof Needs)[]> = {
   post_index: ['posts'],
   testimonial_slider: ['testimonials'],
   lead_form: ['products', 'branches'],
+  feedback_form: ['branches', 'publishedFeedback'],
   branch_finder: ['branches'],
   contact_cards: ['branches'],
   document_list: ['documents', 'documentCategories'],
@@ -41,6 +42,7 @@ interface Needs {
   posts: boolean
   stats: boolean
   testimonials: boolean
+  publishedFeedback: boolean
   documents: boolean
   documentCategories: boolean
   settings: boolean
@@ -80,8 +82,13 @@ export async function getBlockContext(
   // editor had entries.
   const testimonialBlock = blocks.find((b) => b.type === 'testimonial_slider' && b.isVisible)
   const testimonialLimit = typeof testimonialBlock?.props.limit === 'number' ? testimonialBlock.props.limit : 3
+  // The suggestion box shows the entries the pengurus chose, as many as its
+  // editor asked for, and fetches none when that list is switched off.
+  const feedbackBlock = blocks.find((b) => b.type === 'feedback_form' && b.isVisible)
+  const feedbackLimit = typeof feedbackBlock?.props.publishedLimit === 'number' ? feedbackBlock.props.publishedLimit : 4
+  const showsPublished = !!feedbackBlock && feedbackBlock.props.showPublished !== false
 
-  const [products, simulations, branches, postsRes, stats, testimonials, documents, documentCategories, settings, jobs, faqs] = await Promise.all([
+  const [products, simulations, branches, postsRes, stats, testimonials, documents, documentCategories, settings, jobs, faqs, publishedFeedback] = await Promise.all([
     need.products ? getProducts() : Promise.resolve([]),
     need.simulations ? getSimulations() : Promise.resolve([]),
     need.branches ? getBranches() : Promise.resolve([]),
@@ -93,6 +100,7 @@ export async function getBlockContext(
     getSettings(),
     need.jobs ? getJobs() : Promise.resolve([]),
     need.faqs ? getFaqs() : Promise.resolve([]),
+    need.publishedFeedback && showsPublished ? getPublishedFeedback(feedbackLimit) : Promise.resolve([]),
   ])
 
   return {
@@ -107,6 +115,7 @@ export async function getBlockContext(
     settings,
     jobs,
     faqs,
+    publishedFeedback,
     postsMeta: postsRes?.meta ? { page: postsRes.meta.page, totalPages: postsRes.meta.totalPages } : undefined,
     basePath: opts.basePath,
     query: opts.query,

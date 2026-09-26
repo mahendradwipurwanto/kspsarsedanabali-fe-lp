@@ -127,16 +127,16 @@ export const BLOCKS = {
             default: 'content',
             help: 'Pilih "Gambar saja" bila gambar sudah memuat pesannya sendiri. Judul tetap diisi: tidak terlihat, tetapi dibaca Google dan pembaca layar.',
           }),
-          image: field.image({ label: 'Gambar banner', help: 'Ukuran ideal 1600×900 piksel. Kosongkan untuk latar polos bermotif. Untuk tampilan "Gambar saja" (wajib diisi): 1920×680 piksel, sesuai Tinggi banner; gambar dipotong dari tengah, jadi letakkan tulisan dan logo di bagian tengah.' }),
-          link: field.link({ label: 'Seluruh gambar menuju ke', help: 'Hanya untuk tampilan "Gambar saja": seluruh gambar bisa diklik. Kosongkan bila tidak perlu.' }),
+          image: field.image({ label: 'Gambar banner', help: 'Ukuran ideal 1600×900 piksel. Kosongkan untuk latar polos bermotif. Untuk tampilan "Gambar saja" (wajib diisi): 1920×680 piksel, sesuai Tinggi banner; gambar dipotong dari tengah, jadi letakkan tulisan dan logo di bagian tengah. Gambar tampil apa adanya, tanpa bayangan gelap, dan bisa diberi tautan di bawah.' }),
+          link: field.link({ label: 'Seluruh gambar menuju ke', help: 'Seluruh gambar bisa diklik menuju halaman ini, jadi tidak perlu tombol. Kosongkan bila tidak perlu. Alamat luar (https://…) dibuka di tab baru.', showWhen: { field: 'display', is: 'image' } }),
           heading: field.text({ label: 'Judul di banner', required: true, max: 70, help: 'Pada tampilan "Gambar saja", judul disembunyikan tetapi tetap menjadi judul halaman untuk Google.' }),
-          subheading: field.textarea({ label: 'Kalimat pendukung', max: 180 }),
-          bullets: field.repeater({ label: 'Poin keunggulan', itemLabel: 'Poin', max: 5, of: { text: field.text({ label: 'Teks', required: true, max: 90 }) } }),
-          ctaLabel: field.text({ label: 'Tulisan tombol utama', max: 30, placeholder: 'Ajukan Sekarang' }),
-          ctaHref: field.link({ label: 'Tombol utama menuju ke', placeholder: '/produk/pinjaman' }),
-          secondaryLabel: field.text({ label: 'Tulisan tombol kedua', max: 30, placeholder: 'Cari produk yang cocok' }),
-          secondaryHref: field.link({ label: 'Tombol kedua menuju ke', placeholder: '/profiling', default: '/profiling' }),
-          featuredProduct: field.reference({ label: 'Produk yang ditampilkan di kartu angka', to: 'product', help: 'Kartu di sisi kanan menampilkan suku bunga, plafon, dan tenor produk ini. Kosongkan untuk memakai poin keunggulan saja.' }),
+          subheading: field.textarea({ label: 'Kalimat pendukung', max: 180, showWhen: { field: 'display', is: 'content' } }),
+          bullets: field.repeater({ label: 'Poin keunggulan', itemLabel: 'Poin', max: 5, of: { text: field.text({ label: 'Teks', required: true, max: 90 }) }, showWhen: { field: 'display', is: 'content' } }),
+          ctaLabel: field.text({ label: 'Tulisan tombol utama', max: 30, placeholder: 'Ajukan Sekarang', showWhen: { field: 'display', is: 'content' } }),
+          ctaHref: field.link({ label: 'Tombol utama menuju ke', placeholder: '/produk/pinjaman', showWhen: { field: 'display', is: 'content' } }),
+          secondaryLabel: field.text({ label: 'Tulisan tombol kedua', max: 30, placeholder: 'Cari produk yang cocok', showWhen: { field: 'display', is: 'content' } }),
+          secondaryHref: field.link({ label: 'Tombol kedua menuju ke', placeholder: '/profiling', default: '/profiling', showWhen: { field: 'display', is: 'content' } }),
+          featuredProduct: field.reference({ label: 'Produk yang ditampilkan di kartu angka', to: 'product', help: 'Kartu di sisi kanan menampilkan suku bunga, plafon, dan tenor produk ini. Kosongkan untuk memakai poin keunggulan saja.', showWhen: { field: 'display', is: 'content' } }),
         },
       }),
       // The banner style: whole-width artwork, the way the koperasi's printed
@@ -374,6 +374,15 @@ export const BLOCKS = {
         label: 'Poin penjelas di samping formulir', itemLabel: 'Poin', max: 4,
         of: { title: field.text({ label: 'Judul poin', required: true, max: 50 }), body: field.text({ label: 'Penjelasan', max: 120 }) },
       }),
+      // What the pengurus chose to show back. Entries marked "Tampil di web" in
+      // the Kritik & Saran menu appear under the form, so a visitor can see the
+      // box is read and answered rather than a hole in the wall.
+      showPublished: field.boolean({
+        label: 'Tampilkan masukan pilihan pengurus di bawah formulir', default: true,
+        help: 'Masukan yang ditandai "Tampil di web" di menu Kritik & Saran. Hanya nama, jenis, penilaian, dan isi masukan yang tampil; email dan WhatsApp tidak.',
+      }),
+      publishedHeading: field.text({ label: 'Judul daftar masukan', max: 60, default: 'Masukan yang sudah kami terima', showWhen: { field: 'showPublished', is: true } }),
+      publishedLimit: field.number({ label: 'Jumlah masukan yang tampil', min: 1, max: 12, default: 4, help: 'Yang terbaru lebih dulu.', showWhen: { field: 'showPublished', is: true } }),
     },
   }),
 

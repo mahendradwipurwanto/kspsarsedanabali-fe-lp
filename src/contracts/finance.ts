@@ -18,9 +18,12 @@ export interface InstallmentInput {
   /** Tenor in months. */
   months: number
   method: RateMethod
+  /** Months between two instalments: 1 for a monthly loan, 6 for a seasonal one. Defaults to 1. */
+  periodMonths?: number
 }
 
 export interface InstallmentResult {
+  /** The first instalment: per month, or per period for a seasonal loan. */
   monthly: number
   total: number
   totalInterest: number
@@ -32,66 +35,86 @@ export interface InstallmentResult {
 const round = (n: number) => Math.round(n)
 
 /**
- * Flat / "bunga menurun" style used by most Indonesian cooperatives:
- * interest is charged on the original principal for every period.
+ * How many instalments a loan has and the rate charged per instalment. A
+ * monthly loan has one per month at the monthly rate; a seasonal loan paid
+ * every six months has a sixth as many, each at six months' interest.
  */
-function flat({ principal, annualRatePercent, months }: InstallmentInput): InstallmentResult {
-  const monthlyRate = annualRatePercent / 100 / 12
-  const interestPerMonth = principal * monthlyRate
-  const principalPerMonth = principal / months
-  const monthly = round(principalPerMonth + interestPerMonth)
+function periodsOf({ annualRatePercent, months, periodMonths = 1 }: InstallmentInput) {
+  const step = Math.max(1, Math.round(periodMonths))
+  const periods = Math.max(1, Math.round(months / step))
+  return { periods, rate: (annualRatePercent / 100 / 12) * step }
+}
+
+/**
+ * Flat: interest charged on the original principal every period, so every
+ * instalment is the same. The core banking schedule of the koperasi's seasonal
+ * loan reads this way: 50 juta over six half-years at 1,5% a month is
+ * 8.333.333 pokok and 4.500.000 bunga, six times over.
+ */
+function flat(input: InstallmentInput): InstallmentResult {
+  const { principal } = input
+  const { periods, rate } = periodsOf(input)
+  const interestPerPeriod = principal * rate
+  const principalPerPeriod = principal / periods
+  const payment = round(principalPerPeriod + interestPerPeriod)
   const schedule = []
   let balance = principal
-  for (let p = 1; p <= months; p++) {
-    balance -= principalPerMonth
-    schedule.push({ period: p, principal: round(principalPerMonth), interest: round(interestPerMonth), payment: round(principalPerMonth + interestPerMonth), balance: round(Math.max(balance, 0)) })
+  for (let p = 1; p <= periods; p++) {
+    balance -= principalPerPeriod
+    schedule.push({ period: p, principal: round(principalPerPeriod), interest: round(interestPerPeriod), payment, balance: round(Math.max(balance, 0)) })
   }
-  return { monthly, total: monthly * months, totalInterest: round(interestPerMonth * months), method: 'flat', schedule }
+  return { monthly: payment, total: payment * periods, totalInterest: round(interestPerPeriod * periods), method: 'flat', schedule }
 }
 
 /** Annuity: equal payments, interest recomputed on the declining balance. */
-function annuity({ principal, annualRatePercent, months }: InstallmentInput): InstallmentResult {
-  const r = annualRatePercent / 100 / 12
-  if (r === 0) return flat({ principal, annualRatePercent: 0, months, method: 'flat' })
-  const factor = Math.pow(1 + r, months)
-  const monthly = round((principal * r * factor) / (factor - 1))
+function annuity(input: InstallmentInput): InstallmentResult {
+  const { principal } = input
+  const { periods, rate: r } = periodsOf(input)
+  if (r === 0) return flat({ ...input, annualRatePercent: 0, method: 'flat' })
+  const factor = Math.pow(1 + r, periods)
+  const payment = round((principal * r * factor) / (factor - 1))
   const schedule = []
   let balance = principal
   let totalInterest = 0
-  for (let p = 1; p <= months; p++) {
+  for (let p = 1; p <= periods; p++) {
     const interest = balance * r
-    const principalPart = monthly - interest
+    const principalPart = payment - interest
     balance -= principalPart
     totalInterest += interest
-    schedule.push({ period: p, principal: round(principalPart), interest: round(interest), payment: monthly, balance: round(Math.max(balance, 0)) })
+    schedule.push({ period: p, principal: round(principalPart), interest: round(interest), payment, balance: round(Math.max(balance, 0)) })
   }
-  return { monthly, total: monthly * months, totalInterest: round(totalInterest), method: 'annuity', schedule }
+  return { monthly: payment, total: payment * periods, totalInterest: round(totalInterest), method: 'annuity', schedule }
 }
 
-/** Effective declining: principal fixed, interest on the remaining balance. */
-function effective({ principal, annualRatePercent, months }: InstallmentInput): InstallmentResult {
-  const r = annualRatePercent / 100 / 12
-  const principalPerMonth = principal / months
+/** Effective declining (bunga menurun): principal fixed, interest on the remaining balance. */
+function effective(input: InstallmentInput): InstallmentResult {
+  const { principal } = input
+  const { periods, rate: r } = periodsOf(input)
+  const principalPerPeriod = principal / periods
   const schedule = []
   let balance = principal
   let total = 0
   let totalInterest = 0
-  for (let p = 1; p <= months; p++) {
+  for (let p = 1; p <= periods; p++) {
     const interest = balance * r
-    balance -= principalPerMonth
-    total += principalPerMonth + interest
+    balance -= principalPerPeriod
+    total += principalPerPeriod + interest
     totalInterest += interest
-    schedule.push({ period: p, principal: round(principalPerMonth), interest: round(interest), payment: round(principalPerMonth + interest), balance: round(Math.max(balance, 0)) })
+    schedule.push({ period: p, principal: round(principalPerPeriod), interest: round(interest), payment: round(principalPerPeriod + interest), balance: round(Math.max(balance, 0)) })
   }
   return { monthly: schedule[0].payment, total: round(total), totalInterest: round(totalInterest), method: 'effective', schedule }
 }
 
 /**
- * Every loan the koperasi offers is bunga menurun: principal repaid in equal
- * parts, interest on what is still owed. Products differ only in the rate, so
- * the simulator never reads a method from a product.
+ * The method a loan runs on when nothing says otherwise: bunga menurun,
+ * principal repaid in equal parts and interest on what is still owed. The
+ * rate card and the profiling wizard, which have no simulation to read, use
+ * this; a simulation's own "Jenis bunga" goes through `loanMethod`.
  */
 export const LOAN_RATE_METHOD: RateMethod = 'effective'
+
+/** The formula behind a simulation's "Jenis bunga": flat charges the plafon every period; anything else is bunga menurun. */
+export const loanMethod = (interestMethod: string | null | undefined): RateMethod => (interestMethod === 'flat' ? 'flat' : LOAN_RATE_METHOD)
 
 /**
  * The monthly rate a loan simulation starts from, as the koperasi quotes it

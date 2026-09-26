@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { isExternalHref } from '@/contracts'
 import { Shell, Action, Icon, RichText } from '../ui'
 import { Media } from '../ui/Media'
 
@@ -20,8 +21,6 @@ const RATIOS: Record<'wide' | 'standard' | 'tall', string> = {
   standard: 'aspect-[4/3] sm:aspect-[16/9]',
   tall: 'aspect-[4/5] sm:aspect-[3/2]',
 }
-
-const external = (href: string) => /^https?:\/\//i.test(href)
 
 /**
  * The banner style of the homepage opener: the artwork is the message, the way
@@ -87,7 +86,7 @@ export function HeroBanners({
                 <RichText value={current.subheading} className="rise d-2 mt-4 text-[16px] leading-relaxed text-white/80 sm:text-[17px]" />
                 {cta ? (
                   <div className="rise d-3 mt-6">
-                    <Action href={cta.href} external={external(cta.href)} size="lg">
+                    <Action href={cta.href} external={isExternalHref(cta.href)} size="lg">
                       {cta.label}
                       <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
                     </Action>
@@ -101,7 +100,7 @@ export function HeroBanners({
         )}
 
         {wholeLink ? (
-          external(wholeLink)
+          isExternalHref(wholeLink)
             ? <a href={wholeLink} target="_blank" rel="noopener noreferrer" aria-label={title} className="absolute inset-0 z-10" />
             : <Link href={wholeLink} aria-label={title} className="absolute inset-0 z-10" />
         ) : null}

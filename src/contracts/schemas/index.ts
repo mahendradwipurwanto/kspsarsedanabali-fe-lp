@@ -605,6 +605,27 @@ export function simulationMonthlyRate(ratePercent: number | null | undefined, ra
   return ratePeriod === 'year' ? ratePercent / 12 : ratePercent
 }
 
+/**
+ * How a loan's instalments fall due. Monthly is the ordinary loan. Seasonal is
+ * the koperasi's pinjaman musiman for farmers and seasonal traders: paid every
+ * six months, at most ten instalments over five years.
+ */
+export const INSTALLMENT_SCHEMES = ['monthly', 'seasonal'] as const
+export type InstallmentScheme = (typeof INSTALLMENT_SCHEMES)[number]
+export const INSTALLMENT_SCHEME_LABELS: Record<InstallmentScheme, string> = { monthly: 'Bulanan', seasonal: 'Musiman (per 6 bulan)' }
+export const SEASONAL_PERIOD_MONTHS = 6
+/** Months between two instalments under a scheme. */
+export const schemePeriodMonths = (scheme: string | null | undefined): number => (scheme === 'seasonal' ? SEASONAL_PERIOD_MONTHS : 1)
+
+/**
+ * What the interest is charged on. Menurun charges the remaining balance, so
+ * instalments shrink. Flat charges the original plafon every period, the way
+ * the core banking schedule of a seasonal loan reads.
+ */
+export const INTEREST_METHODS = ['declining', 'flat'] as const
+export type InterestMethod = (typeof INTEREST_METHODS)[number]
+export const INTEREST_METHOD_LABELS: Record<InterestMethod, string> = { declining: 'Menurun: bunga dari sisa pokok', flat: 'Flat: bunga dari plafon' }
+
 export const SIMULATION_KINDS = ['installment', 'term_deposit', 'monthly_deposit', 'daily_deposit'] as const
 export type SimulationKind = (typeof SIMULATION_KINDS)[number]
 
@@ -702,12 +723,16 @@ export const simulationSchema = z
     defaultAmount: nullableMoney,
     /** Tenor choices in months. Not used by `daily_deposit`, which runs `termDays`. */
     tenors: z.array(z.number().int().min(1).max(600)).default([]),
-    /** The label at the top right of the result card, e.g. "Bunga flat 1,3%/bln". */
+    /** The label at the top right of the result card, e.g. "Bunga 1,3%/bln". Empty shows nothing on a loan card. */
     rateInfo: z.string().max(80).optional().or(z.literal('')),
     /** `term_deposit`: interest % per year. `monthly_deposit` and `installment`: % per month (a loan's is the reference rate; empty uses the product's). */
     ratePercent: z.number().min(0).max(100).nullable().optional(),
     /** Whether `ratePercent` is per month or per year; `simulationRate` gives each formula the period it works in. */
     ratePeriod: z.enum(RATE_PERIODS).default('month'),
+    /** `installment`: instalments every month, or every six months for a seasonal loan. */
+    installmentScheme: z.enum(INSTALLMENT_SCHEMES).default('monthly'),
+    /** `installment`: interest on the remaining balance (menurun) or on the plafon every period (flat). */
+    interestMethod: z.enum(INTEREST_METHODS).default('declining'),
     /** `term_deposit`: reward % per year. */
     rewardPercent: z.number().min(0).max(100).nullable().optional(),
     /** `daily_deposit`: bonus as a multiple of one day's deposit. */
@@ -740,6 +765,9 @@ export function simulationProblems(v: z.infer<typeof simulationSchema>): { field
   if (v.kind !== 'daily_deposit' && !v.tenors.length) out.push({ field: 'tenors', message: 'Isi minimal satu pilihan jangka waktu (bulan).' })
   if (v.kind === 'monthly_deposit' && v.tenors.some((m) => m % 12 !== 0)) {
     out.push({ field: 'tenors', message: 'Setoran bulanan ditampilkan per tahun, jadi jangka waktunya kelipatan 12 bulan.' })
+  }
+  if (v.kind === 'installment' && v.installmentScheme === 'seasonal' && v.tenors.some((m) => m % SEASONAL_PERIOD_MONTHS !== 0)) {
+    out.push({ field: 'tenors', message: 'Angsuran musiman jatuh tiap 6 bulan, jadi jangka waktunya kelipatan 6 bulan. Contoh: 12, 24, 36, 48, 60.' })
   }
   if ((v.kind === 'term_deposit' || v.kind === 'monthly_deposit') && v.ratePercent == null) out.push({ field: 'ratePercent', message: 'Isi suku bunganya.' })
   if (v.kind === 'daily_deposit' && v.termDays == null) out.push({ field: 'termDays', message: 'Isi lama setoran dalam hari.' })

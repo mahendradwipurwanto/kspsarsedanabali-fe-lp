@@ -372,6 +372,9 @@ export const INTERNAL_ROUTES: { href: string; label: string }[] = [
   { href: 'whatsapp', label: 'WhatsApp koperasi (nomor dari pengaturan)' },
 ]
 
+/** An address outside the website, opened in a new tab; anything else is a route of this site. */
+export const isExternalHref = (href: string): boolean => /^https?:\/\//i.test(href)
+
 /**
  * Resolve a stored media value to something an <img> can load.
  *

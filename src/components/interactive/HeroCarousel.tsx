@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { calculateInstallment, formatRate, formatRupiah, formatRupiahShort, formatTerm, productRatePeriod, productTerm, LOAN_RATE_METHOD, PRODUCT_RATE_PERIOD_LABELS } from '@/contracts'
+import { calculateInstallment, formatRate, formatRupiah, formatRupiahShort, formatTerm, isExternalHref, productRatePeriod, productTerm, LOAN_RATE_METHOD, PRODUCT_RATE_PERIOD_LABELS } from '@/contracts'
 import type { Product } from '@/lib/api'
 import { Shell, Action, Icon, Pill, iconByName, RichText } from '../ui'
 import { Media } from '../ui/Media'
@@ -29,7 +29,8 @@ interface Slide {
  * featured product's rate card. A koperasi sells numbers — a rate, a ceiling,
  * a term — so the numbers are the picture, set large and tabular where a
  * poster would otherwise go. When a slide carries artwork it sits behind the
- * copy under a navy wash; the card stays.
+ * copy under a navy wash; the card stays. A slide shown as the picture alone
+ * drops the wash and the buttons, and the whole picture can be the link.
  *
  * Every string here is CMS-editable through the Banner Utama block.
  */
@@ -76,15 +77,25 @@ export function HeroCarousel({
       onFocusCapture={() => setPaused(true)}
       onBlurCapture={() => setPaused(false)}
     >
-      {slide.image ? (
-        <div className="absolute inset-0 -z-10 overflow-hidden" key={`img-${index}`}>
-          <Media src={slide.image} alt="" ratio="auto" rounded={false} priority={index === 0} sizes="100vw"
-            className="!absolute inset-0 size-full !rounded-none [&>*]:!object-cover [&>*]:!object-center" />
-          {imageOnly ? null : <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-night-900 via-night-900/92 to-night-900/55" />}
+      {/* Every picture stays mounted, stacked, and a change is a cross-fade.
+          Swapping the one <img> in and out showed the frame's pale background
+          while the next file decoded: a white blink between slides. Each
+          picture carries its own wash, so the wash fades with it. */}
+      {slides.map((s, i) => (s.image ? (
+        <div
+          key={i}
+          aria-hidden={i !== index}
+          className={`absolute inset-0 -z-10 overflow-hidden transition-opacity duration-700 [transition-timing-function:var(--ease-settle)] ${i === index ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        >
+          <Media src={s.image} alt="" ratio="auto" rounded={false} priority={i === 0} sizes="100vw"
+            className="!absolute inset-0 size-full !rounded-none !bg-night-900 [&>*]:!object-cover [&>*]:!object-center" />
+          {s.display === 'image' ? null : <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-night-900 via-night-900/92 to-night-900/55" />}
         </div>
-      ) : null}
+      ) : null))}
       {imageOnly && slide.link ? (
-        <Link href={slide.link} aria-label={slide.heading} className="absolute inset-0 z-0" />
+        isExternalHref(slide.link)
+          ? <a href={slide.link} target="_blank" rel="noopener noreferrer" aria-label={slide.heading} className="absolute inset-0 z-0" />
+          : <Link href={slide.link} aria-label={slide.heading} className="absolute inset-0 z-0" />
       ) : null}
 
       {/* A faint green glow from the top-left corner: the only soft element, and
@@ -123,13 +134,13 @@ export function HeroCarousel({
 
             <div className="rise d-4 mt-8 flex flex-wrap gap-3">
               {slide.ctaLabel && slide.ctaHref ? (
-                <Action href={slide.ctaHref} size="lg">
+                <Action href={slide.ctaHref} external={isExternalHref(slide.ctaHref)} size="lg">
                   {slide.ctaLabel}
                   <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
                 </Action>
               ) : null}
               {slide.secondaryLabel && slide.secondaryHref ? (
-                <Action href={slide.secondaryHref} variant="ghostLight" size="lg">
+                <Action href={slide.secondaryHref} external={isExternalHref(slide.secondaryHref)} variant="ghostLight" size="lg">
                   {slide.secondaryLabel}
                 </Action>
               ) : null}
