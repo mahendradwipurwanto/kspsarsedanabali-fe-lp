@@ -4,39 +4,11 @@ import { useState } from 'react'
 import { simulationRate } from '@/contracts'
 import type { Simulation } from '@/lib/api'
 import { track } from '@/lib/client'
-import { Card, Tile, Icon, Blank, Action, Heading } from '../ui'
+import { Card, Tile, Icon, Blank, Action, Heading, RichText } from '../ui'
 import { SimulationCalculator } from './SimulationCalculator'
 import { SavingsCalculator } from './SavingsCalculator'
 
 type Tab = 'pinjaman' | 'simpanan'
-
-/** How a bunga menurun schedule reads, column by column: the way every loan worked before flat and seasonal ones were filed. */
-const LOAN_METHODS = [
-  { n: '01', title: 'Pokok tetap', body: 'Plafon dibagi rata sepanjang jangka waktu. Porsi pokok setiap bulan sama besarnya.' },
-  { n: '02', title: 'Bunga dari sisa pinjaman', body: 'Bunga dihitung dari saldo yang belum dibayar, sehingga makin kecil setiap bulan.' },
-  { n: '03', title: 'Angsuran makin ringan', body: 'Pokok ditambah bunga: angsuran pertama paling besar, lalu turun setiap bulan sampai lunas.' },
-]
-
-/**
- * The notes beside the loan calculator, true of the loans actually filed. The
- * three bunga menurun notes stand while every loan is monthly and menurun; a
- * flat or seasonal loan among them widens the wording so no note contradicts
- * the card a visitor is looking at.
- */
-function loanNotes(loans: Simulation[]) {
-  const flat = loans.some((x) => x.interestMethod === 'flat')
-  const seasonal = loans.some((x) => x.installmentScheme === 'seasonal')
-  if (!flat && !seasonal) return LOAN_METHODS
-  return [
-    { n: '01', title: 'Pokok tetap', body: 'Plafon dibagi rata sepanjang jangka waktu. Porsi pokok setiap angsuran sama besarnya.' },
-    flat
-      ? { n: '02', title: 'Bunga menurun atau flat', body: 'Bunga menurun dihitung dari sisa pokok, jadi angsuran turun. Bunga flat dihitung dari plafon setiap periode, jadi angsuran sama besar. Kartu hasil menyebut mana yang dipakai.' }
-      : { n: '02', title: 'Bunga dari sisa pinjaman', body: 'Bunga dihitung dari saldo yang belum dibayar, sehingga makin kecil setiap angsuran.' },
-    seasonal
-      ? { n: '03', title: 'Bulanan atau musiman', body: 'Pinjaman bulanan diangsur tiap bulan. Pinjaman musiman diangsur tiap 6 bulan, paling lama 5 tahun (10 angsuran), untuk usaha yang panen atau ramai pada musim tertentu.' }
-      : { n: '03', title: 'Angsuran makin ringan', body: 'Pokok ditambah bunga: angsuran pertama paling besar, lalu turun sampai lunas.' },
-  ]
-}
 
 /** Indonesian decimals: 0,35 rather than 0.35. */
 const num = (n: number) => n.toLocaleString('id-ID')
@@ -73,8 +45,17 @@ function savingsNote(sim: Simulation): string {
  * answer "berapa yang saya terima nanti", and each carries the explanation that
  * belongs to it rather than one shared paragraph that fits neither.
  */
+/** The explanation under one side of the simulator, as the block's editor wrote it. */
+export interface SimulationCopy {
+  label: string
+  heading: string
+  lead: string
+  note: string
+}
+
 export function SimulationTabs({
   loans, savings, initialTab = 'pinjaman', initialSimulationId, initialAmount, initialTenor, disclaimer,
+  loanCopy, loanNotes, savingsCopy,
 }: {
   loans: Simulation[]
   savings: Simulation[]
@@ -84,10 +65,15 @@ export function SimulationTabs({
   initialAmount?: number
   initialTenor?: number
   disclaimer: string
+  loanCopy: SimulationCopy
+  /** The loan side's cards; numbered in the order given. */
+  loanNotes: { title: string; body: string }[]
+  savingsCopy: SimulationCopy
 }) {
   const [tab, setTab] = useState<Tab>(initialTab)
+  const copy = tab === 'pinjaman' ? loanCopy : savingsCopy
   const notes = tab === 'pinjaman'
-    ? loanNotes(loans)
+    ? loanNotes.filter((x) => x.title?.trim()).map((x, i) => ({ n: String(i + 1).padStart(2, '0'), title: x.title, body: x.body }))
     : savings.map((x, i) => ({ n: String(i + 1).padStart(2, '0'), title: x.name, body: savingsNote(x) }))
   const loanStart = loans.some((x) => x.id === initialSimulationId) ? initialSimulationId : undefined
   const savingsStart = savings.some((x) => x.id === initialSimulationId) ? initialSimulationId : undefined
@@ -149,34 +135,26 @@ export function SimulationTabs({
       </div>
 
       <div>
-        <Heading
-          label={tab === 'pinjaman' ? 'Bunga menurun' : 'Cara kerja simpanan'}
-          title={tab === 'pinjaman' ? 'Cara membaca hasil simulasi' : 'Cara menghitung setiap simpanan'}
-          lead={
-            tab === 'pinjaman'
-              ? 'Semua pinjaman memakai bunga menurun, seperti tabel angsuran koperasi. Yang membedakan antarproduk hanya besar suku bunganya.'
-              : 'Setiap produk punya tabel resmi sendiri. Simulasi di atas memakai angka dari tabel itu, bukan perkiraan.'
-          }
-        />
+        {copy.heading ? <Heading label={copy.label || undefined} title={copy.heading} lead={copy.lead || undefined} /> : null}
         {notes.length ? <ul className="grid gap-4 md:grid-cols-3">
           {notes.map((item) => (
-            <Card as="li" key={item.title} hover className="p-5 sm:p-6">
+            <Card as="li" key={item.n} hover className="p-5 sm:p-6">
               <Tile tone="dark" size="sm"><span className="tnum text-[12px] font-bold text-gold-300">{item.n}</span></Tile>
               <h3 className="t-h3 mt-4">{item.title}</h3>
-              <p className="mt-2 text-[14.5px] leading-relaxed text-ink-500">{item.body}</p>
+              <RichText value={item.body} className="mt-2 text-[14.5px] leading-relaxed text-ink-500" />
             </Card>
           ))}
         </ul> : null}
 
-        <Card className="relative mt-4 overflow-hidden p-5 pl-6">
-          <span aria-hidden="true" className="absolute inset-y-0 left-0 w-[3px] bg-gold-300" />
-          <p className="flex items-start gap-2.5 text-[14px] leading-relaxed text-ink-600">
-            <Icon.info className="mt-0.5 size-4 shrink-0" />
-            {tab === 'pinjaman'
-              ? 'Hasil simulasi ini adalah perkiraan awal. Nominal angsuran resmi ditentukan setelah proses pengajuan, verifikasi berkas, dan survei oleh petugas koperasi.'
-              : 'Angka simpanan mengikuti tabel resmi koperasi. Hasil akhir dapat berbeda bila setoran tidak rutin, ditarik sebelum jatuh tempo, atau ketentuan koperasi berubah.'}
-          </p>
-        </Card>
+        {copy.note ? (
+          <Card className="relative mt-4 overflow-hidden p-5 pl-6">
+            <span aria-hidden="true" className="absolute inset-y-0 left-0 w-[3px] bg-gold-300" />
+            <div className="flex items-start gap-2.5 text-[14px] leading-relaxed text-ink-600">
+              <Icon.info className="mt-0.5 size-4 shrink-0" />
+              <RichText value={copy.note} className="min-w-0" />
+            </div>
+          </Card>
+        ) : null}
       </div>
     </div>
   )

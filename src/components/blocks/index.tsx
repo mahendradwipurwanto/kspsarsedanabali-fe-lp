@@ -953,6 +953,9 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
               initialAmount={ctx.query?.nominal ? Number(ctx.query.nominal) : undefined}
               initialTenor={ctx.query?.tenor ? Number(ctx.query.tenor) : undefined}
               disclaimer={s(p.disclaimer, 'Simulasi awal, bukan penawaran final.')}
+              loanCopy={{ label: s(p.loanLabel), heading: s(p.loanHeading), lead: s(p.loanLead), note: s(p.loanNote) }}
+              loanNotes={arr<{ title: string; body: string }>(p.loanNotes)}
+              savingsCopy={{ label: s(p.savingsLabel), heading: s(p.savingsHeading), lead: s(p.savingsLead), note: s(p.savingsNote) }}
             />
           </Shell>
         </Band>

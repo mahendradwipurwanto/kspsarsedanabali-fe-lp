@@ -695,6 +695,51 @@ export const BLOCKS = {
         rows: 2,
         default: 'Simulasi awal, bukan penawaran final. Angka resmi ditentukan setelah pengajuan dan survei oleh petugas.',
       }),
+      // The explanation under the calculator, one set per side.
+      loanLabel: field.text({ label: 'Pinjaman: label kecil di atas penjelasan', max: 40, default: 'Bunga menurun' }),
+      loanHeading: field.text({ label: 'Pinjaman: judul penjelasan', max: 70, default: 'Cara membaca hasil simulasi' }),
+      loanLead: field.textarea({
+        label: 'Pinjaman: kalimat di bawah judul',
+        max: 240,
+        rows: 2,
+        default: 'Semua pinjaman memakai bunga menurun, seperti tabel angsuran koperasi. Yang membedakan antarproduk hanya besar suku bunganya.',
+      }),
+      loanNotes: field.repeater({
+        label: 'Pinjaman: kartu penjelasan',
+        itemLabel: 'Kartu',
+        max: 6,
+        help: 'Nomor 01, 02, 03 diberikan otomatis sesuai urutan kartu.',
+        of: {
+          title: field.text({ label: 'Judul kartu', required: true, max: 60 }),
+          body: field.textarea({ label: 'Isi kartu', required: true, max: 300, rows: 3 }),
+        },
+        default: [
+          { title: 'Pokok tetap', body: 'Plafon dibagi rata sepanjang jangka waktu. Porsi pokok setiap angsuran sama besarnya.' },
+          { title: 'Bunga dari sisa pinjaman', body: 'Bunga dihitung dari saldo yang belum dibayar, sehingga makin kecil setiap angsuran.' },
+          { title: 'Bulanan atau musiman', body: 'Pinjaman bulanan diangsur tiap bulan. Pinjaman musiman diangsur tiap 6 bulan, paling lama 5 tahun (10 angsuran), untuk usaha yang panen atau ramai pada musim tertentu.' },
+        ],
+      }),
+      loanNote: field.textarea({
+        label: 'Pinjaman: catatan di bawah kartu',
+        max: 300,
+        rows: 2,
+        default: 'Hasil simulasi ini adalah perkiraan awal. Nominal angsuran resmi ditentukan setelah proses pengajuan, verifikasi berkas, dan survei oleh petugas koperasi.',
+      }),
+      savingsLabel: field.text({ label: 'Simpanan: label kecil di atas penjelasan', max: 40, default: 'Cara kerja simpanan' }),
+      savingsHeading: field.text({ label: 'Simpanan: judul penjelasan', max: 70, default: 'Cara menghitung setiap simpanan' }),
+      savingsLead: field.textarea({
+        label: 'Simpanan: kalimat di bawah judul',
+        max: 240,
+        rows: 2,
+        default: 'Setiap produk punya tabel resmi sendiri. Simulasi di atas memakai angka dari tabel itu, bukan perkiraan.',
+        help: 'Kartu tiap simpanan ditulis otomatis dari angka di menu Simulasi, supaya selalu sama dengan hasil kalkulator.',
+      }),
+      savingsNote: field.textarea({
+        label: 'Simpanan: catatan di bawah kartu',
+        max: 300,
+        rows: 2,
+        default: 'Angka simpanan mengikuti tabel resmi koperasi. Hasil akhir dapat berbeda bila setoran tidak rutin, ditarik sebelum jatuh tempo, atau ketentuan koperasi berubah.',
+      }),
     },
   }),
 

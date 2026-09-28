@@ -194,11 +194,11 @@ function startAmount(sim: Simulation, wanted?: number) {
   return clamp(wanted ?? sim.defaultAmount ?? sim.minAmount, sim.minAmount, sim.maxAmount)
 }
 
-/** The tenor a product opens on: the one a link asked for, else the middle of its choices. */
+/** The tenor a product opens on: the one a link asked for, else the longest it offers, as the koperasi asked. */
 function startTenor(sim: Simulation, wanted?: number) {
   const options = tenorsOf(sim)
   if (wanted && options.includes(wanted)) return wanted
-  return options[Math.min(2, options.length - 1)]!
+  return Math.max(...options)
 }
 
 /**

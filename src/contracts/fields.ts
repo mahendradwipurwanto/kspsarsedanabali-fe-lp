@@ -29,7 +29,7 @@ export type FieldDef = Conditional & (
   | { kind: 'icon'; label: string; help?: string; required?: boolean; max?: number; default?: string }
   | { kind: 'color'; label: string; help?: string; required?: boolean; max?: number; default?: string }
   | { kind: 'reference'; label: string; help?: string; to: 'product' | 'post' | 'branch' | 'page' | 'document-category'; multiple?: boolean }
-  | { kind: 'repeater'; label: string; help?: string; itemLabel?: string; min?: number; max?: number; of: FieldMap }
+  | { kind: 'repeater'; label: string; help?: string; itemLabel?: string; min?: number; max?: number; of: FieldMap; default?: Record<string, unknown>[] }
 )
 
 export type FieldMap = Record<string, FieldDef>
@@ -136,7 +136,9 @@ export function fieldsToZod(fields: FieldMap) {
 export function defaultsFor(fields: FieldMap): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const [key, def] of Object.entries(fields)) {
-    if (def.kind === 'repeater') out[key] = []
+    // A repeater's default is the rows a block starts with, so text the site
+    // shows before anyone edits it is there in the form to be changed.
+    if (def.kind === 'repeater') out[key] = def.default ? def.default.map((row) => ({ ...row })) : []
     // A multi-select reference is validated as an array; the empty string the
     // generic branch produced was rejected with 422, so a block like "Kontak
     // cabang" could not be saved until someone ticked and unticked a branch.

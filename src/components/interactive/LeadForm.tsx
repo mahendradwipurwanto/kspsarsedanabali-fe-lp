@@ -127,7 +127,8 @@ export function LeadForm({
               options={[
                 { value: '', label: 'Belum tahu, mohon dibantu' },
                 ...[...products]
-                  .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
+                  // Grouped by category, each in the order the console gives its products.
+                  .sort((a, b) => a.category.localeCompare(b.category))
                   .map((p) => ({
                     value: p.id,
                     label: p.name,
