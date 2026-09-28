@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { formatRate, formatRupiahShort, formatTerm, isHtml, productRatePeriod, productTerm, PRODUCT_RATE_PERIOD_LABELS } from '@/contracts'
+import { formatRate, formatRupiahShort, formatTerm, isHtml, productRatePeriod, productTerm, PRODUCT_RATE_PERIOD_LABELS, PRODUCT_SIMULATION_LEAD } from '@/contracts'
 import { getProduct, getProducts, getBranches, getSimulations, quiet } from '@/lib/api'
 import { buildMetadata, describe, titleFor } from '@/lib/seo'
 import { breadcrumbLd, productLd } from '@/lib/jsonld'
@@ -155,7 +155,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           <Shell>
             <Heading
               title={`Simulasi Angsuran ${p.name}`}
-              lead="Geser nominal dan pilih jangka waktu untuk melihat perkiraan angsuran bulanan Anda."
+              lead={p.simulationLead?.trim() || PRODUCT_SIMULATION_LEAD}
             />
             <SimulationCalculator simulations={loans} initialSimulationId={ownLoan?.id} disclaimer="Simulasi awal, bukan penawaran final. Angka resmi ditentukan setelah pengajuan dan survei." />
           </Shell>

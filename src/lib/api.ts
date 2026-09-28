@@ -97,6 +97,8 @@ export interface Product {
   benefits: string[]; requirements: string[]; image?: string
   rateMethod: 'flat' | 'annuity' | 'effective' | 'none'
   ratePercent?: number | null; rateNote?: string | null
+  /** The line under the loan calculator's heading; empty uses `PRODUCT_SIMULATION_LEAD`. */
+  simulationLead?: string | null
   /** The period the rate is quoted in; `ratePercent` itself is per year. */
   ratePeriod?: 'day' | 'month' | 'year'
   /**

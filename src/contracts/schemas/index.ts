@@ -535,6 +535,9 @@ export function formatRate(annual: number | null | undefined, period?: string | 
 /** The period a product quotes its rate in; products saved before the choice existed quote per month. */
 export const productRatePeriod = (p: { ratePeriod?: string | null }): ProductRatePeriod => asPeriod(p.ratePeriod)
 
+/** What the product page says under "Simulasi Angsuran …" when the product leaves `simulationLead` empty. */
+export const PRODUCT_SIMULATION_LEAD = 'Geser nominal dan pilih jangka waktu untuk melihat perkiraan angsuran bulanan Anda.'
+
 export const productSchema = z.object({
   name: z.string().min(2).max(120),
   slug: slugSchema,
@@ -551,6 +554,8 @@ export const productSchema = z.object({
   /** The period the rate is typed in and shown in. */
   ratePeriod: z.enum(PRODUCT_RATE_PERIODS).default('month'),
   rateNote: z.string().max(180).optional().or(z.literal('')),
+  /** The line under the loan calculator's heading on the product page. Empty uses `PRODUCT_SIMULATION_LEAD`. */
+  simulationLead: z.string().max(240).optional().or(z.literal('')),
   minAmount: z.number().int().min(0).optional(),
   maxAmount: z.number().int().min(0).optional(),
   tenorOptions: z.array(z.number().int().min(1).max(120)).optional(),
