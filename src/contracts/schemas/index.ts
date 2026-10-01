@@ -496,6 +496,15 @@ export function productTerm(p: { term?: ProductTerm | null; tenorOptions?: numbe
   return { min: lo, max: hi === lo ? null : hi, unit: 'month' }
 }
 
+/**
+ * What a product's amount range is called: a loan's plafon is the most one may
+ * borrow, while a savings product's range is what one deposits, and the
+ * koperasi asked for "Setoran" there.
+ */
+export function productAmountLabel(category: string | null | undefined): 'Plafon' | 'Setoran' {
+  return category === 'simpanan' ? 'Setoran' : 'Plafon'
+}
+
 /** The months a term covers, for the recommender: every whole month in a range of months, nothing otherwise. */
 export function termMonths(term: ProductTerm | null | undefined): number[] {
   if (!term || term.unit !== 'month') return []

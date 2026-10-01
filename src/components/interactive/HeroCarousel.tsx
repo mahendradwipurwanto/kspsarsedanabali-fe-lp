@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { calculateInstallment, formatRate, formatRupiah, formatRupiahShort, formatTerm, isExternalHref, productRatePeriod, productTerm, LOAN_RATE_METHOD, PRODUCT_RATE_PERIOD_LABELS } from '@/contracts'
+import { calculateInstallment, formatRate, formatRupiah, formatRupiahShort, formatTerm, isExternalHref, productAmountLabel, productRatePeriod, productTerm, LOAN_RATE_METHOD, PRODUCT_RATE_PERIOD_LABELS } from '@/contracts'
 import type { Product } from '@/lib/api'
 import { Shell, Action, Icon, Pill, iconByName, RichText } from '../ui'
 import { Media } from '../ui/Media'
@@ -233,7 +233,7 @@ function RateCard({ product, bullets }: { product: Product; bullets: { text: str
           {example ? <dd className="mt-1 text-[11.5px] text-white/45">{formatRupiahShort(samplePrincipal)} · {sampleTenor} bln</dd> : null}
         </div>
         <div>
-          <dt className="text-[12px] font-medium text-white/50">Plafon</dt>
+          <dt className="text-[12px] font-medium text-white/50">{productAmountLabel(product.category)}</dt>
           <dd className="mt-1.5 text-[15px] font-bold text-white">{plafon ?? '—'}</dd>
         </div>
         <div>

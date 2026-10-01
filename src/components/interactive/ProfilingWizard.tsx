@@ -6,7 +6,7 @@ import { LEAD_PURPOSES, LOAN_RATE_METHOD, calculateInstallment, formatRupiah, wa
 import type { Product, Branch } from '@/lib/api'
 import { apiPost, sessionId, track, API_BASE } from '@/lib/client'
 import { Action, Icon } from '../ui'
-import { Field, AmountInput, Segments, Check, Note, Select, field } from '../ui/form'
+import { Field, AmountInput, Segments, Check, Note, Select, field, amountOutOfRange } from '../ui/form'
 
 interface Answers { need?: 'pinjaman' | 'simpanan'; purposes: string[]; amount: number; tenorMonths: number }
 interface Recommendation {
@@ -67,9 +67,11 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
     if (answers.need !== 'pinjaman') return null
     const cheapest = loanProducts.filter((p) => p.ratePercent != null).sort((a, b) => (a.ratePercent ?? 0) - (b.ratePercent ?? 0))[0]
     if (!cheapest?.ratePercent) return null
-    // While the amount is being typed it can sit outside the range; the estimate uses the nearest allowed figure.
+    // No estimate for an amount outside the range: one worked out for the
+    // nearest allowed figure did not match the number in the field.
+    if (amountOutOfRange(answers.amount, bounds.min, bounds.max)) return null
     return calculateInstallment({
-      principal: Math.min(Math.max(answers.amount, bounds.min), bounds.max), annualRatePercent: cheapest.ratePercent, months: answers.tenorMonths, method: LOAN_RATE_METHOD,
+      principal: answers.amount, annualRatePercent: cheapest.ratePercent, months: answers.tenorMonths, method: LOAN_RATE_METHOD,
     })
   }, [answers, loanProducts, bounds])
 
@@ -288,7 +290,8 @@ export function ProfilingWizard({ products, branches }: { products: Product[]; b
 
             <div className="mt-8 flex gap-3">
               <Action variant="outline" onClick={() => setStep(2)} size="lg" className="flex-1">Kembali</Action>
-              <Action onClick={() => setStep(4)} size="lg" className="flex-[2]">Lanjut<Icon.arrow className="size-4" /></Action>
+              {/* The field keeps an out-of-range amount as typed, so it is held here until it is fixed. */}
+              <Action onClick={() => setStep(4)} disabled={amountOutOfRange(answers.amount, bounds.min, bounds.max) != null} size="lg" className="flex-[2]">Lanjut<Icon.arrow className="size-4" /></Action>
             </div>
           </fieldset>
         ) : null}

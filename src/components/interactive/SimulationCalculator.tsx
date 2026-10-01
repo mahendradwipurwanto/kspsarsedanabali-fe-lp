@@ -6,7 +6,7 @@ import type { Simulation } from '@/lib/api'
 import { track } from '@/lib/client'
 import { Action, Icon, RichText } from '../ui'
 import { Table } from './SavingsCalculator'
-import { Field, AmountInput, Segments, Select } from '../ui/form'
+import { Field, AmountInput, Segments, Select, OutOfRangeNote, amountOutOfRange } from '../ui/form'
 
 /** Indonesian decimals: 1,1 rather than 1.1. */
 const pct = (n: number) => `${String(Math.round(n * 1000) / 1000).replace('.', ',')}%`
@@ -47,7 +47,10 @@ export function SimulationCalculator({
   const tenorOptions = tenorsOf(sim)
   const amount = sim ? (amounts[sim.id] ?? startAmount(sim)) : 0
   const tenor = sim ? (tenors[sim.id] ?? startTenor(sim)) : 0
-  const clamped = clamp(amount, min, max)
+  // An amount outside the product's range gets no figures at all: working them
+  // out for the nearest allowed amount showed an instalment for 500 juta under
+  // a field reading 700 juta.
+  const outOfRange = sim ? amountOutOfRange(amount, min, max) : null
 
   // A seasonal loan is paid every six months; its interest is six months' worth per instalment.
   const periodMonths = schemePeriodMonths(sim?.installmentScheme)
@@ -58,12 +61,12 @@ export function SimulationCalculator({
   const { monthly: monthlyRate, estimated } = loanReferenceRate(simulationMonthlyRate(sim?.ratePercent, sim?.ratePeriod), product)
 
   const result = useMemo(() => {
-    if (monthlyRate == null || !sim) return null
-    return calculateInstallment({ principal: clamped, annualRatePercent: monthlyRate * 12, months: tenor, method: loanMethod(sim.interestMethod), periodMonths })
-  }, [monthlyRate, clamped, tenor, sim, periodMonths])
+    if (monthlyRate == null || !sim || outOfRange) return null
+    return calculateInstallment({ principal: amount, annualRatePercent: monthlyRate * 12, months: tenor, method: loanMethod(sim.interestMethod), periodMonths })
+  }, [monthlyRate, amount, outOfRange, tenor, sim, periodMonths])
   const fees = useMemo(
-    () => (shownLoanFees(sim?.loanTable?.fees).length ? calculateLoanFees(clamped, sim!.loanTable!.fees) : null),
-    [sim?.loanTable, clamped],
+    () => (!outOfRange && shownLoanFees(sim?.loanTable?.fees).length ? calculateLoanFees(amount, sim!.loanTable!.fees) : null),
+    [sim?.loanTable, amount, outOfRange],
   )
 
   if (!sim || !product) return null
@@ -140,10 +143,12 @@ export function SimulationCalculator({
             </p>
           ) : null}
 
-          {result ? (
+          {outOfRange ? (
+            <OutOfRangeNote>{outOfRange}</OutOfRangeNote>
+          ) : result ? (
             <dl className="tnum relative mt-8 border-t border-white/20 text-[14px]">
               {[
-                ['Pokok pinjaman', formatRupiah(clamped)],
+                ['Pokok pinjaman', formatRupiah(amount)],
                 ['Jangka waktu', periodMonths === 1 ? `${tenor} bulan` : `${tenor} bulan · ${result.schedule.length}× angsuran`],
                 ['Suku bunga', `${pct(monthlyRate!)} per bulan`],
                 ...(fees ? [['Biaya administrasi', formatRupiah(fees.total)], ['Dana diterima', formatRupiah(fees.received)]] : []),
@@ -161,7 +166,7 @@ export function SimulationCalculator({
           )}
 
           <div className="relative mt-8 grid gap-2.5">
-            <Action href={`/kontak?produk=${product.slug}&nominal=${clamped}&tenor=${tenor}`} variant="light" size="lg" full>
+            <Action href={`/kontak?produk=${product.slug}${outOfRange ? '' : `&nominal=${amount}`}&tenor=${tenor}`} variant="light" size="lg" full>
               Ajukan sekarang
               <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
             </Action>
@@ -179,7 +184,7 @@ export function SimulationCalculator({
           )}
         </div>
       </div>
-      {result ? <LoanTables sim={sim} result={result} fees={fees} amount={clamped} tenor={tenor} /> : null}
+      {result ? <LoanTables sim={sim} result={result} fees={fees} amount={amount} tenor={tenor} /> : null}
     </div>
   )
 }

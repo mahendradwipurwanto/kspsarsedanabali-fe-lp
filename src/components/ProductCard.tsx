@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { formatRate, formatRupiahShort, formatTerm, productRatePeriod, productTerm, PRODUCT_RATE_PERIOD_SHORT } from '@/contracts'
+import { formatRate, formatRupiahShort, formatTerm, productAmountLabel, productRatePeriod, productTerm, PRODUCT_RATE_PERIOD_SHORT } from '@/contracts'
 import type { Product } from '@/lib/api'
 import { Card, Pill, Icon } from './ui'
 import { Media } from './ui/Media'
@@ -19,7 +19,7 @@ const plafonRange = (min?: number | null, max?: number | null) =>
 function Terms({ product, tone = 'light' }: { product: Product; tone?: 'light' | 'dark' }) {
   const rows = [
     ['Bunga', rateLabel(product)],
-    ['Plafon', plafonRange(product.minAmount, product.maxAmount)],
+    [productAmountLabel(product.category), plafonRange(product.minAmount, product.maxAmount)],
     ['Jangka waktu', tenorRange(product)],
   ].filter(([, v]) => v) as [string, string][]
 
@@ -147,7 +147,7 @@ export function ProductRow({ product, index }: { product: Product; index: number
           <span className="grid shrink-0 grid-cols-2 gap-x-8 gap-y-2 border-t border-line pt-4 text-[13px] sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
             {plafon ? (
               <span className="block">
-                <span className="block text-[11.5px] font-medium text-ink-400">Plafon</span>
+                <span className="block text-[11.5px] font-medium text-ink-400">{productAmountLabel(product.category)}</span>
                 <span className="tnum mt-0.5 block font-bold text-ink-900">{plafon}</span>
               </span>
             ) : null}

@@ -305,6 +305,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                 })}
               </ul>
             )}
+            {s(p.note) ? <p className="mt-4 max-w-[80ch] whitespace-pre-line text-[12.5px] leading-relaxed text-ink-400">{s(p.note)}</p> : null}
           </Shell>
         </Band>
       )

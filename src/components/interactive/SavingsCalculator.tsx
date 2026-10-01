@@ -8,7 +8,7 @@ import {
 import type { Simulation } from '@/lib/api'
 import { track } from '@/lib/client'
 import { Action, Icon } from '../ui'
-import { AmountInput, Segments } from '../ui/form'
+import { AmountInput, Segments, OutOfRangeNote, amountOutOfRange } from '../ui/form'
 
 /** Indonesian decimals: 0,35 rather than 0.35. */
 const num = (n: number) => n.toLocaleString('id-ID')
@@ -46,8 +46,9 @@ export function SavingsCalculator({
   )
 
   if (!sim) return null
-  // Typing can run outside the range for a moment; the figures use the nearest allowed amount.
-  const amount = clamp(amounts[sim.id] ?? startAmount(sim), sim.minAmount, sim.maxAmount)
+  // The amount as typed. Outside the range the result panel says so instead of
+  // showing figures for an amount other than the one in the field.
+  const amount = amounts[sim.id] ?? startAmount(sim)
   const months = tenors[sim.id] ?? startTenor(sim)
   const onAmount = (v: number) => setAmounts((a) => ({ ...a, [sim.id]: v }))
   const onMonths = (v: number) => setTenors((t) => ({ ...t, [sim.id]: v }))
@@ -109,7 +110,7 @@ function Panel({ children }: { children: ReactNode }) {
 }
 
 function Result({
-  headline, headlineLabel, rows, total, totalLabel, note, product, footer, rateInfo,
+  headline, headlineLabel, rows, total, totalLabel, note, product, footer, rateInfo, outOfRange,
 }: {
   headline: number
   headlineLabel: string
@@ -120,6 +121,8 @@ function Result({
   product: Simulation['product']
   footer?: string
   rateInfo: string
+  /** Set when the amount is outside the product's range: no figures, this message instead. */
+  outOfRange?: string | null
 }) {
   return (
     <div className="surface-dark relative overflow-hidden p-6 text-white sm:p-8">
@@ -132,25 +135,31 @@ function Result({
       </div>
 
       <p className="relative mt-7 text-[13px] text-white/60">{headlineLabel}</p>
-      <p className="figure relative mt-1.5 text-[clamp(2rem,1.4rem+2.4vw,2.9rem)] text-gold-300">{formatRupiah(headline)}</p>
+      <p className="figure relative mt-1.5 text-[clamp(2rem,1.4rem+2.4vw,2.9rem)] text-gold-300">{outOfRange ? '—' : formatRupiah(headline)}</p>
 
-      <dl className="tnum relative mt-8 border-t border-white/15 text-[14px]">
-        {rows.map(([k, v]) => (
-          <div key={k} className="flex justify-between gap-4 border-b border-white/10 py-3">
-            <dt className="text-white/55">{k}</dt>
-            <dd className="font-semibold text-white">{v}</dd>
-          </div>
-        ))}
-        <div className="mt-1 flex items-baseline justify-between gap-4 border-t-2 border-double border-white/25 py-4">
-          <dt className="text-[13px] font-semibold text-white/80">{totalLabel}</dt>
-          <dd className="figure text-[19px] text-white">{formatRupiah(total)}</dd>
-        </div>
-      </dl>
+      {outOfRange ? (
+        <OutOfRangeNote>{outOfRange}</OutOfRangeNote>
+      ) : (
+        <>
+          <dl className="tnum relative mt-8 border-t border-white/15 text-[14px]">
+            {rows.map(([k, v]) => (
+              <div key={k} className="flex justify-between gap-4 border-b border-white/10 py-3">
+                <dt className="text-white/55">{k}</dt>
+                <dd className="font-semibold text-white">{v}</dd>
+              </div>
+            ))}
+            <div className="mt-1 flex items-baseline justify-between gap-4 border-t-2 border-double border-white/25 py-4">
+              <dt className="text-[13px] font-semibold text-white/80">{totalLabel}</dt>
+              <dd className="figure text-[19px] text-white">{formatRupiah(total)}</dd>
+            </div>
+          </dl>
 
-      <p className="relative mt-4 flex items-start gap-2 rounded-[var(--radius-input)] bg-white/[0.06] px-3.5 py-2.5 text-[12.5px] leading-relaxed text-white/70 ring-1 ring-inset ring-white/10">
-        <Icon.info className="mt-0.5 size-4 shrink-0 text-gold-300" />
-        <span>{note}</span>
-      </p>
+          <p className="relative mt-4 flex items-start gap-2 rounded-[var(--radius-input)] bg-white/[0.06] px-3.5 py-2.5 text-[12.5px] leading-relaxed text-white/70 ring-1 ring-inset ring-white/10">
+            <Icon.info className="mt-0.5 size-4 shrink-0 text-gold-300" />
+            <span>{note}</span>
+          </p>
+        </>
+      )}
 
       <div className="relative mt-7 grid gap-2.5">
         <Action href={`/kontak?produk=${product.slug}`} variant="light" size="lg" full>
@@ -287,6 +296,7 @@ function TermDeposit({
         </Panel>
 
         <Result
+          outOfRange={amountOutOfRange(amount, sim.minAmount, sim.maxAmount)}
           rateInfo={rateInfoOf(sim)}
           headlineLabel={`Total imbal hasil ${months} bulan`}
           headline={result.total}
@@ -357,6 +367,7 @@ function MonthlyDeposit({
         </Panel>
 
         <Result
+          outOfRange={amountOutOfRange(deposit, sim.minAmount, sim.maxAmount)}
           rateInfo={rateInfoOf(sim)}
           headlineLabel={`Nilai simpanan setelah ${num(years)} tahun`}
           headline={result.value}
@@ -407,6 +418,7 @@ function DailyDeposit({ sim, daily, onDaily }: { sim: Simulation; daily: number;
         </Panel>
 
         <Result
+          outOfRange={amountOutOfRange(daily, sim.minAmount, sim.maxAmount)}
           rateInfo={rateInfoOf(sim)}
           headlineLabel={`Diterima setelah ${days} hari`}
           headline={result.received}

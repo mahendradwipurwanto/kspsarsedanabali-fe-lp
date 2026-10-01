@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Icon } from './index'
 
 /**
  * Form controls matching the approved design: 10px radius, hairline
@@ -117,6 +118,30 @@ export function Segments({
  * on leaving the field the amount is pulled into the range and, when a step is
  * given, rounded to it, so what the field shows is what was calculated.
  */
+/**
+ * Why a calculator has no figures to show: the amount is empty or outside what
+ * the product takes. Null when it is fine. The calculators show this in place
+ * of a result rather than working one out for a different amount than the one
+ * on screen.
+ */
+export function amountOutOfRange(value: number, min: number, max: number): string | null {
+  const short = (n: number) => `Rp${n.toLocaleString('id-ID')}`
+  if (!value) return 'Isi nominal untuk melihat hasil simulasi.'
+  if (value > max) return `Nominal melebihi batas maksimal ${short(max)} untuk produk ini. Ubah nominal untuk melihat hasil simulasi.`
+  if (value < min) return `Nominal di bawah batas minimal ${short(min)} untuk produk ini. Ubah nominal untuk melihat hasil simulasi.`
+  return null
+}
+
+/** {@link amountOutOfRange}'s message, set on a calculator's dark result panel. */
+export function OutOfRangeNote({ children }: { children: ReactNode }) {
+  return (
+    <p className="relative mt-8 flex items-start gap-2 rounded-[var(--radius-input)] bg-white/[0.06] px-3.5 py-3 text-[13px] leading-relaxed text-white/75 ring-1 ring-inset ring-white/15" role="status">
+      <Icon.info className="mt-0.5 size-4 shrink-0 text-gold-300" />
+      <span>{children}</span>
+    </p>
+  )
+}
+
 export function AmountInput({
   id, label, value, min, max, step, onChange, hint,
 }: {
@@ -143,10 +168,13 @@ export function AmountInput({
     ? 'Isi nominalnya.'
     : raw < min ? `Minimal ${short(min)}.` : raw > max ? `Maksimal ${short(max)}.` : undefined
 
+  // Leaving the field rounds an allowed amount to its step, but leaves one out
+  // of range as typed: quietly turning 700 juta into 500 juta hid the reason
+  // the figures did not match, so the message stays until it is corrected.
   const settle = () => {
     focused.current = false
-    let n = Math.min(Math.max(raw, min), max)
-    if (step && step > 0) n = Math.min(max, min + Math.round((n - min) / step) * step)
+    let n = raw
+    if (step && step > 0 && n >= min && n <= max) n = Math.min(max, min + Math.round((n - min) / step) * step)
     onChange(n)
     setText(fmt(n))
   }

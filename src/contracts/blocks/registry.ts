@@ -241,6 +241,13 @@ export const BLOCKS = {
           label: field.text({ label: 'Keterangan', required: true, max: 30, placeholder: 'MODAL' }),
         },
       }),
+      note: field.textarea({
+        label: 'Catatan kecil di bawah angka',
+        max: 240,
+        rows: 2,
+        placeholder: '*Data per 31 Desember 2025, berdasarkan laporan RAT.',
+        help: 'Opsional. Tampil dalam huruf kecil di bawah deretan angka, misalnya sumber dan tanggal datanya.',
+      }),
     },
   }),
 
