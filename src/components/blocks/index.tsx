@@ -305,7 +305,10 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
                 })}
               </ul>
             )}
-            {s(p.note) ? <p className="mt-4 max-w-[80ch] whitespace-pre-line text-[12.5px] leading-relaxed text-ink-400">{s(p.note)}</p> : null}
+            {/* The console's editor saves HTML; one emptied out leaves a bare <p></p>, which shows nothing. */}
+            {s(p.note).replace(/<[^>]*>|&nbsp;/g, '').trim() ? (
+              <RichText value={s(p.note)} className="mt-4 max-w-[80ch] text-[12.5px] leading-relaxed text-ink-400" />
+            ) : null}
           </Shell>
         </Band>
       )
