@@ -69,6 +69,22 @@ export const TRACKING_KEYS = Object.keys(TRACKING_FIELDS)
 
 const def = <T extends BlockDef>(b: T): T => ({ ...b, fields: { ...b.fields, ...TRACKING_FIELDS } })
 
+/** The hero's style fields show only for the component style, the one with a card and buttons. */
+const COMPONENT = { field: 'style', is: 'component' }
+
+const SHADOW_OPTIONS = [
+  { value: 'default', label: 'Bawaan' },
+  { value: 'none', label: 'Tanpa bayangan' },
+  { value: 'soft', label: 'Lembut' },
+  { value: 'strong', label: 'Tegas' },
+]
+const BORDER_OPTIONS = [
+  { value: 'none', label: 'Tanpa garis' },
+  { value: 'thin', label: 'Tipis' },
+  { value: 'thick', label: 'Tebal' },
+]
+const BORDER_OPTIONS_SUBTLE = [{ value: 'subtle', label: 'Bawaan (tipis samar)' }, ...BORDER_OPTIONS]
+
 export const BLOCKS = {
   page_header: def({
     type: 'page_header',
@@ -139,6 +155,30 @@ export const BLOCKS = {
           featuredProduct: field.reference({ label: 'Produk yang ditampilkan di kartu angka', to: 'product', help: 'Kartu di sisi kanan menampilkan suku bunga, plafon, dan tenor produk ini. Kosongkan untuk memakai poin keunggulan saja.', showWhen: { field: 'display', is: 'content' } }),
         },
       }),
+      // Look of the rate card and the two buttons. Every one empty is the
+      // design as approved; the website works out a readable text colour from
+      // the background, so a light card never ends up with white text.
+      cardColor: field.color({ label: 'Warna latar kartu', group: 'Gaya kartu angka', showWhen: COMPONENT, help: 'Kosongkan untuk warna bawaan. Warna tulisan menyesuaikan sendiri: gelap di latar terang, putih di latar gelap.' }),
+      cardAccent: field.color({ label: 'Warna angka, ikon, dan garis atas', group: 'Gaya kartu angka', showWhen: COMPONENT, help: 'Suku bunga, tanda centang, dan garis tipis di atas kartu. Kosongkan untuk bawaan: emas di kartu gelap, hijau di kartu terang.' }),
+      cardBorder: field.select({ label: 'Garis tepi kartu', group: 'Gaya kartu angka', showWhen: COMPONENT, options: BORDER_OPTIONS_SUBTLE, default: 'subtle' }),
+      cardBorderColor: field.color({ label: 'Warna garis tepi kartu', group: 'Gaya kartu angka', showWhen: { field: 'cardBorder', is: ['thin', 'thick'] }, help: 'Kosongkan untuk memakai warna angka.' }),
+      cardShadow: field.select({ label: 'Bayangan kartu', group: 'Gaya kartu angka', showWhen: COMPONENT, options: SHADOW_OPTIONS, default: 'default' }),
+
+      buttonShape: field.select({
+        label: 'Bentuk tombol', group: 'Gaya tombol', showWhen: COMPONENT, default: 'pill',
+        options: [{ value: 'pill', label: 'Bulat penuh (bawaan)' }, { value: 'rect', label: 'Kotak dengan sudut tumpul' }],
+      }),
+      primaryColor: field.color({ label: 'Tombol utama: warna latar', group: 'Gaya tombol', showWhen: COMPONENT, help: 'Kosongkan untuk hijau bawaan.' }),
+      primaryTextColor: field.color({ label: 'Tombol utama: warna tulisan', group: 'Gaya tombol', showWhen: COMPONENT, help: 'Kosongkan agar menyesuaikan warna latar.' }),
+      primaryBorder: field.select({ label: 'Tombol utama: garis tepi', group: 'Gaya tombol', showWhen: COMPONENT, options: BORDER_OPTIONS, default: 'none' }),
+      primaryBorderColor: field.color({ label: 'Tombol utama: warna garis tepi', group: 'Gaya tombol', showWhen: { field: 'primaryBorder', is: ['thin', 'thick'] }, help: 'Kosongkan untuk memakai warna tulisan.' }),
+      primaryShadow: field.select({ label: 'Tombol utama: bayangan', group: 'Gaya tombol', showWhen: COMPONENT, options: SHADOW_OPTIONS, default: 'default' }),
+      secondaryColor: field.color({ label: 'Tombol kedua: warna latar', group: 'Gaya tombol', showWhen: COMPONENT, help: 'Kosongkan untuk tombol tembus pandang bergaris.' }),
+      secondaryTextColor: field.color({ label: 'Tombol kedua: warna tulisan', group: 'Gaya tombol', showWhen: COMPONENT, help: 'Kosongkan agar menyesuaikan warna latar (putih bila tembus pandang).' }),
+      secondaryBorder: field.select({ label: 'Tombol kedua: garis tepi', group: 'Gaya tombol', showWhen: COMPONENT, options: BORDER_OPTIONS_SUBTLE, default: 'subtle' }),
+      secondaryBorderColor: field.color({ label: 'Tombol kedua: warna garis tepi', group: 'Gaya tombol', showWhen: { field: 'secondaryBorder', is: ['thin', 'thick'] }, help: 'Kosongkan untuk memakai warna tulisan.' }),
+      secondaryShadow: field.select({ label: 'Tombol kedua: bayangan', group: 'Gaya tombol', showWhen: COMPONENT, options: SHADOW_OPTIONS, default: 'none' }),
+
       // The banner style: whole-width artwork, the way the koperasi's printed
       // spanduk look. Text is optional and sits over the picture; the first
       // banner's heading is still the page's H1 so Google has a title to read.

@@ -6,6 +6,7 @@ import { calculateInstallment, formatRate, formatRupiah, formatRupiahShort, form
 import type { Product } from '@/lib/api'
 import { Shell, Action, Icon, Pill, iconByName, RichText } from '../ui'
 import { Media } from '../ui/Media'
+import { buttonPaint, cardPaint, type CardPaint } from './hero-style'
 
 interface Slide {
   /** `image`: the artwork alone — no copy, no card, no wash. */
@@ -39,7 +40,7 @@ const HERO_HEIGHTS = { short: 'lg:h-[600px]', standard: 'lg:h-[680px]', tall: 'l
 export type HeroHeight = keyof typeof HERO_HEIGHTS
 
 export function HeroCarousel({
-  slides, autoplay, interval = 8, badge, products, height = 'standard',
+  slides, autoplay, interval = 8, badge, products, height = 'standard', look = {},
 }: {
   slides: Slide[]
   autoplay: boolean
@@ -47,6 +48,8 @@ export function HeroCarousel({
   badge?: string
   products: Product[]
   height?: HeroHeight
+  /** The block's style options for the card and buttons (see hero-style.ts). */
+  look?: Record<string, unknown>
 }) {
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -62,6 +65,10 @@ export function HeroCarousel({
   }, [autoplay, paused, slides.length, interval])
 
   if (!slides.length) return null
+  const card = cardPaint(look)
+  const primary = buttonPaint(look, 'primary')
+  const secondary = buttonPaint(look, 'secondary')
+  const shape = look.buttonShape === 'rect' ? 'rect' : 'pill'
   const slide = slides[index]!
   const product = slide.featuredProduct ? products.find((p) => p.id === slide.featuredProduct) : undefined
   // Only with artwork: an image-only slide without one would be an empty panel.
@@ -134,13 +141,13 @@ export function HeroCarousel({
 
             <div className="rise d-4 mt-8 flex flex-wrap gap-3">
               {slide.ctaLabel && slide.ctaHref ? (
-                <Action href={slide.ctaHref} external={isExternalHref(slide.ctaHref)} size="lg">
+                <Action href={slide.ctaHref} external={isExternalHref(slide.ctaHref)} size="lg" shape={shape} style={primary.style} className={primary.className}>
                   {slide.ctaLabel}
                   <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
                 </Action>
               ) : null}
               {slide.secondaryLabel && slide.secondaryHref ? (
-                <Action href={slide.secondaryHref} external={isExternalHref(slide.secondaryHref)} variant="ghostLight" size="lg">
+                <Action href={slide.secondaryHref} external={isExternalHref(slide.secondaryHref)} variant="ghostLight" size="lg" shape={shape} style={secondary.style} className={secondary.className}>
                   {slide.secondaryLabel}
                 </Action>
               ) : null}
@@ -148,7 +155,7 @@ export function HeroCarousel({
           </div>
 
           <div key={`card-${index}`} className="rise d-3">
-            {product ? <RateCard product={product} bullets={slide.bullets ?? []} /> : <TermsCard bullets={slide.bullets ?? []} />}
+            {product ? <RateCard product={product} bullets={slide.bullets ?? []} paint={card} /> : <TermsCard bullets={slide.bullets ?? []} paint={card} />}
           </div>
         </div>
       </Shell>
@@ -185,7 +192,7 @@ export function HeroCarousel({
  * falls back to the figure from the koperasi's own brochure, the same policy
  * as the calculator, and labels it an estimate rather than showing a dash.
  */
-function RateCard({ product, bullets }: { product: Product; bullets: { text: string }[] }) {
+function RateCard({ product, bullets, paint }: { product: Product; bullets: { text: string }[]; paint: CardPaint }) {
   const verified = product.ratePercent != null
   const annual = product.ratePercent ?? product.ratePercentIndicative ?? null
   // Every loan is bunga menurun; a savings product has no instalment to show.
@@ -207,53 +214,53 @@ function RateCard({ product, bullets }: { product: Product; bullets: { text: str
   const href = `/produk/${product.category}/${product.slug}`
 
   return (
-    <div className="surface-dark relative overflow-hidden p-6 sm:p-7">
-      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200/70 to-transparent" />
+    <div className="hero-card relative overflow-hidden p-6 sm:p-7" style={paint.style}>
+      <span aria-hidden="true" className="hc-topline absolute inset-x-0 top-0 h-[2px]" />
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-[12.5px] font-medium text-white/50">{product.category === 'pinjaman' ? 'Pinjaman' : 'Simpanan'}</p>
-          <p className="mt-1 truncate text-[17px] font-bold text-white">{product.name}</p>
+          <p className="hc-muted text-[12.5px] font-medium">{product.category === 'pinjaman' ? 'Pinjaman' : 'Simpanan'}</p>
+          <p className="hc-fg mt-1 truncate text-[17px] font-bold">{product.name}</p>
         </div>
-        <Pill tone={verified ? 'light' : 'gold'}>
+        <Pill tone={verified ? (paint.light ? 'green' : 'light') : 'gold'}>
           {verified ? 'Suku bunga resmi' : 'Perkiraan'}
         </Pill>
       </div>
 
-      <dl className="tnum mt-6 grid grid-cols-2 gap-x-6 gap-y-5 border-t border-white/10 pt-6">
+      <dl className="hc-rule tnum mt-6 grid grid-cols-2 gap-x-6 gap-y-5 border-t pt-6">
         <div>
-          <dt className="text-[12px] font-medium text-white/50">Bunga {PRODUCT_RATE_PERIOD_LABELS[productRatePeriod(product)]}</dt>
-          <dd className="figure mt-1.5 text-[2rem] text-gold-300 sm:text-[2.25rem]">{rate ?? '—'}</dd>
-          {rate && !verified ? <dd className="mt-1 text-[11.5px] text-white/45">Mengacu materi publikasi, belum diverifikasi ulang</dd> : null}
+          <dt className="hc-muted text-[12px] font-medium">Bunga {PRODUCT_RATE_PERIOD_LABELS[productRatePeriod(product)]}</dt>
+          <dd className="hc-accent figure mt-1.5 text-[2rem] sm:text-[2.25rem]">{rate ?? '—'}</dd>
+          {rate && !verified ? <dd className="hc-faint mt-1 text-[11.5px]">Mengacu materi publikasi, belum diverifikasi ulang</dd> : null}
         </div>
         <div>
-          <dt className="text-[12px] font-medium text-white/50">Angsuran contoh</dt>
-          <dd className="figure mt-1.5 text-[1.35rem] text-white sm:text-[1.5rem]">
+          <dt className="hc-muted text-[12px] font-medium">Angsuran contoh</dt>
+          <dd className="hc-fg figure mt-1.5 text-[1.35rem] sm:text-[1.5rem]">
             {example ? formatRupiah(example.monthly) : '—'}
           </dd>
-          {example ? <dd className="mt-1 text-[11.5px] text-white/45">{formatRupiahShort(samplePrincipal)} · {sampleTenor} bln</dd> : null}
+          {example ? <dd className="hc-faint mt-1 text-[11.5px]">{formatRupiahShort(samplePrincipal)} · {sampleTenor} bln</dd> : null}
         </div>
         <div>
-          <dt className="text-[12px] font-medium text-white/50">{productAmountLabel(product.category)}</dt>
-          <dd className="mt-1.5 text-[15px] font-bold text-white">{plafon ?? '—'}</dd>
+          <dt className="hc-muted text-[12px] font-medium">{productAmountLabel(product.category)}</dt>
+          <dd className="hc-fg mt-1.5 text-[15px] font-bold">{plafon ?? '—'}</dd>
         </div>
         <div>
-          <dt className="text-[12px] font-medium text-white/50">Jangka waktu</dt>
-          <dd className="mt-1.5 text-[15px] font-bold text-white">{tenor ?? '—'}</dd>
+          <dt className="hc-muted text-[12px] font-medium">Jangka waktu</dt>
+          <dd className="hc-fg mt-1.5 text-[15px] font-bold">{tenor ?? '—'}</dd>
         </div>
       </dl>
 
       {bullets.length ? (
-        <ul className="mt-6 space-y-2.5 border-t border-white/10 pt-5">
+        <ul className="hc-rule mt-6 space-y-2.5 border-t pt-5">
           {bullets.slice(0, 4).map((b, i) => (
-            <li key={i} className="flex items-start gap-2.5 text-[13.5px] leading-snug text-white/80">
-              <Icon.check className="mt-[3px] size-3.5 shrink-0 text-gold-300" />
+            <li key={i} className="hc-soft flex items-start gap-2.5 text-[13.5px] leading-snug">
+              <Icon.check className="hc-accent mt-[3px] size-3.5 shrink-0" />
               {b.text}
             </li>
           ))}
         </ul>
       ) : null}
 
-      <Link href={href} className="mt-6 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-white transition-colors hover:text-gold-200">
+      <Link href={href} className="hc-link mt-6 inline-flex items-center gap-1.5 text-[13.5px] font-semibold">
         Syarat &amp; ketentuan lengkap
         <Icon.arrowUpRight className="size-4" />
       </Link>
@@ -262,16 +269,16 @@ function RateCard({ product, bullets }: { product: Product; bullets: { text: str
 }
 
 /** Fallback when a slide has no product attached: the terms panel from the approved design, in navy. */
-function TermsCard({ bullets }: { bullets: { text: string }[] }) {
+function TermsCard({ bullets, paint }: { bullets: { text: string }[]; paint: CardPaint }) {
   if (!bullets.length) return null
   return (
-    <div className="surface-dark relative overflow-hidden p-6 sm:p-7">
-      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200/70 to-transparent" />
-      <p className="text-[12.5px] font-medium text-white/50">Ketentuan</p>
-      <ul className="mt-4 divide-y divide-white/10">
+    <div className="hero-card relative overflow-hidden p-6 sm:p-7" style={paint.style}>
+      <span aria-hidden="true" className="hc-topline absolute inset-x-0 top-0 h-[2px]" />
+      <p className="hc-muted text-[12.5px] font-medium">Ketentuan</p>
+      <ul className="mt-4">
         {bullets.map((b, i) => (
-          <li key={i} className="flex items-start gap-3 py-3 text-[15px] leading-relaxed text-white/85 first:pt-1 last:pb-0">
-            <Icon.checkCircle className="mt-0.5 size-5 shrink-0 text-gold-300" />
+          <li key={i} className="hc-soft hc-rule flex items-start gap-3 border-t py-3 text-[15px] leading-relaxed first:border-t-0 first:pt-1 last:pb-0">
+            <Icon.checkCircle className="hc-accent mt-0.5 size-5 shrink-0" />
             {b.text}
           </li>
         ))}

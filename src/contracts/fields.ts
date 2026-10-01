@@ -15,7 +15,15 @@ import { z, type ZodTypeAny } from 'zod'
  * sibling left empty counts as holding its own default.
  */
 export interface ShowWhen { field: string; is: string | boolean | (string | boolean)[] }
-type Conditional = { showWhen?: ShowWhen }
+type Conditional = {
+  showWhen?: ShowWhen
+  /**
+   * Fields sharing a group are folded together in the console under this
+   * title, after the block's other fields: a set of style options stays out of
+   * the way of the content until someone opens it.
+   */
+  group?: string
+}
 
 export type FieldDef = Conditional & (
   | { kind: 'text'; label: string; help?: string; placeholder?: string; required?: boolean; max?: number; default?: string }
@@ -34,11 +42,16 @@ export type FieldDef = Conditional & (
 
 export type FieldMap = Record<string, FieldDef>
 
-/** Whether a field is shown for the values its siblings hold now (see `ShowWhen`). */
-export function isFieldShown(def: FieldDef, siblings: Record<string, unknown>, fields: FieldMap): boolean {
+/**
+ * Whether a field is shown for the values its siblings hold now (see `ShowWhen`).
+ * A field that depends on a hidden one is hidden too: a border's colour has no
+ * business showing once the border's own setting is out of view.
+ */
+export function isFieldShown(def: FieldDef, siblings: Record<string, unknown>, fields: FieldMap, depth = 0): boolean {
   const cond = def.showWhen
   if (!cond) return true
   const other = fields[cond.field]
+  if (other && depth < 5 && !isFieldShown(other, siblings, fields, depth + 1)) return false
   let v = siblings[cond.field]
   if ((v === undefined || v === null || v === '') && other && 'default' in other && other.default !== undefined) v = other.default
   const wanted = Array.isArray(cond.is) ? cond.is : [cond.is]
@@ -81,15 +94,22 @@ export const field = {
   repeater: (o: Omit<Extract<FieldDef, { kind: 'repeater' }>, 'kind'>) => ({ kind: 'repeater', ...o }) as FieldDef,
 }
 
+/** #rgb, #rrggbb or #rrggbbaa (the last two digits are opacity): what a color field may hold. */
+export const COLOR_FIELD_VALUE = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
+
 function leafToZod(f: FieldDef): ZodTypeAny {
   switch (f.kind) {
     case 'text':
     case 'link':
-    case 'icon':
-    case 'color': {
+    case 'icon': {
       let s = z.string()
       if ('max' in f && f.max) s = s.max(f.max)
       return f.required ? s.min(1, 'Wajib diisi') : s.optional().or(z.literal(''))
+    }
+    case 'color': {
+      // A hex colour, because the website writes it straight into a style.
+      const s = z.string().trim().regex(COLOR_FIELD_VALUE, 'Tulis warna seperti #4e8b2c.')
+      return f.required ? s : s.optional().or(z.literal(''))
     }
     case 'textarea':
     case 'richtext': {

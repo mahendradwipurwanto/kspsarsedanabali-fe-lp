@@ -191,7 +191,7 @@ export function Action({
   const cls = [
     'group/act inline-flex items-center justify-center gap-2 font-semibold tracking-[-0.005em]',
     shape === 'pill' ? 'rounded-full' : 'rounded-[var(--radius-input)]',
-    'cursor-pointer transition-[background-color,box-shadow,color] duration-200 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none',
+    'cursor-pointer transition-[background-color,box-shadow,color,filter] duration-200 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none',
     VARIANTS[variant], SIZES[size], full ? 'w-full' : '', className,
   ].join(' ')
 
@@ -199,7 +199,7 @@ export function Action({
     return external ? (
       <a href={href} className={cls} target="_blank" rel="noopener noreferrer" {...(rest as object)}>{children}</a>
     ) : (
-      <Link href={href} className={cls}>{children}</Link>
+      <Link href={href} className={cls} style={rest.style}>{children}</Link>
     )
   }
   return <button className={cls} {...rest}>{children}</button>

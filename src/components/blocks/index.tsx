@@ -174,6 +174,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
           badge={s(p.badge)}
           products={ctx.products}
           height={s(p.heroHeight, 'standard') as HeroHeight}
+          look={p}
         />
       )
     }

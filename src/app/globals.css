@@ -188,6 +188,33 @@ body {
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
 }
 
+/* The hero's rate card. The variables are the Banner Utama block's style
+   options (see components/interactive/hero-style.ts); unset, they reproduce
+   .surface-dark with gold figures. Text shades are mixed from --hc-fg, so a
+   light card editors pick gets dark text without separate fields. */
+.hero-card {
+  --hc-bg: var(--color-night-800);
+  --hc-fg: #fff;
+  --hc-accent: var(--color-gold-300);
+  --hc-border: color-mix(in srgb, var(--hc-fg) 10%, transparent);
+  --hc-border-w: 1px;
+  --hc-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+  border-radius: var(--radius-card);
+  background: var(--hc-bg);
+  color: var(--hc-fg);
+  border: var(--hc-border-w) solid var(--hc-border);
+  box-shadow: var(--hc-shadow);
+}
+.hero-card .hc-fg { color: var(--hc-fg); }
+.hero-card .hc-soft { color: color-mix(in srgb, var(--hc-fg) 82%, transparent); }
+.hero-card .hc-muted { color: color-mix(in srgb, var(--hc-fg) 55%, transparent); }
+.hero-card .hc-faint { color: color-mix(in srgb, var(--hc-fg) 48%, transparent); }
+.hero-card .hc-accent { color: var(--hc-accent); }
+.hero-card .hc-rule { border-color: color-mix(in srgb, var(--hc-fg) 12%, transparent); }
+.hero-card .hc-topline { background: linear-gradient(to right, var(--hc-accent), color-mix(in srgb, var(--hc-accent) 70%, transparent), transparent); }
+.hero-card .hc-link { color: var(--hc-fg); transition: color 0.2s; }
+.hero-card .hc-link:hover { color: var(--hc-accent); }
+
 /* The one gold hairline a light section may use. */
 .rule-gold {
   display: block;
