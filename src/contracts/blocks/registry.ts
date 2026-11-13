@@ -1,4 +1,4 @@
-import { field, fieldsToZod, defaultsFor, type FieldMap } from '../fields'
+import { field, fieldsToZod, defaultsFor, withoutHidden, type FieldMap } from '../fields'
 
 /**
  * Block registry.
@@ -132,7 +132,8 @@ export const BLOCKS = {
       }),
       badge: field.text({ label: 'Label kecil di atas judul', max: 40, default: 'Program unggulan', help: 'Hanya untuk gaya komponen. Muncul sebagai lencana kecil; kosongkan untuk menyembunyikan.' }),
       slides: field.repeater({
-        label: 'Slide banner', itemLabel: 'Slide', max: 6, help: 'Hanya untuk gaya komponen.',
+        label: 'Slide banner', itemLabel: 'Slide', max: 6, hideable: true,
+        help: 'Hanya untuk gaya komponen. Slide yang sedang tidak dipakai bisa disembunyikan dengan ikon mata, tanpa perlu dihapus.',
         of: {
           display: field.select({
             label: 'Tampilan slide',
@@ -183,8 +184,8 @@ export const BLOCKS = {
       // spanduk look. Text is optional and sits over the picture; the first
       // banner's heading is still the page's H1 so Google has a title to read.
       banners: field.repeater({
-        label: 'Gambar banner penuh', itemLabel: 'Banner', max: 6,
-        help: 'Hanya untuk gaya gambar banner. Ukuran ideal 1920×820 piksel; di ponsel gambar dipotong ke 4:3, jadi letakkan pesan utama di tengah.',
+        label: 'Gambar banner penuh', itemLabel: 'Banner', max: 6, hideable: true,
+        help: 'Hanya untuk gaya gambar banner. Ukuran ideal 1920×820 piksel; di ponsel gambar dipotong ke 4:3, jadi letakkan pesan utama di tengah. Banner yang sedang tidak dipakai bisa disembunyikan dengan ikon mata.',
         of: {
           image: field.image({ label: 'Gambar', required: true }),
           alt: field.text({ label: 'Teks alternatif', required: true, max: 120, help: 'Dibaca mesin pencari dan pembaca layar. Tulis pesan yang ada di gambar.' }),
@@ -542,6 +543,83 @@ export const BLOCKS = {
         label: 'Foto', itemLabel: 'Foto', min: 1, max: 24,
         of: { image: field.image({ label: 'Foto', required: true }), caption: field.text({ label: 'Keterangan foto', max: 120 }) },
       }),
+    },
+  }),
+
+  /**
+   * A chart drawn from a Google Spreadsheet the koperasi keeps up to date.
+   *
+   * The block only says which data and how to draw it. The link, the tab and
+   * the columns live on the record in the Data Spreadsheet menu, where they
+   * are tested and previewed once and can then be reused on several pages.
+   */
+  data_chart: def({
+    type: 'data_chart',
+    label: 'Diagram Data',
+    description: 'Diagram batang, garis, atau lingkaran dari Google Spreadsheet. Angkanya ikut berubah saat spreadsheet diperbarui.',
+    category: 'Konten',
+    icon: 'trending-up',
+    headingLevel: 'h2',
+    fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'Data koperasi' }),
+      heading: field.text({ label: 'Judul bagian', max: 70, default: 'Perkembangan Koperasi' }),
+      subtext: field.textarea({ label: 'Penjelasan singkat', max: 240, rows: 2 }),
+      source: field.reference({
+        label: 'Data yang ditampilkan',
+        to: 'data-source',
+        // Without it the section draws nothing at all, with no sign of why.
+        required: true,
+        help: 'Pilih data yang sudah disiapkan di menu Data Spreadsheet. Belum ada? Tambahkan dulu di sana: tempel link spreadsheet, tes, lalu simpan.',
+      }),
+      chartType: field.select({
+        label: 'Bentuk diagram',
+        options: [
+          { value: 'bar', label: 'Batang tegak: membandingkan angka antarperiode' },
+          { value: 'bar-horizontal', label: 'Batang mendatar: cocok untuk nama yang panjang' },
+          { value: 'line', label: 'Garis: menunjukkan naik-turun dari waktu ke waktu' },
+          { value: 'area', label: 'Area: garis dengan bidang berwarna di bawahnya' },
+          { value: 'pie', label: 'Lingkaran: pembagian dari satu keseluruhan' },
+          { value: 'donut', label: 'Donat: lingkaran dengan total di tengah' },
+        ],
+        default: 'bar',
+        help: 'Lingkaran dan donat hanya memakai kolom angka pertama.',
+      }),
+      valueFormat: field.select({
+        label: 'Cara menulis angka',
+        options: [
+          { value: 'number', label: 'Angka biasa: 1.250.000' },
+          { value: 'compact', label: 'Ringkas: 1,25 jt' },
+          { value: 'rupiah', label: 'Rupiah: Rp1.250.000' },
+          { value: 'rupiah-compact', label: 'Rupiah ringkas: Rp1,25 jt' },
+          { value: 'percent', label: 'Persen: 12,5%' },
+        ],
+        default: 'compact',
+      }),
+      showValues: field.boolean({ label: 'Tulis angka pada diagram', default: true, help: 'Dimatikan otomatis bila titik datanya terlalu banyak untuk dibaca.' }),
+      showSummary: field.boolean({
+        label: 'Tampilkan ringkasan di samping diagram',
+        default: true,
+        help: 'Panel berisi angka yang paling menonjol: porsi terbesar, angka terbaru, atau nilai tertinggi. Dihitung sendiri dari datanya.',
+      }),
+      showLegend: field.boolean({ label: 'Tampilkan keterangan warna', default: true }),
+      showTable: field.boolean({
+        label: 'Tampilkan tabel angka di bawah diagram',
+        default: false,
+        help: 'Angkanya tetap dibaca Google dan pembaca layar walaupun tabelnya tidak ditampilkan.',
+      }),
+      height: field.select({
+        label: 'Tinggi diagram',
+        options: [{ value: 'short', label: 'Pendek' }, { value: 'standard', label: 'Standar' }, { value: 'tall', label: 'Tinggi' }],
+        default: 'standard',
+      }),
+      note: field.textarea({
+        label: 'Catatan kecil di bawah diagram',
+        max: 240,
+        rows: 2,
+        placeholder: 'Sumber: Laporan RAT Tahun Buku 2025.',
+        help: 'Opsional. Misalnya sumber dan tanggal datanya.',
+      }),
+      showUpdated: field.boolean({ label: 'Tulis kapan data terakhir diperbarui', default: false }),
     },
   }),
 
@@ -929,7 +1007,7 @@ export const BLOCKS = {
   app_download: def({
     type: 'app_download',
     label: 'Unduh Aplikasi',
-    description: 'Ajakan memasang aplikasi koperasi dengan tombol App Store dan Google Play. Tautan tokonya diatur di Pengaturan → Aplikasi.',
+    description: 'Ajakan memasang aplikasi koperasi dengan tombol App Store dan Google Play. Tautan tokonya diatur di menu Aplikasi Mobile.',
     category: 'Konversi',
     icon: 'smartphone',
     headingLevel: 'h2',
@@ -977,12 +1055,26 @@ export function validateBlockProps(type: string, props: unknown) {
   const parsed = fieldsToZod(block.fields).safeParse(props)
   return parsed.success
     ? { success: true as const, data: parsed.data }
-    : { success: false as const, error: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') }
+    : {
+        success: false as const,
+        // Named as the form names it ("Data yang ditampilkan"), not by its key ("source").
+        error: parsed.error.issues.map((i) => {
+          const [key, ...rest] = i.path
+          const label = block.fields[String(key)]?.label ?? String(key ?? '')
+          return `${[label, ...rest].join('.')}: ${i.message}`
+        }).join('; '),
+      }
 }
 
 export function defaultPropsFor(type: string): Record<string, unknown> {
   const block = getBlock(type)
   return block ? defaultsFor(block.fields) : {}
+}
+
+/** A block's props with the rows an editor switched off left out: what the website draws. */
+export function visibleBlockProps(type: string, props: Record<string, unknown>): Record<string, unknown> {
+  const block = getBlock(type)
+  return block ? withoutHidden(block.fields, props) : props
 }
 
 /**

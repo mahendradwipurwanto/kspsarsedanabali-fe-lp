@@ -46,7 +46,7 @@ export default async function PreviewPage({ params }: { params: Promise<{ token:
   const page = await getPreview(token)
   if (!page) return <Expired />
 
-  const ctx = await getBlockContext(page.blocks)
+  const ctx = await getBlockContext(page.blocks, { preview: true })
 
   return (
     <>

@@ -269,6 +269,81 @@ export const updateUserSchema = createUserSchema.partial().omit({ password: true
   password: z.string().min(10).max(200).optional().or(z.literal('')),
 })
 
+/* --------------------------------- invitations ------------------------------ */
+
+/**
+ * Two ways to bring someone into the console:
+ *   `link`      they get a link and choose their own password (nobody else ever knows it)
+ *   `password`  the admin sets a first password and tells them it; the email only says they were added
+ */
+export const INVITE_MODES = ['link', 'password'] as const
+export type InviteMode = (typeof INVITE_MODES)[number]
+
+/** How long an invitation link works. */
+export const INVITE_TTL_DAYS = 7
+export const PASSWORD_MIN = 10
+
+export const inviteUserSchema = z
+  .object({
+    name: z.string().trim().min(2, 'Nama minimal 2 huruf').max(120),
+    email: z.string().trim().email(EMAIL_ERROR).max(200),
+    roleIds: z.array(idSchema).min(1, 'Pilih minimal satu peran'),
+    branchIds: z.array(idSchema).optional(),
+    mode: z.enum(INVITE_MODES).default('link'),
+    password: z.string().max(200).optional().or(z.literal('')),
+    /** Email the invitee. Off, or with no email set up, the admin passes the link on by hand. */
+    sendEmail: z.boolean().default(true),
+  })
+  .superRefine((v, ctx) => {
+    if (v.mode === 'password' && (v.password ?? '').length < PASSWORD_MIN) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['password'], message: `Kata sandi minimal ${PASSWORD_MIN} karakter` })
+    }
+  })
+
+export const acceptInviteSchema = z.object({
+  token: z.string().min(20).max(200),
+  password: z.string().min(PASSWORD_MIN, `Kata sandi minimal ${PASSWORD_MIN} karakter`).max(200),
+})
+
+/** What the console is told after inviting someone. */
+export interface InviteResult {
+  id: string
+  name: string
+  email: string
+  mode: InviteMode
+  /** The link to set a password; only for `link`. Shown to the admin so it can be sent by hand. */
+  inviteUrl: string | null
+  expiresAt: string | null
+  /** Whether an email actually went out, and if not, why. */
+  emailSent: boolean
+  emailError: string | null
+}
+
+/* ------------------------------ outgoing email ------------------------------ */
+
+export const smtpSettingsSchema = z.object({
+  host: z.string().trim().min(3, 'Isi alamat server email').max(200).regex(/^[A-Za-z0-9.-]+$/, 'Tulis nama servernya saja, misalnya smtp.gmail.com'),
+  port: z.number().int().min(1).max(65535).default(587),
+  user: z.string().trim().max(200).optional().or(z.literal('')),
+  /** Empty on a save keeps the password already stored. */
+  password: z.string().max(500).optional().or(z.literal('')),
+  fromName: z.string().trim().max(80).optional().or(z.literal('')),
+  fromEmail: z.string().trim().email(EMAIL_ERROR).max(200),
+})
+
+/** The email set-up as the console may know it: where it sends from, never the password. */
+export interface EmailIntegration {
+  configured: boolean
+  /** Set up in the console, or by the server's own environment. */
+  source: 'console' | 'env' | null
+  host: string | null
+  port: number | null
+  user: string | null
+  fromName: string | null
+  fromEmail: string | null
+  updatedAt: string | null
+}
+
 export const roleSchema = z.object({
   name: z.string().min(2).max(60),
   description: z.string().max(240).optional().or(z.literal('')),

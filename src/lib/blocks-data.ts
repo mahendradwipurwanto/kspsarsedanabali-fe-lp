@@ -1,5 +1,5 @@
 import {
-  getBranches, getDocumentCategories, getDocuments, getFaqs, getJobs, getPosts, getProducts, getPublishedFeedback, getSettings, getSimulations, getStats, getTestimonials,
+  getBranches, getDataSource, getDocumentCategories, getDocuments, getFaqs, getJobs, getPosts, getProducts, getPublishedFeedback, getSettings, getSimulations, getStats, getTestimonials,
 } from './api'
 import type { BlockContext } from '@/components/blocks'
 
@@ -33,6 +33,8 @@ const NEEDS: Record<string, (keyof Needs)[]> = {
   video_embed: [],
   logo_cloud: [],
   app_download: ['settings'],
+  // data_chart reads one record per block, by id; see below.
+  data_chart: [],
 }
 
 interface Needs {
@@ -63,6 +65,8 @@ export async function getBlockContext(
     page?: number
     basePath?: string
     query?: BlockContext['query']
+    /** An editor's draft: blocks with nothing chosen yet draw a sample instead of nothing. */
+    preview?: boolean
   } = {},
 ): Promise<BlockContext> {
   const need = {} as Needs
@@ -88,6 +92,14 @@ export async function getBlockContext(
   const feedbackLimit = typeof feedbackBlock?.props.publishedLimit === 'number' ? feedbackBlock.props.publishedLimit : 4
   const showsPublished = !!feedbackBlock && feedbackBlock.props.showPublished !== false
 
+  // Each chart names its own record, and a page may hold several.
+  const chartIds = [...new Set(
+    blocks
+      .filter((b) => b.type === 'data_chart' && b.isVisible && typeof b.props.source === 'string' && b.props.source)
+      .map((b) => b.props.source as string),
+  )]
+  const chartsLoading = Promise.all(chartIds.map((id) => getDataSource(id).then((data) => [id, data] as const)))
+
   const [products, simulations, branches, postsRes, stats, testimonials, documents, documentCategories, settings, jobs, faqs, publishedFeedback] = await Promise.all([
     need.products ? getProducts() : Promise.resolve([]),
     need.simulations ? getSimulations() : Promise.resolve([]),
@@ -102,6 +114,7 @@ export async function getBlockContext(
     need.faqs ? getFaqs() : Promise.resolve([]),
     need.publishedFeedback && showsPublished ? getPublishedFeedback(feedbackLimit) : Promise.resolve([]),
   ])
+  const dataSources = Object.fromEntries((await chartsLoading).filter(([, data]) => data))
 
   return {
     products,
@@ -116,6 +129,8 @@ export async function getBlockContext(
     jobs,
     faqs,
     publishedFeedback,
+    dataSources,
+    preview: opts.preview,
     postsMeta: postsRes?.meta ? { page: postsRes.meta.page, totalPages: postsRes.meta.totalPages } : undefined,
     basePath: opts.basePath,
     query: opts.query,

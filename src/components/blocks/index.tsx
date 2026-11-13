@@ -1,6 +1,7 @@
 import { Fragment, Suspense } from 'react'
 import Link from 'next/link'
-import { getBlock, defaultPropsFor, isHtml, telLink, getOpenState, orgLevelsFrom, trackingAttrs, DEFAULT_ANALYTICS, FEEDBACK_CATEGORY_LABELS, type OrgColumn, type AnalyticsSettings } from '@/contracts'
+import { getBlock, defaultPropsFor, visibleBlockProps, SAMPLE_CHART, isHtml, telLink, getOpenState, orgLevelsFrom, trackingAttrs, DEFAULT_ANALYTICS, FEEDBACK_CATEGORY_LABELS, type OrgColumn, type OrgLevel, type AnalyticsSettings } from '@/contracts'
+import type { PublicDataSource } from '@/contracts'
 import type { Block, Branch, Product, Simulation, Post, Stat, Testimonial, DocumentItem, DocumentCategory, Job, Faq, PublishedFeedback } from '@/lib/api'
 import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, iconByName, RichText } from '../ui'
 import { Media } from '../ui/Media'
@@ -23,6 +24,7 @@ import { HeroBanners, type Banner } from '../interactive/HeroBanners'
 import { MediaText, Steps, Timeline, VideoEmbed, LogoCloud, type Step, type Milestone, type Logo } from '../Sections'
 import { AppDownload, type StoreMode } from '../AppDownload'
 import { CountUp } from '../interactive/CountUp'
+import { ChartFigure } from '../ChartFigure'
 import { appSettings } from '@/lib/apps'
 
 export interface BlockContext {
@@ -39,6 +41,10 @@ export interface BlockContext {
   /** Every document kind, so the shelf can list one that is still empty. */
   documentCategories?: DocumentCategory[]
   settings: Record<string, unknown>
+  /** The figures for each "Diagram Data" block on the page, by the record it points at. */
+  dataSources?: Record<string, PublicDataSource | null>
+  /** An editor's draft rather than the live page. */
+  preview?: boolean
   /** Only the pages that render them fetch these. */
   jobs?: Job[]
   faqs?: Faq[]
@@ -129,7 +135,10 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
   // editor, so the two never disagree about what a missing field means. The
   // literal fallbacks further down only matter when a stored value is not a
   // string at all.
-  const p = { ...defaultPropsFor(block.type), ...block.props } as P
+  //
+  // Rows an editor switched off (a hero slide out of season) are dropped here,
+  // once, so no component below has to know a row can be hidden.
+  const p = visibleBlockProps(block.type, { ...defaultPropsFor(block.type), ...block.props }) as P
 
   switch (block.type) {
     /* ─────────────────────────── page openers ─────────────────────────── */
@@ -315,6 +324,46 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
       )
     }
 
+    /* ─────────────────────── chart from a spreadsheet ─────────────────── */
+    case 'data_chart': {
+      const source = ctx.dataSources?.[s(p.source)]
+      // Nothing chosen, or a sheet that could not be read: the live page says
+      // nothing at all, while a draft shows the shape with sample figures so
+      // an editor can see what they are adding.
+      const sample = !source?.chart.labels.length && ctx.preview
+      const chart = sample ? SAMPLE_CHART : source?.chart
+      if (!chart?.labels.length) return null
+      const hasNote = s(p.note).replace(/<[^>]*>|&nbsp;/g, '').trim()
+      const updated = b(p.showUpdated) && source?.syncedAt
+        ? new Date(source.syncedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Makassar' })
+        : ''
+      return (
+        <Band tone={tone}>
+          <Shell>
+            {s(p.heading) ? <Heading label={s(p.eyebrow)} title={s(p.heading)} lead={s(p.subtext)} /> : null}
+            <ChartFigure
+              chart={chart}
+              type={s(p.chartType, 'bar')}
+              format={s(p.valueFormat, 'compact')}
+              showSummary={b(p.showSummary, true)}
+              showValues={b(p.showValues, true)}
+              showLegend={b(p.showLegend, true)}
+              showTable={b(p.showTable)}
+              height={s(p.height, 'standard')}
+              title={s(p.heading) || source?.name}
+              updated={updated}
+              note={hasNote ? <RichText value={s(p.note)} /> : null}
+              notice={sample ? (
+                <p className="mb-5 rounded-[var(--radius-input)] border border-gold-200 bg-gold-50 px-3.5 py-2.5 text-[13px] font-medium text-gold-700">
+                  Contoh diagram dengan angka rekaan. Pilih “Data yang ditampilkan” pada blok ini untuk memakai angka dari spreadsheet.
+                </p>
+              ) : null}
+            />
+          </Shell>
+        </Band>
+      )
+    }
+
     /* ───────────────────────────── products ───────────────────────────── */
     case 'product_grid': {
       const category = s(p.category, 'all')
@@ -471,7 +520,7 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
       // The chart is a list of levels. Charts saved before levels existed are
       // converted by the shared helper, with the board from Pengaturan →
       // Legalitas & Organisasi standing in when the block carries none.
-      const levels = orgLevelsFrom(p, arr<OrgColumn>(ctx.settings.organization))
+      const levels = orgLevelsFrom(p, arr<OrgColumn>(ctx.settings.organization), arr<OrgLevel>(ctx.settings.organizationChart))
       if (!levels.length) return null
       return (
         <Band tone={tone}>

@@ -36,8 +36,20 @@ export type FieldDef = Conditional & (
   | { kind: 'link'; label: string; help?: string; required?: boolean; placeholder?: string; max?: number; default?: string }
   | { kind: 'icon'; label: string; help?: string; required?: boolean; max?: number; default?: string }
   | { kind: 'color'; label: string; help?: string; required?: boolean; max?: number; default?: string }
-  | { kind: 'reference'; label: string; help?: string; to: 'product' | 'post' | 'branch' | 'page' | 'document-category'; multiple?: boolean }
-  | { kind: 'repeater'; label: string; help?: string; itemLabel?: string; min?: number; max?: number; of: FieldMap; default?: Record<string, unknown>[] }
+  | {
+      kind: 'reference'; label: string; help?: string; to: 'product' | 'post' | 'branch' | 'page' | 'document-category' | 'data-source'; multiple?: boolean
+      /** A single reference the block cannot be drawn without: saving with none chosen is refused, rather than publishing a section that shows nothing. */
+      required?: boolean
+    }
+  | {
+      kind: 'repeater'; label: string; help?: string; itemLabel?: string; min?: number; max?: number; of: FieldMap; default?: Record<string, unknown>[]
+      /**
+       * Each row can be switched off without being deleted: it stays in the
+       * console, dimmed, and the website leaves it out (see `withoutHidden`).
+       * The row carries the switch under `HIDDEN_KEY`.
+       */
+      hideable?: boolean
+    }
 )
 
 export type FieldMap = Record<string, FieldDef>
@@ -94,6 +106,29 @@ export const field = {
   repeater: (o: Omit<Extract<FieldDef, { kind: 'repeater' }>, 'kind'>) => ({ kind: 'repeater', ...o }) as FieldDef,
 }
 
+/** Where a row of a `hideable` repeater keeps its "disembunyikan" switch. */
+export const HIDDEN_KEY = 'hidden'
+
+/**
+ * A block's props as the website draws them: rows switched off in a `hideable`
+ * repeater are left out, at any depth. Done once, where the block is rendered,
+ * so no component has to remember to skip them, and the first row that is
+ * still shown takes whatever role the first row has (a hero's H1, say).
+ */
+export function withoutHidden(fields: FieldMap, props: Record<string, unknown>): Record<string, unknown> {
+  let out = props
+  for (const [key, def] of Object.entries(fields)) {
+    if (def.kind !== 'repeater') continue
+    const rows = props[key]
+    if (!Array.isArray(rows)) continue
+    const kept = (rows as unknown[])
+      .filter((row) => !(def.hideable && row && typeof row === 'object' && (row as Record<string, unknown>)[HIDDEN_KEY] === true))
+      .map((row) => (row && typeof row === 'object' ? withoutHidden(def.of, row as Record<string, unknown>) : row))
+    if (kept.length !== rows.length || kept.some((row, i) => row !== rows[i])) out = { ...out, [key]: kept }
+  }
+  return out
+}
+
 /** #rgb, #rrggbb or #rrggbbaa (the last two digits are opacity): what a color field may hold. */
 export const COLOR_FIELD_VALUE = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
 
@@ -136,9 +171,11 @@ function leafToZod(f: FieldDef): ZodTypeAny {
       // media id (uuid) or a direct URL
       return f.required ? z.string().min(1, 'Gambar wajib dipilih') : z.string().optional().or(z.literal(''))
     case 'reference':
-      return f.multiple ? z.array(z.string()).optional() : z.string().optional()
+      if (f.multiple) return z.array(z.string()).optional()
+      return f.required ? z.string({ required_error: 'belum dipilih' }).min(1, 'belum dipilih') : z.string().optional()
     case 'repeater': {
-      let a = z.array(fieldsToZod(f.of))
+      const row = fieldsToZod(f.of)
+      let a = z.array(f.hideable ? row.extend({ [HIDDEN_KEY]: z.boolean().optional() }) : row)
       if (f.min !== undefined) a = a.min(f.min, `Minimal ${f.min} item`)
       if (f.max !== undefined) a = a.max(f.max, `Maksimal ${f.max} item`)
       return a.optional().default([])

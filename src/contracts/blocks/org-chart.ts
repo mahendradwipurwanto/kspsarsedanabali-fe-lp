@@ -59,14 +59,20 @@ export function orgLevelIsEmpty(level: OrgLevel): boolean {
 /**
  * The levels a block should render.
  *
- * `props.levels` wins when it has anything in it. Otherwise the legacy five
- * props are converted, with `fallbackGroups` standing in for the board when
- * the block carries none — that is the settings-driven board the website has
- * always fallen back to.
+ * `props.levels` wins when it has anything in it. A block that says nothing
+ * of its own — no levels, no board — follows `sharedLevels`, the chart drawn
+ * once under Pengaturan → Legalitas & Organisasi, so the koperasi maintains
+ * its structure in one place. Otherwise the legacy five props are converted,
+ * with `fallbackGroups` standing in for the board when the block carries none.
  */
-export function orgLevelsFrom(props: Record<string, unknown>, fallbackGroups: OrgColumn[] = []): OrgLevel[] {
+export function orgLevelsFrom(props: Record<string, unknown>, fallbackGroups: OrgColumn[] = [], sharedLevels: OrgLevel[] = []): OrgLevel[] {
   const declared = list<OrgLevel>(props.levels).filter((l) => !orgLevelIsEmpty(l))
   if (declared.length) return declared
+
+  if (!list<OrgColumn>(props.groups).length) {
+    const shared = list<OrgLevel>(sharedLevels).filter((l) => !orgLevelIsEmpty(l))
+    if (shared.length) return shared
+  }
 
   const levels: OrgLevel[] = []
 
@@ -112,6 +118,19 @@ export function orgLevelsFrom(props: Record<string, unknown>, fallbackGroups: Or
   }
 
   return levels.filter((l) => !orgLevelIsEmpty(l))
+}
+
+/**
+ * The board inside a chart — its first row of name cards — in the shape the
+ * `organization` setting has always had. Written beside the chart on every
+ * save, so anything still reading that setting sees the same people.
+ */
+export function orgBoardFrom(levels: OrgLevel[]): { title: string; members: { name: string; role: string }[] }[] {
+  const board = list<OrgLevel>(levels).find((l) => l.kind === 'kolom' && l.style !== 'daftar' && list<OrgColumn>(l.columns).length)
+  return list<OrgColumn>(board?.columns).map((c) => ({
+    title: str(c.title),
+    members: list<OrgMember>(c.members).filter((m) => str(m.name)).map((m) => ({ name: str(m.name), role: str(m.role) })),
+  }))
 }
 
 /** A blank level of the requested kind, used by the console's "add" buttons. */

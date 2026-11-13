@@ -1,5 +1,5 @@
 import 'server-only'
-import type { LoanTable, ProductTerm } from '@/contracts'
+import type { LoanTable, ProductTerm, PublicDataSource } from '@/contracts'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4001'
 
@@ -224,6 +224,18 @@ export const getDocumentCategories = () =>
   apiGet<Wrapped<DocumentCategory[]>>('/document-categories', { tags: ['documents'] }).then((r) => r?.data ?? [])
 export const getDocuments = (category?: string) =>
   apiGet<Wrapped<DocumentItem[]>>(`/documents${category ? `?category=${category}` : ''}`, { tags: ['documents'] }).then((r) => r?.data ?? [])
+/**
+ * The figures behind a "Diagram Data" block.
+ *
+ * Unlike everything else a page reads, this one may fail without taking the
+ * page with it: the chart is one section, its data comes from a spreadsheet
+ * someone can unshare, and a page that refuses to render over it would be a
+ * worse answer than a page without the chart.
+ */
+export const getDataSource = (id: string) =>
+  apiGet<Wrapped<PublicDataSource>>(`/data-sources/${encodeURIComponent(id)}`, { tags: ['data-sources', `data-source:${id}`] })
+    .then((r) => r?.data ?? null)
+    .catch(() => null)
 export const getSettings = () => apiGet<Wrapped<Record<string, unknown>>>('/settings', { tags: ['settings'] }).then((r) => r?.data ?? {})
 export const getMenu = (key: string) => apiGet<Wrapped<unknown[]>>(`/menus/${key}`, { tags: ['menus'] }).then((r) => r?.data ?? [])
 
