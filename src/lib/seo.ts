@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { SITE } from '@/contracts'
+import { getSettings } from './api'
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '')
 
@@ -12,24 +13,51 @@ export const absoluteUrl = (path = '/') => `${SITE_URL}${path.startsWith('/') ? 
  * canonicals. Routing every page through here means those three cannot regress:
  * a missing title falls back to a descriptive default rather than to nothing.
  */
-const BRAND = 'KSP Sari Sedana Bali'
+const BRAND_FALLBACK = 'KSP Sari Sedana Bali'
+
+/**
+ * The brand shown in page titles and og:site_name comes from the CMS, so
+ * renaming the koperasi renames it everywhere. `getSettings` is a tagged,
+ * cached fetch, so this costs nothing per page.
+ */
+async function titleSettings(): Promise<{ brand: string; template: string }> {
+  try {
+    const settings = await getSettings()
+    const site = (settings.site ?? {}) as Record<string, string>
+    const brand = (settings.brand ?? {}) as Record<string, string>
+    const seo = (settings.seoDefaults ?? {}) as Record<string, string>
+    const name = brand.name || site.name || BRAND_FALLBACK
+    return { brand: name, template: seo.titleTemplate || `%s | ${name}` }
+  } catch {
+    return { brand: BRAND_FALLBACK, template: `%s | ${BRAND_FALLBACK}` }
+  }
+}
 const TITLE_MAX = 65
 const DESC_MAX = 158
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
  * Compose the final title exactly once.
  *
- * The root layout defines a `%s | KSP Sari Sedana Bali` template. CMS-authored
- * titles often already end in the brand, which would produce
- * "… | KSP Sari Sedana Bali | KSP Sari Sedana Bali" and blow past the SERP
- * truncation limit. Returning an absolute title bypasses the template, and the
- * brand is appended here only when it is genuinely missing and there is room.
+ * The pattern comes from Pengaturan → SEO and is applied here rather than by
+ * the layout, because composing twice is what produced
+ * "… | KSP Sari Sedana Bali | KSP Sari Sedana Bali"; the route returns an
+ * absolute title, which opts out of the layout's own template.
+ *
+ * A CMS title usually ends in the brand already. That trailing brand is removed
+ * before the pattern is applied, so the pattern still governs the title instead
+ * of being skipped — skipping it meant an editor could change the pattern in the
+ * console and see nothing happen on the pages that needed it most.
  */
-function composeTitle(raw: string): string {
+function composeTitle(raw: string, brand: string, template: string): string {
   const t = raw.trim().replace(/\s*[|·]\s*$/, '')
-  if (t.toLowerCase().includes(BRAND.toLowerCase())) return t
-  const withBrand = `${t} | ${BRAND}`
-  return withBrand.length <= TITLE_MAX + BRAND.length ? withBrand : t
+  const core = brand ? t.replace(new RegExp(`[\\s|·—–-]*${escapeRe(brand)}\\s*$`, 'i'), '').trim() || t : t
+  // The brand sits inside the title rather than at its end ("Lokasi Kantor KSP
+  // Sari Sedana Bali di Karangasem"); appending it again would read badly.
+  if (brand && core.toLowerCase().includes(brand.toLowerCase())) return t
+  const composed = template.includes('%s') ? template.replace('%s', core) : `${core} | ${template}`
+  return composed.length <= TITLE_MAX + brand.length ? composed : t
 }
 
 /** Hard clamp so no page can ship a description Google will cut mid-sentence. */
@@ -41,7 +69,7 @@ function clampDescription(raw: string): string {
   return `${cut.slice(0, lastBreak > DESC_MAX * 0.6 ? lastBreak : cut.length).trimEnd()}…`
 }
 
-export function buildMetadata(input: {
+export async function buildMetadata(input: {
   title: string
   description: string
   path: string
@@ -50,10 +78,11 @@ export function buildMetadata(input: {
   type?: 'website' | 'article'
   publishedTime?: string | null
   modifiedTime?: string | null
-}): Metadata {
+}): Promise<Metadata> {
   const url = absoluteUrl(input.path)
   const image = input.image || absoluteUrl('/opengraph-image')
-  const title = composeTitle(input.title)
+  const { brand, template } = await titleSettings()
+  const title = composeTitle(input.title, brand, template)
   const description = clampDescription(input.description)
 
   return {
@@ -67,7 +96,7 @@ export function buildMetadata(input: {
     openGraph: {
       type: input.type ?? 'website',
       url,
-      siteName: SITE.shortName,
+      siteName: brand,
       title,
       description,
       locale: 'id_ID',

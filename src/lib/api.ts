@@ -1,4 +1,5 @@
 import 'server-only'
+import type { LoanTable, ProductTerm, PublicDataSource } from '@/contracts'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4001'
 
@@ -40,8 +41,11 @@ const RETRY_DELAYS_MS = [600, 2500, 6000]
  * turn into a not-found page. Anything else — 5xx, a timeout, a dead socket —
  * is an upstream fault and must never be mistaken for "this product does not
  * exist": doing so once baked permanent 404s for nine real products into a
- * build that still reported success. So a fault is retried once, and if it
- * persists it throws during a build and returns null at request time.
+ * build that still reported success. So a fault is retried, and if it persists
+ * it throws — during a build and at request time alike. Returning null at
+ * request time rendered the page's empty state ("Konten beranda belum
+ * tersedia") and ISR then cached that over the good page until the next
+ * refresh; a throw instead keeps the last good page served and retries later.
  */
 export async function apiGet<T>(
   path: string,
@@ -71,12 +75,11 @@ export async function apiGet<T>(
   }
 
   const message = `API fault for ${path}: ${lastFault}`
-  if (isBuilding) {
-    // Fail the build rather than ship a page whose content silently vanished.
-    throw new Error(`${message} — refusing to prerender against a failing API.`)
-  }
   console.error(message)
-  return null
+  // Fail the build, or this refresh of the page, rather than save a copy whose
+  // content silently vanished. A page that has rendered before keeps its last
+  // good copy; one that never has shows app/error.tsx.
+  throw new Error(`${message} — refusing to render against a failing API.`)
 }
 
 export interface Branch {
@@ -94,6 +97,10 @@ export interface Product {
   benefits: string[]; requirements: string[]; image?: string
   rateMethod: 'flat' | 'annuity' | 'effective' | 'none'
   ratePercent?: number | null; rateNote?: string | null
+  /** The line under the loan calculator's heading; empty uses `PRODUCT_SIMULATION_LEAD`. */
+  simulationLead?: string | null
+  /** The period the rate is quoted in; `ratePercent` itself is per year. */
+  ratePeriod?: 'day' | 'month' | 'year'
   /**
    * The figure on record, whether or not the koperasi has signed it off. Only
    * the installment calculator may read these, and only while labelling the
@@ -104,9 +111,39 @@ export interface Product {
   rateMethodIndicative?: 'flat' | 'annuity' | 'effective' | 'none'
   minAmount?: number | null; maxAmount?: number | null
   tenorOptions: number[]; purposes: string[]
+  /** "Jangka waktu" as the koperasi writes it; empty falls back to the range of `tenorOptions`. */
+  term?: ProductTerm | null
   /** False until the koperasi signs the figures off; the API blanks the rate. */
   isVerified: boolean
   seo: Record<string, string>
+}
+
+/**
+ * One calculator on /simulasi, as the console files it. The product rides
+ * along, already through the API's rate gate: a loan calculator reads its rate
+ * from here, and only `ratePercentIndicative` while the product is unconfirmed.
+ */
+export interface Simulation {
+  id: string; name: string; tagline?: string | null
+  kind: 'installment' | 'term_deposit' | 'monthly_deposit' | 'daily_deposit'
+  minAmount: number; maxAmount: number; step?: number | null; defaultAmount?: number | null
+  /** Months. */
+  tenors: number[]
+  /** The label at the top right of the result card. */
+  rateInfo?: string | null
+  ratePercent?: number | null; rewardPercent?: number | null; bonusMultiplier?: number | null; termDays?: number | null
+  /** `installment`: whether `ratePercent` is per month or per year. */
+  ratePeriod?: 'month' | 'year'
+  /** `installment`: instalments every month, or every six months for a seasonal loan. */
+  installmentScheme?: 'monthly' | 'seasonal'
+  /** `installment`: interest on the remaining balance (menurun) or on the plafon every period (flat). */
+  interestMethod?: 'declining' | 'flat'
+  tableAmounts: number[]; note?: string | null; sortOrder: number
+  /** The table the editor wrote, shown as written in place of the worked-out one. */
+  table?: { caption?: string; source?: string; columns: string[]; rows: string[][] } | null
+  /** Loans: the layout of the schedule and fee tables, worked out here from the amount and tenor picked. */
+  loanTable?: LoanTable | null
+  product: Pick<Product, 'id' | 'name' | 'slug' | 'category' | 'tagline' | 'isVerified' | 'ratePercent' | 'rateMethod' | 'rateNote' | 'ratePercentIndicative' | 'rateMethodIndicative'>
 }
 
 export interface Post {
@@ -124,17 +161,32 @@ export interface Job {
 }
 
 export interface Block { id: string; type: string; props: Record<string, unknown>; isVisible: boolean }
+
+/** A page as it stands in the CMS editor right now, including unsaved changes. */
+export interface PreviewPage { title: string; slug: string; seo: Record<string, string>; blocks: Block[] }
 export interface Page { id: string; title: string; slug: string; seo: Record<string, string>; blocks: Block[]; updatedAt: string }
 export interface Stat { id: string; label: string; value: string; icon?: string | null }
 export interface Testimonial { id: string; name: string; role?: string | null; location?: string | null; quote: string; rating: number; avatar?: string }
+/** Kritik & saran the pengurus chose to show: only what a visitor may read, never the sender's contact details. */
+export interface PublishedFeedback { id: string; category: string; rating?: number | null; name?: string | null; subject?: string | null; message: string; createdAt: string }
 export interface Faq { id: string; question: string; answer: string; category?: string | null }
-export interface DocumentItem { id: string; title: string; category: string; year?: number | null; url: string; fileSize?: number | null }
+/** A document kind as the koperasi named it — the row behind a pill on the shelf. */
+export interface DocumentCategory { id: string; name: string; slug: string; icon?: string | null; sortOrder: number }
+
+export interface DocumentItem {
+  id: string; title: string; category: string; year?: number | null; url: string; fileSize?: number | null; coverImage?: string
+  /** The kind's own name, icon and order, joined by the API so the shelf never shows a slug. */
+  categoryName?: string | null; categoryIcon?: string | null; categoryOrder?: number | null
+}
 
 type Wrapped<T> = { data: T }
 type Paged<T> = { data: T; meta: { page: number; limit: number; total: number; totalPages: number } }
 
 export const getPage = (slug: string) =>
-  apiGet<Wrapped<Page>>(`/pages/${slug}`, { tags: [`page:${slug}`] }).then((r) => r?.data ?? null)
+  // Tagged with `pages` as well as the slug: the home page is fetched as
+  // "home" but stored with slug "/", so a slug-only tag never matched it and
+  // publishing the home page left the cached copy in place.
+  apiGet<Wrapped<Page>>(`/pages/${slug}`, { tags: [`page:${slug}`, 'pages'] }).then((r) => r?.data ?? null)
 
 export const getProducts = (category?: string, limit = 50) =>
   apiGet<Wrapped<Product[]>>(`/products?category=${category ?? 'all'}&limit=${limit}`, { tags: ['products'] }).then((r) => r?.data ?? [])
@@ -142,14 +194,18 @@ export const getProducts = (category?: string, limit = 50) =>
 export const getProduct = (slug: string) =>
   apiGet<{ data: Product; related: Product[] }>(`/products/${slug}`, { tags: [`product:${slug}`, 'products'] })
 
+export const getSimulations = () =>
+  apiGet<Wrapped<Simulation[]>>('/simulations', { tags: ['simulations', 'products'] }).then((r) => r?.data ?? [])
+
 export const getBranches = () => apiGet<Wrapped<Branch[]>>('/branches', { tags: ['branches'] }).then((r) => r?.data ?? [])
 
 export const getBranch = (slug: string) =>
   apiGet<Wrapped<Branch>>(`/branches/${slug}`, { tags: [`branch:${slug}`, 'branches'] }).then((r) => r?.data ?? null)
 
-export const getPosts = (params: { page?: number; limit?: number; category?: string } = {}) =>
+/** `full` also fetches each article's body — only the RSS feed needs it. */
+export const getPosts = (params: { page?: number; limit?: number; category?: string; full?: boolean } = {}) =>
   apiGet<Paged<Post[]>>(
-    `/posts?page=${params.page ?? 1}&limit=${params.limit ?? 9}${params.category ? `&category=${params.category}` : ''}`,
+    `/posts?page=${params.page ?? 1}&limit=${params.limit ?? 9}${params.category ? `&category=${params.category}` : ''}${params.full ? '&full=1' : ''}`,
     { tags: ['posts'] },
   )
 
@@ -161,36 +217,89 @@ export const getJob = (slug: string) => apiGet<Wrapped<Job>>(`/jobs/${slug}`, { 
 export const getStats = () => apiGet<Wrapped<Stat[]>>('/stats', { tags: ['stats'] }).then((r) => r?.data ?? [])
 export const getTestimonials = (limit = 12) =>
   apiGet<Wrapped<Testimonial[]>>(`/testimonials?limit=${limit}`, { tags: ['testimonials'] }).then((r) => r?.data ?? [])
+export const getPublishedFeedback = (limit = 4) =>
+  apiGet<Wrapped<PublishedFeedback[]>>(`/feedback?limit=${limit}`, { tags: ['feedback'] }).then((r) => r?.data ?? [])
 export const getFaqs = () => apiGet<Wrapped<Faq[]>>('/faqs', { tags: ['faqs'] }).then((r) => r?.data ?? [])
+export const getDocumentCategories = () =>
+  apiGet<Wrapped<DocumentCategory[]>>('/document-categories', { tags: ['documents'] }).then((r) => r?.data ?? [])
 export const getDocuments = (category?: string) =>
   apiGet<Wrapped<DocumentItem[]>>(`/documents${category ? `?category=${category}` : ''}`, { tags: ['documents'] }).then((r) => r?.data ?? [])
+/**
+ * The figures behind a "Diagram Data" block.
+ *
+ * Unlike everything else a page reads, this one may fail without taking the
+ * page with it: the chart is one section, its data comes from a spreadsheet
+ * someone can unshare, and a page that refuses to render over it would be a
+ * worse answer than a page without the chart.
+ */
+export const getDataSource = (id: string) =>
+  apiGet<Wrapped<PublicDataSource>>(`/data-sources/${encodeURIComponent(id)}`, { tags: ['data-sources', `data-source:${id}`] })
+    .then((r) => r?.data ?? null)
+    .catch(() => null)
 export const getSettings = () => apiGet<Wrapped<Record<string, unknown>>>('/settings', { tags: ['settings'] }).then((r) => r?.data ?? {})
 export const getMenu = (key: string) => apiGet<Wrapped<unknown[]>>(`/menus/${key}`, { tags: ['menus'] }).then((r) => r?.data ?? [])
 
 export const getSitemapData = () =>
   apiGet<Wrapped<{
-    pages: { slug: string; updatedAt: string }[]
+    pages: { slug: string; title: string; isSystem: boolean; showInFooter: boolean; updatedAt: string }[]
     products: { slug: string; category: string; updatedAt: string }[]
     posts: { slug: string; updatedAt: string }[]
     branches: { slug: string; updatedAt: string }[]
     jobs: { slug: string; updatedAt: string }[]
-  }>>('/sitemap-data', { revalidate: 600 }).then((r) => r?.data ?? null)
+  }>>('/sitemap-data', {
+    revalidate: 600,
+    // Tagged, because the footer's page row is built from this: publishing a
+    // page revalidated the pages that render it while this list stayed cached,
+    // so a new page reached its own URL and the sitemap but not the footer.
+    tags: ['pages', 'sitemap', 'products', 'posts'],
+  }).then((r) => r?.data ?? null)
 
 /**
- * Published CMS pages that are not backed by a fixed route — the footer's legal
- * row is built from these, so a link only appears once the page really exists.
+ * The pages listed in the footer's bottom row.
+ *
+ * Asked for, one page at a time, with the "Tampilkan di footer" switch in the
+ * console. It was every published page that is not a fixed route, which put a
+ * campaign page or a half-finished draft in the same row as the privacy policy
+ * the moment it went live. Before that it was two slugs written into this file,
+ * so a genuine third page could never appear at all; the switch is what both
+ * were reaching for.
  */
 export const getLegalPages = async () => {
   const data = await getSitemapData()
   if (!data) return []
-  const FIXED = new Set(['/', 'tentang-kami', 'kontak'])
-  const TITLES: Record<string, string> = {
-    'kebijakan-privasi': 'Kebijakan Privasi',
-    'syarat-ketentuan': 'Syarat & Ketentuan',
-  }
   return data.pages
-    .filter((pg) => !FIXED.has(pg.slug) && pg.slug in TITLES)
-    .map((pg) => ({ slug: pg.slug, title: TITLES[pg.slug]! }))
+    .filter((pg) => pg.showInFooter)
+    .map((pg) => ({ slug: pg.slug, title: pg.title }))
+}
+
+/**
+ * Fetch an editor's unsaved draft by preview token.
+ *
+ * Deliberately uncached and never retried into a build failure: a preview is a
+ * short-lived, per-request thing, and an expired token is a normal outcome that
+ * the route turns into a "link expired" page rather than an error.
+ */
+export async function getPreview(token: string): Promise<PreviewPage | null> {
+  try {
+    const res = await fetch(`${API}/v1/public/preview/${encodeURIComponent(token)}`, {
+      cache: 'no-store',
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
+    })
+    if (!res.ok) return null
+    const body = (await res.json()) as Wrapped<PreviewPage>
+    return body?.data ?? null
+  } catch {
+    return null
+  }
 }
 
 export const apiBase = API
+
+/**
+ * For generateMetadata: an API fault there becomes a bare 500 that skips
+ * app/error.tsx, so metadata falls back to its defaults and leaves it to the
+ * page body to throw. The render still fails as a whole, so ISR keeps the last
+ * good copy either way.
+ */
+export const quiet = <T,>(p: Promise<T>): Promise<T | null> => p.catch(() => null)

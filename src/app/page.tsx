@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import { getPage, getProducts, getBranches, getPosts, getStats, getTestimonials, getDocuments, getSettings } from '@/lib/api'
+import { getPage, quiet } from '@/lib/api'
+import { getBlockContext } from '@/lib/blocks-data'
 import { buildMetadata, describe } from '@/lib/seo'
 import { BlockRenderer } from '@/components/blocks'
 import { Blank, Shell, Band } from '@/components/ui'
@@ -7,8 +8,8 @@ import { Blank, Shell, Band } from '@/components/ui'
 export const revalidate = 300
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await getPage('home')
-  return buildMetadata({
+  const page = await quiet(getPage('home'))
+  return await buildMetadata({
     title: page?.seo?.metaTitle || 'KSP Sari Sedana Bali — Koperasi Simpan Pinjam di Karangasem',
     description: describe(page?.seo?.metaDescription),
     path: '/',
@@ -16,16 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  const [page, products, branches, postsRes, stats, testimonials, documents, settings] = await Promise.all([
-    getPage('home'),
-    getProducts(),
-    getBranches(),
-    getPosts({ limit: 3 }),
-    getStats(),
-    getTestimonials(6),
-    getDocuments(),
-    getSettings(),
-  ])
+  const page = await getPage('home')
 
   if (!page) {
     return (
@@ -40,10 +32,7 @@ export default async function HomePage() {
     )
   }
 
-  return (
-    <BlockRenderer
-      blocks={page.blocks}
-      ctx={{ products, branches, posts: postsRes?.data ?? [], stats, testimonials, documents, settings }}
-    />
-  )
+  const ctx = await getBlockContext(page.blocks)
+
+  return <BlockRenderer blocks={page.blocks} ctx={ctx} />
 }

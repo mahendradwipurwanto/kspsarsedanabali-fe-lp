@@ -1,4 +1,4 @@
-import { field, fieldsToZod, defaultsFor, type FieldMap } from '../fields'
+import { field, fieldsToZod, defaultsFor, withoutHidden, type FieldMap } from '../fields'
 
 /**
  * Block registry.
@@ -9,6 +9,21 @@ import { field, fieldsToZod, defaultsFor, type FieldMap } from '../fields'
  */
 
 export type BlockCategory = 'Utama' | 'Konten' | 'Produk' | 'Konversi' | 'Media'
+
+/**
+ * The palette every box in the organisation chart can be painted with.
+ *
+ * Named after what an editor sees rather than a token, and shared by the
+ * contract, the console editor and the website so the three cannot drift.
+ */
+export const ORG_TONES = [
+  { value: 'netral', label: 'Netral (putih)' },
+  { value: 'gelap', label: 'Gelap (navy)' },
+  { value: 'hijau', label: 'Hijau' },
+  { value: 'emas', label: 'Emas' },
+] as const
+
+export type OrgTone = (typeof ORG_TONES)[number]['value']
 
 export interface BlockDef {
   type: string
@@ -23,7 +38,52 @@ export interface BlockDef {
   fields: FieldMap
 }
 
-const def = <T extends BlockDef>(b: T) => b
+/**
+ * Fields every block carries, whatever it draws.
+ *
+ * Tag Manager identifies a section by a CSS selector, and a selector is only
+ * stable if someone gave the section a name. Generated class names change with
+ * every build, so a marketer measuring "clicks in the testimonial band" had
+ * nothing to point a trigger at. These two put that name in the editor's hands.
+ *
+ * They are added to every block by `def()` rather than repeated in thirty
+ * definitions, so a block added later gets them without anyone remembering to.
+ */
+export const TRACKING_FIELDS: FieldMap = {
+  gtmClass: field.text({
+    label: 'Kelas CSS untuk GTM',
+    max: 120,
+    placeholder: 'promo-simpanan',
+    help: 'Nama untuk bagian ini di Google Tag Manager. Ditulis sebagai kelas pada pembungkus bagian, dengan awalan dari Pengaturan → SEO (bawaan: ksp-). Pisahkan dengan spasi untuk lebih dari satu.',
+  }),
+  gtmId: field.text({
+    label: 'ID elemen untuk GTM',
+    max: 60,
+    placeholder: 'blok-testimoni',
+    help: 'Opsional. Menjadi id HTML bagian ini, sekaligus sasaran tautan #anchor. Harus unik dalam satu halaman.',
+  }),
+}
+
+/** Keys of {@link TRACKING_FIELDS}, for a form that groups them apart. */
+export const TRACKING_KEYS = Object.keys(TRACKING_FIELDS)
+
+const def = <T extends BlockDef>(b: T): T => ({ ...b, fields: { ...b.fields, ...TRACKING_FIELDS } })
+
+/** The hero's style fields show only for the component style, the one with a card and buttons. */
+const COMPONENT = { field: 'style', is: 'component' }
+
+const SHADOW_OPTIONS = [
+  { value: 'default', label: 'Bawaan' },
+  { value: 'none', label: 'Tanpa bayangan' },
+  { value: 'soft', label: 'Lembut' },
+  { value: 'strong', label: 'Tegas' },
+]
+const BORDER_OPTIONS = [
+  { value: 'none', label: 'Tanpa garis' },
+  { value: 'thin', label: 'Tipis' },
+  { value: 'thick', label: 'Tebal' },
+]
+const BORDER_OPTIONS_SUBTLE = [{ value: 'subtle', label: 'Bawaan (tipis samar)' }, ...BORDER_OPTIONS]
 
 export const BLOCKS = {
   page_header: def({
@@ -45,24 +105,134 @@ export const BLOCKS = {
   hero_banner: def({
     type: 'hero_banner',
     label: 'Banner Utama',
-    description: 'Banner besar di paling atas beranda, bisa lebih dari satu slide.',
+    description: 'Banner besar di paling atas beranda: tampilan komponen dengan kartu angka, atau gambar banner penuh.',
     category: 'Utama',
     icon: 'image',
     headingLevel: 'h1',
     singleton: true,
     fields: {
+      style: field.select({
+        label: 'Gaya banner',
+        options: [
+          { value: 'component', label: 'Komponen: judul, tombol, dan kartu angka produk' },
+          { value: 'banner', label: 'Gambar banner penuh (seperti spanduk)' },
+        ],
+        default: 'component',
+        help: 'Gaya "komponen" memakai kolom Slide banner di bawah. Gaya "gambar banner" memakai kolom Gambar banner penuh.',
+      }),
+      heroHeight: field.select({
+        label: 'Tinggi banner (laptop & desktop)',
+        options: [
+          { value: 'short', label: 'Pendek (600 px)' },
+          { value: 'standard', label: 'Standar (680 px)' },
+          { value: 'tall', label: 'Tinggi (760 px)' },
+        ],
+        default: 'standard',
+        help: 'Hanya untuk gaya komponen. Semua slide, bergambar saja maupun berjudul, setinggi ini di layar laptop dan desktop; isinya di tengah dan gambar dipotong dari tengah. Di tablet dan ponsel, slide berjudul mengikuti panjang isinya karena kartu angka turun ke bawah judul.',
+      }),
+      badge: field.text({ label: 'Label kecil di atas judul', max: 40, default: 'Program unggulan', help: 'Hanya untuk gaya komponen. Muncul sebagai lencana kecil; kosongkan untuk menyembunyikan.' }),
       slides: field.repeater({
-        label: 'Slide banner', itemLabel: 'Slide', min: 1, max: 6,
+        label: 'Slide banner', itemLabel: 'Slide', max: 6, hideable: true,
+        help: 'Hanya untuk gaya komponen. Slide yang sedang tidak dipakai bisa disembunyikan dengan ikon mata, tanpa perlu dihapus.',
         of: {
-          image: field.image({ label: 'Gambar banner', required: true, help: 'Ukuran ideal 1600×800 piksel.' }),
-          heading: field.text({ label: 'Judul di banner', required: true, max: 70 }),
-          subheading: field.textarea({ label: 'Kalimat pendukung', max: 180 }),
-          bullets: field.repeater({ label: 'Poin keunggulan', itemLabel: 'Poin', max: 5, of: { text: field.text({ label: 'Teks', required: true, max: 90 }) } }),
-          ctaLabel: field.text({ label: 'Tulisan tombol', max: 30, placeholder: 'Ajukan Sekarang' }),
-          ctaHref: field.link({ label: 'Tombol menuju ke', placeholder: '/produk/pinjaman' }),
+          display: field.select({
+            label: 'Tampilan slide',
+            options: [
+              { value: 'content', label: 'Judul, tombol, dan kartu di atas gambar' },
+              { value: 'image', label: 'Gambar saja: tanpa judul, tombol, kartu, dan bayangan gelap' },
+            ],
+            default: 'content',
+            help: 'Pilih "Gambar saja" bila gambar sudah memuat pesannya sendiri. Judul tetap diisi: tidak terlihat, tetapi dibaca Google dan pembaca layar.',
+          }),
+          image: field.image({ label: 'Gambar banner', help: 'Ukuran ideal 1600×900 piksel. Kosongkan untuk latar polos bermotif. Untuk tampilan "Gambar saja" (wajib diisi): 1920×680 piksel, sesuai Tinggi banner; gambar dipotong dari tengah, jadi letakkan tulisan dan logo di bagian tengah. Gambar tampil apa adanya, tanpa bayangan gelap, dan bisa diberi tautan di bawah.' }),
+          link: field.link({ label: 'Seluruh gambar menuju ke', help: 'Seluruh gambar bisa diklik menuju halaman ini, jadi tidak perlu tombol. Kosongkan bila tidak perlu. Alamat luar (https://…) dibuka di tab baru.', showWhen: { field: 'display', is: 'image' } }),
+          heading: field.text({ label: 'Judul di banner', required: true, max: 70, help: 'Pada tampilan "Gambar saja", judul disembunyikan tetapi tetap menjadi judul halaman untuk Google.' }),
+          subheading: field.textarea({ label: 'Kalimat pendukung', max: 180, showWhen: { field: 'display', is: 'content' } }),
+          bullets: field.repeater({ label: 'Poin keunggulan', itemLabel: 'Poin', max: 5, of: { text: field.text({ label: 'Teks', required: true, max: 90 }) }, showWhen: { field: 'display', is: 'content' } }),
+          ctaLabel: field.text({ label: 'Tulisan tombol utama', max: 30, placeholder: 'Ajukan Sekarang', showWhen: { field: 'display', is: 'content' } }),
+          ctaHref: field.link({ label: 'Tombol utama menuju ke', placeholder: '/produk/pinjaman', showWhen: { field: 'display', is: 'content' } }),
+          secondaryLabel: field.text({ label: 'Tulisan tombol kedua', max: 30, placeholder: 'Cari produk yang cocok', showWhen: { field: 'display', is: 'content' } }),
+          secondaryHref: field.link({ label: 'Tombol kedua menuju ke', placeholder: '/profiling', default: '/profiling', showWhen: { field: 'display', is: 'content' } }),
+          featuredProduct: field.reference({ label: 'Produk yang ditampilkan di kartu angka', to: 'product', help: 'Kartu di sisi kanan menampilkan suku bunga, plafon, dan tenor produk ini. Kosongkan untuk memakai poin keunggulan saja.', showWhen: { field: 'display', is: 'content' } }),
         },
       }),
+      // Look of the rate card and the two buttons. Every one empty is the
+      // design as approved; the website works out a readable text colour from
+      // the background, so a light card never ends up with white text.
+      cardColor: field.color({ label: 'Warna latar kartu', group: 'Gaya kartu angka', showWhen: COMPONENT, help: 'Kosongkan untuk warna bawaan. Warna tulisan menyesuaikan sendiri: gelap di latar terang, putih di latar gelap.' }),
+      cardAccent: field.color({ label: 'Warna angka, ikon, dan garis atas', group: 'Gaya kartu angka', showWhen: COMPONENT, help: 'Suku bunga, tanda centang, dan garis tipis di atas kartu. Kosongkan untuk bawaan: emas di kartu gelap, hijau di kartu terang.' }),
+      cardBorder: field.select({ label: 'Garis tepi kartu', group: 'Gaya kartu angka', showWhen: COMPONENT, options: BORDER_OPTIONS_SUBTLE, default: 'subtle' }),
+      cardBorderColor: field.color({ label: 'Warna garis tepi kartu', group: 'Gaya kartu angka', showWhen: { field: 'cardBorder', is: ['thin', 'thick'] }, help: 'Kosongkan untuk memakai warna angka.' }),
+      cardShadow: field.select({ label: 'Bayangan kartu', group: 'Gaya kartu angka', showWhen: COMPONENT, options: SHADOW_OPTIONS, default: 'default' }),
+
+      buttonShape: field.select({
+        label: 'Bentuk tombol', group: 'Gaya tombol', showWhen: COMPONENT, default: 'pill',
+        options: [{ value: 'pill', label: 'Bulat penuh (bawaan)' }, { value: 'rect', label: 'Kotak dengan sudut tumpul' }],
+      }),
+      primaryColor: field.color({ label: 'Tombol utama: warna latar', group: 'Gaya tombol', showWhen: COMPONENT, help: 'Kosongkan untuk hijau bawaan.' }),
+      primaryTextColor: field.color({ label: 'Tombol utama: warna tulisan', group: 'Gaya tombol', showWhen: COMPONENT, help: 'Kosongkan agar menyesuaikan warna latar.' }),
+      primaryBorder: field.select({ label: 'Tombol utama: garis tepi', group: 'Gaya tombol', showWhen: COMPONENT, options: BORDER_OPTIONS, default: 'none' }),
+      primaryBorderColor: field.color({ label: 'Tombol utama: warna garis tepi', group: 'Gaya tombol', showWhen: { field: 'primaryBorder', is: ['thin', 'thick'] }, help: 'Kosongkan untuk memakai warna tulisan.' }),
+      primaryShadow: field.select({ label: 'Tombol utama: bayangan', group: 'Gaya tombol', showWhen: COMPONENT, options: SHADOW_OPTIONS, default: 'default' }),
+      secondaryColor: field.color({ label: 'Tombol kedua: warna latar', group: 'Gaya tombol', showWhen: COMPONENT, help: 'Kosongkan untuk tombol tembus pandang bergaris.' }),
+      secondaryTextColor: field.color({ label: 'Tombol kedua: warna tulisan', group: 'Gaya tombol', showWhen: COMPONENT, help: 'Kosongkan agar menyesuaikan warna latar (putih bila tembus pandang).' }),
+      secondaryBorder: field.select({ label: 'Tombol kedua: garis tepi', group: 'Gaya tombol', showWhen: COMPONENT, options: BORDER_OPTIONS_SUBTLE, default: 'subtle' }),
+      secondaryBorderColor: field.color({ label: 'Tombol kedua: warna garis tepi', group: 'Gaya tombol', showWhen: { field: 'secondaryBorder', is: ['thin', 'thick'] }, help: 'Kosongkan untuk memakai warna tulisan.' }),
+      secondaryShadow: field.select({ label: 'Tombol kedua: bayangan', group: 'Gaya tombol', showWhen: COMPONENT, options: SHADOW_OPTIONS, default: 'none' }),
+
+      // The banner style: whole-width artwork, the way the koperasi's printed
+      // spanduk look. Text is optional and sits over the picture; the first
+      // banner's heading is still the page's H1 so Google has a title to read.
+      banners: field.repeater({
+        label: 'Gambar banner penuh', itemLabel: 'Banner', max: 6, hideable: true,
+        help: 'Hanya untuk gaya gambar banner. Ukuran ideal 1920×820 piksel; di ponsel gambar dipotong ke 4:3, jadi letakkan pesan utama di tengah. Banner yang sedang tidak dipakai bisa disembunyikan dengan ikon mata.',
+        of: {
+          image: field.image({ label: 'Gambar', required: true }),
+          alt: field.text({ label: 'Teks alternatif', required: true, max: 120, help: 'Dibaca mesin pencari dan pembaca layar. Tulis pesan yang ada di gambar.' }),
+          heading: field.text({ label: 'Judul di atas gambar', max: 70, help: 'Kosongkan bila gambar sudah memuat judulnya sendiri.' }),
+          subheading: field.textarea({ label: 'Kalimat pendukung', max: 160 }),
+          ctaLabel: field.text({ label: 'Tulisan tombol', max: 30 }),
+          ctaHref: field.link({ label: 'Tombol menuju ke' }),
+          link: field.link({ label: 'Seluruh banner menuju ke', help: 'Dipakai bila tidak ada tombol: seluruh gambar bisa diklik.' }),
+        },
+      }),
+      bannerText: field.select({
+        label: 'Judul (H1) di gambar banner',
+        options: [
+          { value: 'overlay', label: 'Tampilkan: judul, kalimat pendukung, dan tombol di atas gambar' },
+          { value: 'none', label: 'Sembunyikan: gambar saja, judul tetap ada untuk Google dan pembaca layar' },
+        ],
+        default: 'overlay',
+        help: 'Judul banner pertama adalah H1 halaman ini. Disembunyikan pun ia tetap ditulis di kode halaman, hanya tidak terlihat.',
+      }),
+      bannerHeight: field.select({
+        label: 'Tinggi gambar banner',
+        options: [{ value: 'wide', label: 'Pendek dan lebar (21:9)' }, { value: 'standard', label: 'Standar (16:9)' }, { value: 'tall', label: 'Tinggi (3:2)' }],
+        default: 'wide',
+      }),
       autoplay: field.boolean({ label: 'Ganti slide otomatis', default: true }),
+      interval: field.number({ label: 'Jeda antar slide (detik)', min: 3, max: 30, default: 8 }),
+    },
+  }),
+
+
+  quick_access: def({
+    type: 'quick_access',
+    label: 'Akses Cepat',
+    description: 'Tiga pintasan di bawah banner: profiling, simulasi, kantor terdekat.',
+    category: 'Konversi',
+    icon: 'zap',
+    headingLevel: null,
+    fields: {
+      items: field.repeater({
+        label: 'Pintasan', itemLabel: 'Pintasan', min: 1, max: 4,
+        of: {
+          icon: field.icon({ label: 'Ikon', default: 'spark' }),
+          title: field.text({ label: 'Judul', required: true, max: 40 }),
+          body: field.text({ label: 'Keterangan singkat', max: 60 }),
+          href: field.link({ label: 'Menuju ke', required: true }),
+        },
+      }),
     },
   }),
 
@@ -103,13 +273,21 @@ export const BLOCKS = {
       eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'PENCAPAIAN KAMI' }),
       heading: field.text({ label: 'Judul bagian', required: true, max: 60, default: 'Pencapaian Koperasi' }),
       subtext: field.textarea({ label: 'Penjelasan singkat', max: 200, rows: 2 }),
+      layout: field.select({ label: 'Tampilan', options: [{ value: 'ledger', label: 'Baris angka (rapi, seperti laporan)' }, { value: 'cards', label: 'Kartu dengan ikon' }], default: 'ledger' }),
       items: field.repeater({
-        label: 'Angka pencapaian', itemLabel: 'Angka', min: 2, max: 8,
+        label: 'Angka pencapaian', itemLabel: 'Angka', max: 8,
         of: {
           icon: field.icon({ label: 'Ikon' }),
           value: field.text({ label: 'Angka', required: true, max: 20, placeholder: 'Rp500M+' }),
           label: field.text({ label: 'Keterangan', required: true, max: 30, placeholder: 'MODAL' }),
         },
+      }),
+      note: field.textarea({
+        label: 'Catatan kecil di bawah angka',
+        max: 240,
+        rows: 2,
+        placeholder: '*Data per 31 Desember 2025, berdasarkan laporan RAT.',
+        help: 'Opsional. Tampil dalam huruf kecil di bawah deretan angka, misalnya sumber dan tanggal datanya.',
       }),
     },
   }),
@@ -130,6 +308,12 @@ export const BLOCKS = {
         options: [{ value: 'all', label: 'Semua produk' }, { value: 'simpanan', label: 'Simpanan saja' }, { value: 'pinjaman', label: 'Pinjaman saja' }],
         default: 'all',
       }),
+      layout: field.select({
+        label: 'Tampilan',
+        options: [{ value: 'cards', label: 'Kartu (3 kolom)' }, { value: 'rows', label: 'Baris memanjang' }],
+        default: 'cards',
+        help: 'Kartu untuk sorotan di beranda; baris untuk daftar lengkap di halaman produk.',
+      }),
       limit: field.number({ label: 'Jumlah maksimal ditampilkan', min: 1, max: 24, default: 6 }),
       ctaLabel: field.text({ label: 'Tulisan tombol', max: 30, default: 'Lihat Semua Produk' }),
       ctaHref: field.link({ label: 'Tombol menuju ke', default: '/produk' }),
@@ -149,7 +333,9 @@ export const BLOCKS = {
       body: field.textarea({ label: 'Kalimat pendukung', max: 240, rows: 3 }),
       image: field.image({ label: 'Gambar latar' }),
       ctaLabel: field.text({ label: 'Tulisan tombol', max: 30 }),
-      ctaHref: field.link({ label: 'Tombol menuju ke' }),
+      ctaHref: field.link({ label: 'Tombol menuju ke', default: '/kontak' }),
+      secondaryLabel: field.text({ label: 'Tulisan tombol kedua', max: 30, placeholder: 'Cari produk' }),
+      secondaryHref: field.link({ label: 'Tombol kedua menuju ke', placeholder: '/profiling', default: '/profiling' }),
       variant: field.select({ label: 'Gaya tampilan', options: [{ value: 'image', label: 'Dengan gambar' }, { value: 'solid', label: 'Warna polos' }], default: 'image' }),
     },
   }),
@@ -167,6 +353,7 @@ export const BLOCKS = {
       subtext: field.textarea({ label: 'Penjelasan singkat', max: 200, rows: 2 }),
       limit: field.number({ label: 'Jumlah berita', min: 1, max: 12, default: 3 }),
       ctaLabel: field.text({ label: 'Tulisan tombol', max: 30, default: 'Lihat Semua Berita' }),
+      ctaHref: field.link({ label: 'Tombol menuju ke', default: '/berita' }),
     },
   }),
 
@@ -211,6 +398,42 @@ export const BLOCKS = {
     },
   }),
 
+  feedback_form: def({
+    type: 'feedback_form',
+    label: 'Formulir Kritik & Saran',
+    description: 'Kotak saran online. Masukan yang dikirim masuk ke menu Kritik & Saran di konsol.',
+    category: 'Konversi',
+    icon: 'message',
+    headingLevel: 'h2',
+    fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'Suara anggota' }),
+      heading: field.text({ label: 'Judul bagian', required: true, max: 70, default: 'Kritik & Saran' }),
+      headingAccent: field.text({ label: 'Bagian judul yang diberi warna hijau', max: 40, help: 'Ditampilkan hijau di akhir judul.' }),
+      body: field.textarea({ label: 'Penjelasan singkat', max: 300, rows: 3, default: 'Sampaikan keluhan, usulan, atau apresiasi Anda. Semua masukan dibaca pengurus dan menjadi bahan perbaikan layanan.' }),
+      formTitle: field.text({ label: 'Judul di atas formulir', max: 40, default: 'Sampaikan Masukan' }),
+      // Anonymous by default: someone with a complaint about a member of staff
+      // will not file it if the form demands their name first.
+      askIdentity: field.boolean({ label: 'Tampilkan kolom nama dan kontak', default: true, help: 'Tetap opsional bagi pengirim, sehingga masukan boleh anonim.' }),
+      askBranch: field.boolean({ label: 'Tanyakan kantor yang dimaksud', default: true }),
+      askRating: field.boolean({ label: 'Tanyakan penilaian bintang 1–5', default: true }),
+      successMessage: field.textarea({ label: 'Pesan setelah terkirim', max: 240, rows: 2, default: 'Terima kasih. Masukan Anda sudah kami terima dan akan dibaca pengurus.' }),
+      note: field.text({ label: 'Catatan kecil di bawah tombol', max: 160, default: 'Masukan Anda boleh dikirim tanpa nama.' }),
+      points: field.repeater({
+        label: 'Poin penjelas di samping formulir', itemLabel: 'Poin', max: 4,
+        of: { title: field.text({ label: 'Judul poin', required: true, max: 50 }), body: field.text({ label: 'Penjelasan', max: 120 }) },
+      }),
+      // What the pengurus chose to show back. Entries marked "Tampil di web" in
+      // the Kritik & Saran menu appear under the form, so a visitor can see the
+      // box is read and answered rather than a hole in the wall.
+      showPublished: field.boolean({
+        label: 'Tampilkan masukan pilihan pengurus di bawah formulir', default: true,
+        help: 'Masukan yang ditandai "Tampil di web" di menu Kritik & Saran. Hanya nama, jenis, penilaian, dan isi masukan yang tampil; email dan WhatsApp tidak.',
+      }),
+      publishedHeading: field.text({ label: 'Judul daftar masukan', max: 60, default: 'Masukan yang sudah kami terima', showWhen: { field: 'showPublished', is: true } }),
+      publishedLimit: field.number({ label: 'Jumlah masukan yang tampil', min: 1, max: 12, default: 4, help: 'Yang terbaru lebih dulu.', showWhen: { field: 'showPublished', is: true } }),
+    },
+  }),
+
   profiling_cta: def({
     type: 'profiling_cta',
     label: 'Ajakan Profiling Nasabah',
@@ -219,9 +442,11 @@ export const BLOCKS = {
     icon: 'wand',
     headingLevel: 'h2',
     fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'Panduan cepat' }),
       heading: field.text({ label: 'Judul ajakan', required: true, max: 80, default: 'Bingung pilih produk yang mana?' }),
       body: field.textarea({ label: 'Kalimat pendukung', max: 240, rows: 2, default: 'Jawab 4 pertanyaan singkat, kami tunjukkan produk yang paling sesuai beserta simulasi angsurannya.' }),
       ctaLabel: field.text({ label: 'Tulisan tombol', max: 40, default: 'Mulai, ±30 detik' }),
+      ctaHref: field.link({ label: 'Tombol menuju ke', default: '/profiling' }),
       note: field.text({ label: 'Catatan kecil di bawah tombol', max: 60, default: 'Tanpa perlu daftar akun.' }),
     },
   }),
@@ -234,6 +459,7 @@ export const BLOCKS = {
     icon: 'navigation',
     headingLevel: 'h2',
     fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'Kantor kami' }),
       heading: field.text({ label: 'Judul bagian', required: true, max: 70, default: 'Kantor Terdekat dari Anda' }),
       body: field.textarea({ label: 'Penjelasan singkat', max: 240, rows: 2 }),
       showMap: field.boolean({ label: 'Tampilkan peta', default: true }),
@@ -248,6 +474,7 @@ export const BLOCKS = {
     icon: 'calculator',
     headingLevel: 'h2',
     fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'Kalkulator' }),
       heading: field.text({ label: 'Judul bagian', required: true, max: 70, default: 'Simulasi Angsuran' }),
       body: field.textarea({ label: 'Penjelasan singkat', max: 240, rows: 2 }),
       product: field.reference({ label: 'Produk yang disimulasikan', to: 'product', help: 'Kosongkan agar pengunjung bisa memilih sendiri.' }),
@@ -319,6 +546,83 @@ export const BLOCKS = {
     },
   }),
 
+  /**
+   * A chart drawn from a Google Spreadsheet the koperasi keeps up to date.
+   *
+   * The block only says which data and how to draw it. The link, the tab and
+   * the columns live on the record in the Data Spreadsheet menu, where they
+   * are tested and previewed once and can then be reused on several pages.
+   */
+  data_chart: def({
+    type: 'data_chart',
+    label: 'Diagram Data',
+    description: 'Diagram batang, garis, atau lingkaran dari Google Spreadsheet. Angkanya ikut berubah saat spreadsheet diperbarui.',
+    category: 'Konten',
+    icon: 'trending-up',
+    headingLevel: 'h2',
+    fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'Data koperasi' }),
+      heading: field.text({ label: 'Judul bagian', max: 70, default: 'Perkembangan Koperasi' }),
+      subtext: field.textarea({ label: 'Penjelasan singkat', max: 240, rows: 2 }),
+      source: field.reference({
+        label: 'Data yang ditampilkan',
+        to: 'data-source',
+        // Without it the section draws nothing at all, with no sign of why.
+        required: true,
+        help: 'Pilih data yang sudah disiapkan di menu Data Spreadsheet. Belum ada? Tambahkan dulu di sana: tempel link spreadsheet, tes, lalu simpan.',
+      }),
+      chartType: field.select({
+        label: 'Bentuk diagram',
+        options: [
+          { value: 'bar', label: 'Batang tegak: membandingkan angka antarperiode' },
+          { value: 'bar-horizontal', label: 'Batang mendatar: cocok untuk nama yang panjang' },
+          { value: 'line', label: 'Garis: menunjukkan naik-turun dari waktu ke waktu' },
+          { value: 'area', label: 'Area: garis dengan bidang berwarna di bawahnya' },
+          { value: 'pie', label: 'Lingkaran: pembagian dari satu keseluruhan' },
+          { value: 'donut', label: 'Donat: lingkaran dengan total di tengah' },
+        ],
+        default: 'bar',
+        help: 'Lingkaran dan donat hanya memakai kolom angka pertama.',
+      }),
+      valueFormat: field.select({
+        label: 'Cara menulis angka',
+        options: [
+          { value: 'number', label: 'Angka biasa: 1.250.000' },
+          { value: 'compact', label: 'Ringkas: 1,25 jt' },
+          { value: 'rupiah', label: 'Rupiah: Rp1.250.000' },
+          { value: 'rupiah-compact', label: 'Rupiah ringkas: Rp1,25 jt' },
+          { value: 'percent', label: 'Persen: 12,5%' },
+        ],
+        default: 'compact',
+      }),
+      showValues: field.boolean({ label: 'Tulis angka pada diagram', default: true, help: 'Dimatikan otomatis bila titik datanya terlalu banyak untuk dibaca.' }),
+      showSummary: field.boolean({
+        label: 'Tampilkan ringkasan di samping diagram',
+        default: true,
+        help: 'Panel berisi angka yang paling menonjol: porsi terbesar, angka terbaru, atau nilai tertinggi. Dihitung sendiri dari datanya.',
+      }),
+      showLegend: field.boolean({ label: 'Tampilkan keterangan warna', default: true }),
+      showTable: field.boolean({
+        label: 'Tampilkan tabel angka di bawah diagram',
+        default: false,
+        help: 'Angkanya tetap dibaca Google dan pembaca layar walaupun tabelnya tidak ditampilkan.',
+      }),
+      height: field.select({
+        label: 'Tinggi diagram',
+        options: [{ value: 'short', label: 'Pendek' }, { value: 'standard', label: 'Standar' }, { value: 'tall', label: 'Tinggi' }],
+        default: 'standard',
+      }),
+      note: field.textarea({
+        label: 'Catatan kecil di bawah diagram',
+        max: 240,
+        rows: 2,
+        placeholder: 'Sumber: Laporan RAT Tahun Buku 2025.',
+        help: 'Opsional. Misalnya sumber dan tanggal datanya.',
+      }),
+      showUpdated: field.boolean({ label: 'Tulis kapan data terakhir diperbarui', default: false }),
+    },
+  }),
+
   document_list: def({
     type: 'document_list',
     label: 'Daftar Dokumen',
@@ -327,15 +631,34 @@ export const BLOCKS = {
     icon: 'file-text',
     headingLevel: 'h2',
     fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'Unduhan' }),
       heading: field.text({ label: 'Judul bagian', max: 70 }),
-      category: field.select({
+      // The kinds are rows the koperasi manages under Kategori Dokumen, so the
+      // block picks from them rather than from a list frozen here. The value
+      // is the category's slug; empty (or the older "all") shows every kind.
+      category: field.reference({
         label: 'Jenis dokumen',
-        options: [{ value: 'laporan', label: 'Laporan tahunan' }, { value: 'legalitas', label: 'Legalitas & perizinan' }, { value: 'keuangan', label: 'Laporan keuangan' }, { value: 'lainnya', label: 'Lainnya' }],
-        default: 'laporan',
+        to: 'document-category',
+        multiple: true,
+        help: 'Centang jenis yang ditampilkan; kosongkan untuk semua. Jenis yang dipilih tampil sebagai pil penyaring di atas rak. Jenisnya dikelola di menu Kategori Dokumen.',
+      }),
+      layout: field.select({
+        label: 'Tampilan',
+        options: [
+          { value: 'shelf', label: 'Rak sampul — kartu dengan gambar sampul, tahun, dan judul' },
+          { value: 'list', label: 'Daftar ringkas — satu baris per berkas' },
+        ],
+        default: 'shelf',
+        help: 'Rak sampul menampilkan tab per jenis dokumen bila "Semua dokumen" dipilih. Dokumen tanpa sampul tetap tampil dengan penanda.',
       }),
     },
   }),
 
+  /**
+ * The chart's colours are options, not decisions baked into the component: a
+ * koperasi that wants its board in green and its units in navy can say so
+ * without a deploy.
+ */
   org_chart: def({
     type: 'org_chart',
     label: 'Struktur Organisasi',
@@ -344,18 +667,215 @@ export const BLOCKS = {
     icon: 'users',
     headingLevel: 'h2',
     fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'Tata kelola' }),
       heading: field.text({ label: 'Judul bagian', max: 70, default: 'Struktur Organisasi' }),
+      // No minimum: left empty the block falls back to Pengaturan → Legalitas &
+      // Organisasi, which is where the board is actually maintained. Requiring
+      // one here meant the page carrying this block could not be saved at all.
       groups: field.repeater({
-        label: 'Kelompok jabatan', itemLabel: 'Kelompok', min: 1, max: 10,
+        label: 'Kelompok jabatan', itemLabel: 'Kelompok', max: 10,
         of: {
           title: field.text({ label: 'Nama kelompok', required: true, max: 40, placeholder: 'Pengurus' }),
+          tone: field.select({ label: 'Warna kartu', options: [...ORG_TONES], default: 'netral' }),
           members: field.repeater({
             label: 'Anggota', itemLabel: 'Orang', min: 1, max: 20,
             of: { name: field.text({ label: 'Nama', required: true, max: 80 }), role: field.text({ label: 'Jabatan', max: 60 }), photo: field.image({ label: 'Foto' }) },
           }),
         },
       }),
+      /**
+       * The chart itself: levels top to bottom, edited in the console's own
+       * chart-shaped editor rather than through these nested repeaters.
+       *
+       * The five props below it are what charts looked like before levels
+       * existed. They are still read — a page saved earlier renders exactly as
+       * it did — and the editor converts them the first time it is touched.
+       */
+      levels: field.repeater({
+        label: 'Tingkatan bagan', itemLabel: 'Tingkat', max: 12,
+        of: {
+          kind: field.select({ label: 'Bentuk', options: [{ value: 'kotak', label: 'Satu kotak' }, { value: 'kolom', label: 'Beberapa kolom' }], default: 'kotak' }),
+          title: field.text({ label: 'Teks kotak', max: 60 }),
+          tone: field.select({ label: 'Warna kotak', options: [...ORG_TONES], default: 'gelap' }),
+          style: field.select({ label: 'Gaya kolom', options: [{ value: 'kartu', label: 'Kartu berisi nama' }, { value: 'daftar', label: 'Judul + daftar jabatan' }], default: 'kartu' }),
+          aside: field.text({ label: 'Kotak di samping garis', max: 40 }),
+          asideTone: field.select({ label: 'Warna kotak samping', options: [...ORG_TONES], default: 'emas' }),
+          columns: field.repeater({
+            label: 'Kolom', itemLabel: 'Kolom', max: 8,
+            of: {
+              title: field.text({ label: 'Judul kolom', max: 40 }),
+              tone: field.select({ label: 'Warna judul', options: [...ORG_TONES], default: 'netral' }),
+              members: field.repeater({
+                label: 'Isi kolom', itemLabel: 'Baris', max: 20,
+                of: { name: field.text({ label: 'Nama atau jabatan', max: 80 }), role: field.text({ label: 'Keterangan', max: 60 }) },
+              }),
+            },
+          }),
+        },
+      }),
+
+      // Legacy shape, kept so charts saved before "Tingkatan bagan" existed
+      // keep rendering. The editor migrates them on first change.
+      apex: field.text({ label: 'Kotak teratas', max: 40, default: 'Rapat Anggota', help: 'Pemegang kekuasaan tertinggi koperasi. Kosongkan bila tidak ingin ditampilkan.' }),
+      apexTone: field.select({ label: 'Warna kotak teratas', options: [...ORG_TONES], default: 'gelap' }),
+      audit: field.text({ label: 'Pengawas internal', max: 40, default: 'SPI', help: 'Muncul sebagai kotak di samping garis, seperti pada bagan resmi. Kosongkan bila tidak ada.' }),
+      auditTone: field.select({ label: 'Warna kotak pengawas internal', options: [...ORG_TONES], default: 'emas' }),
+      operationsLead: field.text({ label: 'Pimpinan operasional', max: 40, default: 'Kepala Cabang' }),
+      leadTone: field.select({ label: 'Warna kotak pimpinan operasional', options: [...ORG_TONES], default: 'gelap' }),
+      units: field.repeater({
+        label: 'Unit kerja', itemLabel: 'Unit', max: 6,
+        of: {
+          title: field.text({ label: 'Nama unit', required: true, max: 40, placeholder: 'Kabag Dana' }),
+          tone: field.select({ label: 'Warna judul unit', options: [...ORG_TONES], default: 'hijau' }),
+          roles: field.repeater({
+            label: 'Jabatan di bawahnya', itemLabel: 'Jabatan', max: 10,
+            of: { name: field.text({ label: 'Nama jabatan', required: true, max: 40, placeholder: 'Kasir' }) },
+          }),
+        },
+      }),
     },
+  }),
+
+  post_index: def({
+    type: 'post_index',
+    label: 'Daftar Berita Lengkap',
+    description: 'Semua berita dengan navigasi halaman. Untuk halaman /berita, bukan sorotan di beranda.',
+    category: 'Konten',
+    icon: 'newspaper',
+    headingLevel: 'h2',
+    fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'Informasi terbaru' }),
+      heading: field.text({ label: 'Judul bagian', max: 70 }),
+      subtext: field.textarea({ label: 'Penjelasan singkat', max: 200, rows: 2 }),
+      perPage: field.number({ label: 'Berita per halaman', min: 3, max: 24, default: 9 }),
+      emptyTitle: field.text({ label: 'Judul saat belum ada berita', max: 60, default: 'Belum ada berita' }),
+      emptyBody: field.textarea({ label: 'Penjelasan saat belum ada berita', max: 200, rows: 2, default: 'Berita dan informasi terbaru akan tampil di sini.' }),
+    },
+  }),
+
+  job_list: def({
+    type: 'job_list',
+    label: 'Daftar Lowongan',
+    description: 'Lowongan kerja yang sedang dibuka, lengkap dengan tombol lamar.',
+    category: 'Konten',
+    icon: 'briefcase',
+    headingLevel: 'h2',
+    fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'Karir' }),
+      heading: field.text({ label: 'Judul bagian', max: 70 }),
+      subtext: field.textarea({ label: 'Penjelasan singkat', max: 200, rows: 2 }),
+      emptyTitle: field.text({ label: 'Judul saat belum ada lowongan', max: 60, default: 'Belum ada lowongan saat ini' }),
+      emptyBody: field.textarea({ label: 'Penjelasan saat belum ada lowongan', max: 240, rows: 2, default: 'Belum ada posisi yang dibuka. Silakan cek kembali secara berkala atau kirim lamaran spontan ke kantor kami.' }),
+    },
+  }),
+
+  faq_index: def({
+    type: 'faq_index',
+    label: 'Tanya Jawab Lengkap',
+    description: 'Semua pertanyaan, dikelompokkan per kategori, dengan ajakan menghubungi di bawahnya.',
+    category: 'Konten',
+    icon: 'help',
+    headingLevel: 'h2',
+    fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'Tanya jawab' }),
+      heading: field.text({ label: 'Judul bagian', max: 70 }),
+      category: field.select({
+        label: 'Kategori yang ditampilkan',
+        help: 'Selain "Semua kategori", pertanyaan di kategori lain tidak ikut tampil di blok ini.',
+        options: [
+          { value: 'all', label: 'Semua kategori' },
+          { value: 'umum', label: 'Umum' },
+          { value: 'keanggotaan', label: 'Keanggotaan' },
+          { value: 'simpanan', label: 'Simpanan' },
+          { value: 'pinjaman', label: 'Pinjaman' },
+        ],
+        default: 'all',
+      }),
+      grouped: field.boolean({ label: 'Kelompokkan per kategori', default: true }),
+      ctaHeading: field.text({ label: 'Judul ajakan di bawah', max: 70, default: 'Masih ada yang ingin ditanyakan?' }),
+      ctaBody: field.textarea({ label: 'Kalimat ajakan', max: 200, rows: 2, default: 'Petugas kami siap membantu lewat telepon, WhatsApp, atau di kantor cabang terdekat.' }),
+      primaryLabel: field.text({ label: 'Tombol utama', max: 30, default: 'Hubungi kami' }),
+      primaryHref: field.link({ label: 'Tombol utama menuju', default: '/kontak' }),
+      secondaryLabel: field.text({ label: 'Tombol kedua', max: 30, default: 'Lihat kantor terdekat' }),
+      secondaryHref: field.link({ label: 'Tombol kedua menuju', default: '/lokasi' }),
+    },
+  }),
+
+  simulation_tabs: def({
+    type: 'simulation_tabs',
+    label: 'Simulasi Pinjaman & Simpanan',
+    description: 'Kalkulator dua sisi: angsuran pinjaman dan hasil simpanan menurut tabel resmi koperasi.',
+    category: 'Produk',
+    icon: 'calculator',
+    headingLevel: null,
+    fields: {
+      defaultTab: field.select({
+        label: 'Sisi yang terbuka lebih dulu',
+        options: [{ value: 'pinjaman', label: 'Angsuran pinjaman' }, { value: 'simpanan', label: 'Hasil simpanan' }],
+        default: 'pinjaman',
+      }),
+      disclaimer: field.textarea({
+        label: 'Catatan di bawah hasil',
+        max: 240,
+        rows: 2,
+        default: 'Simulasi awal, bukan penawaran final. Angka resmi ditentukan setelah pengajuan dan survei oleh petugas.',
+      }),
+      // The explanation under the calculator, one set per side.
+      loanLabel: field.text({ label: 'Pinjaman: label kecil di atas penjelasan', max: 40, default: 'Bunga menurun' }),
+      loanHeading: field.text({ label: 'Pinjaman: judul penjelasan', max: 70, default: 'Cara membaca hasil simulasi' }),
+      loanLead: field.textarea({
+        label: 'Pinjaman: kalimat di bawah judul',
+        max: 240,
+        rows: 2,
+        default: 'Semua pinjaman memakai bunga menurun, seperti tabel angsuran koperasi. Yang membedakan antarproduk hanya besar suku bunganya.',
+      }),
+      loanNotes: field.repeater({
+        label: 'Pinjaman: kartu penjelasan',
+        itemLabel: 'Kartu',
+        max: 6,
+        help: 'Nomor 01, 02, 03 diberikan otomatis sesuai urutan kartu.',
+        of: {
+          title: field.text({ label: 'Judul kartu', required: true, max: 60 }),
+          body: field.textarea({ label: 'Isi kartu', required: true, max: 300, rows: 3 }),
+        },
+        default: [
+          { title: 'Pokok tetap', body: 'Plafon dibagi rata sepanjang jangka waktu. Porsi pokok setiap angsuran sama besarnya.' },
+          { title: 'Bunga dari sisa pinjaman', body: 'Bunga dihitung dari saldo yang belum dibayar, sehingga makin kecil setiap angsuran.' },
+          { title: 'Bulanan atau musiman', body: 'Pinjaman bulanan diangsur tiap bulan. Pinjaman musiman diangsur tiap 6 bulan, paling lama 5 tahun (10 angsuran), untuk usaha yang panen atau ramai pada musim tertentu.' },
+        ],
+      }),
+      loanNote: field.textarea({
+        label: 'Pinjaman: catatan di bawah kartu',
+        max: 300,
+        rows: 2,
+        default: 'Hasil simulasi ini adalah perkiraan awal. Nominal angsuran resmi ditentukan setelah proses pengajuan, verifikasi berkas, dan survei oleh petugas koperasi.',
+      }),
+      savingsLabel: field.text({ label: 'Simpanan: label kecil di atas penjelasan', max: 40, default: 'Cara kerja simpanan' }),
+      savingsHeading: field.text({ label: 'Simpanan: judul penjelasan', max: 70, default: 'Cara menghitung setiap simpanan' }),
+      savingsLead: field.textarea({
+        label: 'Simpanan: kalimat di bawah judul',
+        max: 240,
+        rows: 2,
+        default: 'Setiap produk punya tabel resmi sendiri. Simulasi di atas memakai angka dari tabel itu, bukan perkiraan.',
+        help: 'Kartu tiap simpanan ditulis otomatis dari angka di menu Simulasi, supaya selalu sama dengan hasil kalkulator.',
+      }),
+      savingsNote: field.textarea({
+        label: 'Simpanan: catatan di bawah kartu',
+        max: 300,
+        rows: 2,
+        default: 'Angka simpanan mengikuti tabel resmi koperasi. Hasil akhir dapat berbeda bila setoran tidak rutin, ditarik sebelum jatuh tempo, atau ketentuan koperasi berubah.',
+      }),
+    },
+  }),
+
+  profiling_wizard: def({
+    type: 'profiling_wizard',
+    label: 'Pencari Produk (4 Pertanyaan)',
+    description: 'Empat pertanyaan singkat yang berujung pada rekomendasi produk dan data calon nasabah.',
+    category: 'Konversi',
+    icon: 'spark',
+    headingLevel: null,
+    fields: {},
   }),
 
   contact_cards: def({
@@ -366,9 +886,156 @@ export const BLOCKS = {
     icon: 'phone',
     headingLevel: 'h2',
     fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'Kontak' }),
       heading: field.text({ label: 'Judul bagian', max: 70, default: 'Hubungi Kantor Kami' }),
       showHours: field.boolean({ label: 'Tampilkan jam buka', default: true }),
       showMap: field.boolean({ label: 'Tampilkan peta', default: true }),
+    },
+  }),
+
+  /* ──────────────────────── free-form sections ─────────────────────────── */
+
+  media_text: def({
+    type: 'media_text',
+    label: 'Gambar & Teks',
+    description: 'Satu gambar di samping judul, teks, poin, dan tombol. Untuk memperkenalkan layanan, program, atau kantor.',
+    category: 'Konten',
+    icon: 'image',
+    headingLevel: 'h2',
+    fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40 }),
+      heading: field.text({ label: 'Judul bagian', required: true, max: 70 }),
+      body: field.richtext({ label: 'Isi teks' }),
+      bullets: field.repeater({ label: 'Poin-poin', itemLabel: 'Poin', max: 6, of: { text: field.text({ label: 'Teks', required: true, max: 100 }) } }),
+      image: field.image({ label: 'Gambar', required: true, help: 'Ukuran ideal 1200×900 piksel.' }),
+      alt: field.text({ label: 'Teks alternatif gambar', max: 120, help: 'Dibaca mesin pencari dan pembaca layar, dan dihitung sebagai keterangan gambar oleh penilai SEO.' }),
+      imagePosition: field.select({ label: 'Posisi gambar', options: [{ value: 'right', label: 'Kanan' }, { value: 'left', label: 'Kiri' }], default: 'right' }),
+      imageRatio: field.select({ label: 'Rasio gambar', options: [{ value: '4/3', label: '4:3' }, { value: '1/1', label: 'Persegi' }, { value: '16/9', label: '16:9' }, { value: '3/4', label: 'Tegak (3:4)' }], default: '4/3' }),
+      ctaLabel: field.text({ label: 'Tulisan tombol', max: 30 }),
+      ctaHref: field.link({ label: 'Tombol menuju ke' }),
+      secondaryLabel: field.text({ label: 'Tulisan tombol kedua', max: 30 }),
+      secondaryHref: field.link({ label: 'Tombol kedua menuju ke' }),
+    },
+  }),
+
+  steps: def({
+    type: 'steps',
+    label: 'Langkah-langkah',
+    description: 'Proses bernomor: cara menjadi anggota, mengajukan pinjaman, atau membuka simpanan.',
+    category: 'Konten',
+    icon: 'list',
+    headingLevel: 'h2',
+    fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'Caranya mudah' }),
+      heading: field.text({ label: 'Judul bagian', required: true, max: 70 }),
+      intro: field.textarea({ label: 'Pengantar singkat', max: 220, rows: 2 }),
+      items: field.repeater({
+        label: 'Langkah', itemLabel: 'Langkah', min: 2, max: 8,
+        of: {
+          title: field.text({ label: 'Judul langkah', required: true, max: 60 }),
+          body: field.textarea({ label: 'Penjelasan', max: 200, rows: 2 }),
+          icon: field.icon({ label: 'Ikon', help: 'Kosongkan untuk memakai nomor urut.' }),
+        },
+      }),
+      layout: field.select({ label: 'Tata letak', options: [{ value: 'grid', label: 'Berjajar (kotak)' }, { value: 'list', label: 'Berurutan ke bawah' }], default: 'grid' }),
+      ctaLabel: field.text({ label: 'Tulisan tombol', max: 30 }),
+      ctaHref: field.link({ label: 'Tombol menuju ke' }),
+    },
+  }),
+
+  timeline: def({
+    type: 'timeline',
+    label: 'Lini Masa',
+    description: 'Perjalanan koperasi tahun demi tahun: berdiri, badan hukum, kantor baru, penghargaan.',
+    category: 'Konten',
+    icon: 'clock',
+    headingLevel: 'h2',
+    fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'Perjalanan kami' }),
+      heading: field.text({ label: 'Judul bagian', required: true, max: 70, default: 'Sejarah Koperasi' }),
+      items: field.repeater({
+        label: 'Peristiwa', itemLabel: 'Peristiwa', min: 1, max: 20,
+        of: {
+          period: field.text({ label: 'Tahun / periode', required: true, max: 20, placeholder: '2002' }),
+          title: field.text({ label: 'Judul peristiwa', required: true, max: 80 }),
+          body: field.textarea({ label: 'Penjelasan', max: 240, rows: 2 }),
+          image: field.image({ label: 'Foto (opsional)' }),
+          alt: field.text({ label: 'Teks alternatif foto', max: 120, help: 'Kosongkan untuk memakai judul peristiwa.' }),
+        },
+      }),
+    },
+  }),
+
+  video_embed: def({
+    type: 'video_embed',
+    label: 'Video',
+    description: 'Video YouTube di dalam halaman: profil koperasi, panduan layanan, atau liputan kegiatan.',
+    category: 'Media',
+    icon: 'video',
+    headingLevel: 'h2',
+    fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40 }),
+      heading: field.text({ label: 'Judul bagian', max: 70 }),
+      url: field.text({ label: 'Tautan video YouTube', required: true, max: 200, placeholder: 'https://www.youtube.com/watch?v=…', help: 'Tautan watch, youtu.be, atau shorts. Video diputar dari youtube-nocookie.com.' }),
+      caption: field.textarea({ label: 'Keterangan di bawah video', max: 200, rows: 2 }),
+      width: field.select({ label: 'Lebar', options: [{ value: 'narrow', label: 'Sedang, di tengah' }, { value: 'wide', label: 'Selebar halaman' }], default: 'narrow' }),
+    },
+  }),
+
+  logo_cloud: def({
+    type: 'logo_cloud',
+    label: 'Logo Mitra',
+    description: 'Deretan logo mitra, lembaga pengawas, atau pendukung koperasi.',
+    category: 'Media',
+    icon: 'award',
+    headingLevel: 'h2',
+    fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40 }),
+      heading: field.text({ label: 'Judul bagian', max: 70, default: 'Mitra & Pendukung' }),
+      logos: field.repeater({
+        label: 'Logo', itemLabel: 'Logo', min: 1, max: 12,
+        of: {
+          image: field.image({ label: 'Gambar logo', required: true, help: 'PNG atau SVG dengan latar transparan.' }),
+          alt: field.text({ label: 'Nama lembaga', required: true, max: 60, help: 'Dipakai sebagai teks alternatif logo.' }),
+          href: field.link({ label: 'Tautan (opsional)' }),
+        },
+      }),
+      muted: field.boolean({ label: 'Tampilkan abu-abu, berwarna saat disorot', default: true }),
+    },
+  }),
+
+  app_download: def({
+    type: 'app_download',
+    label: 'Unduh Aplikasi',
+    description: 'Ajakan memasang aplikasi koperasi dengan tombol App Store dan Google Play. Tautan tokonya diatur di menu Aplikasi Mobile.',
+    category: 'Konversi',
+    icon: 'smartphone',
+    headingLevel: 'h2',
+    fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'Aplikasi' }),
+      heading: field.text({ label: 'Judul bagian', required: true, max: 70, default: 'Layanan koperasi di genggaman Anda' }),
+      body: field.textarea({ label: 'Penjelasan', max: 240, rows: 3, default: 'Cek saldo, ajukan pinjaman, dan pantau angsuran dari ponsel, kapan saja.' }),
+      bullets: field.repeater({ label: 'Poin keunggulan', itemLabel: 'Poin', max: 5, of: { text: field.text({ label: 'Teks', required: true, max: 80 }) } }),
+      image: field.image({ label: 'Gambar aplikasi', help: 'Tangkapan layar atau mockup ponsel, ideal 800×1000 piksel dengan latar transparan.' }),
+      alt: field.text({ label: 'Teks alternatif gambar', max: 120, help: 'Kosongkan untuk memakai nama aplikasi.' }),
+      frame: field.select({
+        label: 'Tampilan gambar',
+        options: [{ value: 'phone', label: 'Di dalam bingkai ponsel' }, { value: 'plain', label: 'Gambar apa adanya' }],
+        default: 'phone',
+        help: 'Bingkai ponsel cocok untuk tangkapan layar aplikasi. Pilih "apa adanya" bila gambarnya sudah berupa mockup.',
+      }),
+      buttons: field.select({
+        label: 'Tombol yang ditampilkan',
+        options: [
+          { value: 'stores', label: 'Dua tombol: App Store dan Google Play' },
+          { value: 'smart', label: 'Satu tombol yang mengarah ke toko sesuai perangkat' },
+          { value: 'both', label: 'Dua tombol toko ditambah tautan pintar' },
+        ],
+        default: 'stores',
+        help: 'Tautan pintar membuka /aplikasi: iPhone diarahkan ke App Store, Android ke Google Play.',
+      }),
+      smartLabel: field.text({ label: 'Tulisan tombol tautan pintar', max: 30, default: 'Unduh aplikasi' }),
+      tone: field.select({ label: 'Warna latar', options: [{ value: 'dark', label: 'Gelap' }, { value: 'light', label: 'Terang' }], default: 'dark' }),
     },
   }),
 } satisfies Record<string, BlockDef>
@@ -388,10 +1055,52 @@ export function validateBlockProps(type: string, props: unknown) {
   const parsed = fieldsToZod(block.fields).safeParse(props)
   return parsed.success
     ? { success: true as const, data: parsed.data }
-    : { success: false as const, error: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') }
+    : {
+        success: false as const,
+        // Named as the form names it ("Data yang ditampilkan"), not by its key ("source").
+        error: parsed.error.issues.map((i) => {
+          const [key, ...rest] = i.path
+          const label = block.fields[String(key)]?.label ?? String(key ?? '')
+          return `${[label, ...rest].join('.')}: ${i.message}`
+        }).join('; '),
+      }
 }
 
 export function defaultPropsFor(type: string): Record<string, unknown> {
   const block = getBlock(type)
   return block ? defaultsFor(block.fields) : {}
+}
+
+/** A block's props with the rows an editor switched off left out: what the website draws. */
+export function visibleBlockProps(type: string, props: Record<string, unknown>): Record<string, unknown> {
+  const block = getBlock(type)
+  return block ? withoutHidden(block.fields, props) : props
+}
+
+/**
+ * The wrapper attributes a block's tracking fields ask for.
+ *
+ * Returns null when the editor named nothing, so the page emits no extra
+ * element at all: an empty div around every band would be a permanent cost paid
+ * for a feature almost no block uses.
+ *
+ * The prefix is applied here rather than typed by the editor, so one container
+ * rule can match every named section and a rename of the prefix reaches them
+ * all. A name that already carries it is left alone rather than doubled.
+ */
+export function trackingAttrs(
+  props: Record<string, unknown>,
+  prefix = 'ksp-',
+): { className: string; id?: string } | null {
+  const safe = (v: unknown) => String(v ?? '').trim().toLowerCase().replace(/[^a-z0-9_ -]/g, '')
+
+  const classes = safe(props.gtmClass)
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((name) => (prefix && name.startsWith(prefix) ? name : `${prefix}${name}`))
+
+  const id = safe(props.gtmId).replace(/\s+/g, '-') || undefined
+  if (!classes.length && !id) return null
+
+  return { className: classes.join(' '), id }
 }

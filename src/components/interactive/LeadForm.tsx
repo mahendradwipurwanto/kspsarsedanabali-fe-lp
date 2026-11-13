@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
+import { isValidPhone, isValidEmail, cleanPhoneInput, PHONE_ERROR, PHONE_HINT, EMAIL_ERROR } from '@/contracts'
 import type { Product, Branch } from '@/lib/api'
 import { apiPost, sessionId, track } from '@/lib/client'
-import { Action, Icon, Label } from '../ui'
+import { Action, Icon, RichText } from '../ui'
 import { Field, Note, Check, Select, field } from '../ui/form'
 
 export function LeadForm({
@@ -33,6 +34,19 @@ export function LeadForm({
     const productId = String(fd.get('productId') ?? '')
     const product = products.find((p) => p.id === productId)
 
+    // Check the two fields a typo most often lands in before anything leaves
+    // the browser; the API repeats the same rules.
+    const problems: Record<string, string> = {}
+    if (!isValidPhone(String(fd.get('phone') ?? ''))) problems.phone = PHONE_ERROR
+    const email = String(fd.get('email') ?? '').trim()
+    if (email && !isValidEmail(email)) problems.email = EMAIL_ERROR
+    if (Object.keys(problems).length) {
+      setStatus('idle')
+      setFieldErrors(problems)
+      ;(e.currentTarget.querySelector(problems.phone ? '#lead-phone' : '#lead-email') as HTMLInputElement | null)?.focus()
+      return
+    }
+
     const res = await apiPost('/public/leads', {
       name: String(fd.get('name') ?? ''),
       phone: String(fd.get('phone') ?? ''),
@@ -42,7 +56,7 @@ export function LeadForm({
       branchId: String(fd.get('branchId') ?? '') || undefined,
       interest: product?.category ?? undefined,
       source,
-      sessionId: sessionId(),
+      sessionId: await sessionId(),
       consent: fd.get('consent') === 'on',
       website: String(fd.get('website') ?? ''),
     })
@@ -59,15 +73,15 @@ export function LeadForm({
 
   if (status === 'done') {
     return (
-      <div className="relative overflow-hidden rounded-[var(--radius-card)] border border-green-200 bg-gradient-to-b from-green-50 to-[#eaf2e4] p-8 text-center shadow-[var(--edge-top)] sm:p-10">
+      <div className="surface relative overflow-hidden p-8 text-center sm:p-10">
         <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-gold-300 to-transparent" />
                 
-        <span className="mx-auto grid size-14 place-items-center rounded-full bg-gradient-to-b from-green-500 to-green-700 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25),var(--shadow-green)]"><Icon.check className="size-7" /></span>
-        <h3 className="t-h2 mt-5 text-navy-800">Pesan Anda sudah kami terima</h3>
-        <p className="t-lead mt-4">{successMessage}</p>
+        <span className="mx-auto grid size-14 place-items-center rounded-[var(--radius-tile)] bg-green-600 text-white"><Icon.check className="size-7" /></span>
+        <h3 className="t-h2 mt-5 text-ink-900">Pesan Anda sudah kami terima</h3>
+        <RichText value={successMessage} className="t-lead mt-4" />
 
-        <div className="mt-8 border-t border-green-200 pt-6">
-          <p className="text-[13.5px] text-slate-500">Butuh lebih cepat? Hubungi kantor terdekat langsung.</p>
+        <div className="mt-8 border-t border-line pt-6">
+          <p className="text-[13.5px] text-ink-500">Butuh lebih cepat? Hubungi kantor terdekat langsung.</p>
           <Action href="/lokasi" variant="outline" className="mt-4">
             Lihat kantor terdekat
             <Icon.arrow className="size-4" />
@@ -78,10 +92,10 @@ export function LeadForm({
   }
 
   return (
-    <div className="surface relative overflow-hidden p-6 !shadow-[var(--shadow-lift)] sm:p-8 lg:sticky lg:top-24">
-      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-green-500 via-green-400 to-gold-300" />
+    <div className="surface relative overflow-hidden p-6 sm:p-8 lg:sticky lg:top-24">
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200 to-transparent" />
             
-      <h3 className="mb-6 text-[18px] font-extrabold tracking-[-0.02em] text-navy-800">{title}</h3>
+      <h3 className="mb-6 t-h3">{title}</h3>
 
 
       <form onSubmit={onSubmit} noValidate className="grid gap-5">
@@ -91,12 +105,13 @@ export function LeadForm({
         </Field>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Nomor WhatsApp" htmlFor="lead-phone" required error={fieldErrors.phone}>
-            <input id="lead-phone" name="phone" type="tel" required inputMode="tel" autoComplete="tel"
-              placeholder="08xx xxxx xxxx" className={field} aria-describedby={fieldErrors.phone ? 'lead-phone-error' : undefined} />
+          <Field label="Nomor WhatsApp" htmlFor="lead-phone" required error={fieldErrors.phone} hint={fieldErrors.phone ? undefined : PHONE_HINT}>
+            <input id="lead-phone" name="phone" type="tel" required inputMode="numeric" autoComplete="tel" maxLength={16} pattern="[0-9+]*"
+              onInput={(e) => { e.currentTarget.value = cleanPhoneInput(e.currentTarget.value) }}
+              placeholder="081234567890" className={field} aria-invalid={fieldErrors.phone ? true : undefined} aria-describedby={fieldErrors.phone ? 'lead-phone-error' : undefined} />
           </Field>
           <Field label="Email" htmlFor="lead-email" error={fieldErrors.email}>
-            <input id="lead-email" name="email" type="email" autoComplete="email" placeholder="nama@email.com" className={field} />
+            <input id="lead-email" name="email" type="email" autoComplete="email" placeholder="nama@email.com" className={field} aria-invalid={fieldErrors.email ? true : undefined} />
           </Field>
         </div>
 
@@ -112,7 +127,8 @@ export function LeadForm({
               options={[
                 { value: '', label: 'Belum tahu, mohon dibantu' },
                 ...[...products]
-                  .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
+                  // Grouped by category, each in the order the console gives its products.
+                  .sort((a, b) => a.category.localeCompare(b.category))
                   .map((p) => ({
                     value: p.id,
                     label: p.name,
@@ -152,11 +168,11 @@ export function LeadForm({
         {error ? <Note>{error}</Note> : null}
 
         <Action type="submit" size="lg" shape="rect" disabled={status === 'sending'} full className="mt-1">
-          {status === 'sending' ? 'Mengirim…' : 'Kirim & Minta Dihubungi'}
+          {status === 'sending' ? 'Mengirim…' : 'Kirim dan minta dihubungi'}
           {status === 'idle' ? <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" /> : null}
         </Action>
 
-        <p className="text-center text-[12px] leading-relaxed text-slate-400">
+        <p className="text-center text-[12px] leading-relaxed text-ink-400">
           Data Anda hanya dipakai untuk menghubungi Anda dan tidak dibagikan ke pihak lain.
         </p>
       </form>

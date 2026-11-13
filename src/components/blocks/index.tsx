@@ -1,27 +1,76 @@
+import { Fragment, Suspense } from 'react'
 import Link from 'next/link'
-import { getBlock, telLink } from '@/contracts'
-import type { Block, Branch, Product, Post, Stat, Testimonial, DocumentItem } from '@/lib/api'
-import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, iconByName } from '../ui'
+import { getBlock, defaultPropsFor, visibleBlockProps, SAMPLE_CHART, isHtml, telLink, getOpenState, orgLevelsFrom, trackingAttrs, DEFAULT_ANALYTICS, FEEDBACK_CATEGORY_LABELS, type OrgColumn, type OrgLevel, type AnalyticsSettings } from '@/contracts'
+import type { PublicDataSource } from '@/contracts'
+import type { Block, Branch, Product, Simulation, Post, Stat, Testimonial, DocumentItem, DocumentCategory, Job, Faq, PublishedFeedback } from '@/lib/api'
+import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, iconByName, RichText } from '../ui'
 import { Media } from '../ui/Media'
-import { HeroCarousel, QuickAccess } from '../interactive/HeroCarousel'
+import { HeroCarousel, QuickAccess, type HeroHeight } from '../interactive/HeroCarousel'
+import { FeedbackForm } from '../interactive/FeedbackForm'
 import { LeadForm } from '../interactive/LeadForm'
 import { BranchFinder } from '../interactive/BranchFinder'
 import { SimulationCalculator } from '../interactive/SimulationCalculator'
 import { TestimonialSlider } from '../interactive/TestimonialSlider'
+import { DocumentShelf } from '../interactive/DocumentShelf'
 import { Accordion } from '../interactive/Accordion'
-import { ProductCard } from '../ProductCard'
+import { SimulationTabs } from '../interactive/SimulationTabs'
+import { ProfilingWizard } from '../interactive/ProfilingWizard'
+import { ProductCard, ProductRow } from '../ProductCard'
 import { PostCard } from '../PostCard'
 import { BranchCard } from '../BranchCard'
+import { Pagination } from '../Pagination'
+import { OrgChart } from '../OrgChart'
+import { HeroBanners, type Banner } from '../interactive/HeroBanners'
+import { MediaText, Steps, Timeline, VideoEmbed, LogoCloud, type Step, type Milestone, type Logo } from '../Sections'
+import { AppDownload, type StoreMode } from '../AppDownload'
+import { CountUp } from '../interactive/CountUp'
+import { ChartFigure } from '../ChartFigure'
+import { appSettings } from '@/lib/apps'
 
 export interface BlockContext {
   branches: Branch[]
   products: Product[]
+  /** The simulator's calculators, for the pages that render one. */
+  simulations?: Simulation[]
   posts: Post[]
   stats: Stat[]
   testimonials: Testimonial[]
+  /** Kritik & saran the pengurus chose to show under the suggestion box. */
+  publishedFeedback?: PublishedFeedback[]
   documents: DocumentItem[]
+  /** Every document kind, so the shelf can list one that is still empty. */
+  documentCategories?: DocumentCategory[]
   settings: Record<string, unknown>
+  /** The figures for each "Diagram Data" block on the page, by the record it points at. */
+  dataSources?: Record<string, PublicDataSource | null>
+  /** An editor's draft rather than the live page. */
+  preview?: boolean
+  /** Only the pages that render them fetch these. */
+  jobs?: Job[]
+  faqs?: Faq[]
+  /** Paging state for the news index, owned by the route that reads the URL. */
+  postsMeta?: { page: number; totalPages: number }
+  basePath?: string
+  /** Query string the route was opened with, for blocks that preselect from it. */
+  query?: { produk?: string; nominal?: string; tenor?: string; jenis?: string }
 }
+
+/** A loan calculator needs a rate to compute with: signed off, or the figure on record labelled as an estimate. */
+const hasLoanRate = (x: Simulation) => (x.ratePercent ?? x.product.ratePercent ?? x.product.ratePercentIndicative) != null
+
+/**
+ * A published piece of feedback drawn as a quote card: the sender as they
+ * signed it (or "Anggota"), the kind and month where a testimonial has a role.
+ * Nothing else about the sender reaches the page.
+ */
+const publishedAsQuote = (f: PublishedFeedback): Testimonial => ({
+  id: f.id,
+  name: f.name?.trim() || 'Anggota',
+  role: FEEDBACK_CATEGORY_LABELS[f.category as keyof typeof FEEDBACK_CATEGORY_LABELS] ?? f.category,
+  location: new Date(f.createdAt).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }),
+  quote: f.message,
+  rating: f.rating ?? 0,
+})
 
 type P = Record<string, unknown>
 const s = (v: unknown, fallback = '') => (typeof v === 'string' ? v : fallback)
@@ -29,48 +78,118 @@ const n = (v: unknown, fallback: number) => (typeof v === 'number' ? v : fallbac
 const b = (v: unknown, fallback = false) => (typeof v === 'boolean' ? v : fallback)
 const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : [])
 
+/**
+ * Column tracks for the achievement figures, sized to how many there are.
+ *
+ * Six tracks were laid out whatever the count, so a koperasi showing four
+ * numbers got four figures and two empty columns — a panel that ran the full
+ * width of the page with a third of it blank. Fewer figures now share the
+ * width between them instead of leaving a tail.
+ *
+ * Written as whole class names because Tailwind reads the source for them; a
+ * template built from a number would compile to nothing.
+ */
+const statColumns = (n: number) =>
+  ({
+    1: 'grid-cols-1',
+    2: 'grid-cols-2',
+    3: 'grid-cols-2 sm:grid-cols-3',
+    4: 'grid-cols-2 lg:grid-cols-4',
+    5: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
+  })[n] ?? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'
+
 export function BlockRenderer({ blocks, ctx }: { blocks: Block[]; ctx: BlockContext }) {
   const visible = blocks.filter((block) => block.isVisible && getBlock(block.type))
-  const hasHero = visible[0]?.type === 'hero_banner'
+  const analytics = { ...DEFAULT_ANALYTICS, ...((ctx.settings.analytics ?? {}) as Partial<AnalyticsSettings>) }
+  // Bands alternate white / paper, counting only the blocks that are bands —
+  // full-bleed openers and strips do not take a turn, or the rhythm breaks.
+  let bandIndex = 0
   return (
     <>
-      {visible.map((block, i) => (
-        <BlockSwitch key={block.id ?? i} block={block} ctx={ctx} index={i} />
-      ))}
-      {/* Quick access appears right after the banner on the homepage only. */}
-      {hasHero ? null : null}
+      {visible.map((block, i) => {
+        const isBand = !['hero_banner', 'quick_access', 'legality_bar', 'branch_contact_strip', 'page_header', 'cta_banner'].includes(block.type)
+        const tone = isBand ? (bandIndex++ % 2 === 1 ? 'alt' : 'default') : 'default'
+        const node = <BlockSwitch block={block} ctx={ctx} tone={tone} />
+
+        // A block the editor named for Tag Manager gets a wrapper carrying that
+        // name; every other block renders exactly as before, with no element
+        // added at all. The wrapper is a plain block-level div in normal flow,
+        // so it neither constrains a full-bleed band nor breaks an #anchor —
+        // `display: contents` would have done the latter.
+        const track = trackingAttrs(block.props ?? {}, analytics.classPrefix)
+        return track ? (
+          <div key={block.id ?? i} className={track.className} id={track.id} data-block={block.type}>
+            {node}
+          </div>
+        ) : (
+          <Fragment key={block.id ?? i}>{node}</Fragment>
+        )
+      })}
     </>
   )
 }
 
-function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; index: number }) {
-  const p = block.props as P
-  const tone = index % 2 === 1 ? 'alt' : 'default'
+function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; tone: 'default' | 'alt' }) {
+  // A block stored before a field existed has no value for it. The registry
+  // default fills the gap here, the same default the console shows in the
+  // editor, so the two never disagree about what a missing field means. The
+  // literal fallbacks further down only matter when a stored value is not a
+  // string at all.
+  //
+  // Rows an editor switched off (a hero slide out of season) are dropped here,
+  // once, so no component below has to know a row can be hidden.
+  const p = visibleBlockProps(block.type, { ...defaultPropsFor(block.type), ...block.props }) as P
 
   switch (block.type) {
     /* ─────────────────────────── page openers ─────────────────────────── */
     case 'page_header':
       return (
-        <div className="relative overflow-hidden border-b border-line bg-gradient-to-b from-green-50/70 to-white">
-          <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-green-100/40 blur-3xl" />
+        <div data-area="banner" className="relative overflow-hidden bg-night-900 text-white grid-dark">
+          <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-gold-400/60 to-transparent" />
           <Shell>
             <div className={`relative py-12 sm:py-16 lg:py-20 ${s(p.align) === 'center' ? 'mx-auto max-w-3xl text-center' : 'max-w-[56ch]'}`}>
-              {s(p.eyebrow) ? <Label>{s(p.eyebrow)}</Label> : null}
-              <h1 className="t-h1 mt-2.5">{s(p.heading)}</h1>
-              {s(p.subheading) ? <p className="t-lead mt-4">{s(p.subheading)}</p> : null}
+              {s(p.eyebrow) ? (
+                <div className={s(p.align) === 'center' ? 'flex justify-center' : ''}><Label tone="gold">{s(p.eyebrow)}</Label></div>
+              ) : null}
+              <h1 className="t-h1 mt-3 !text-white">{s(p.heading)}</h1>
+              <RichText value={s(p.subheading)} className="t-lead mt-4 text-white/70" />
             </div>
           </Shell>
         </div>
       )
 
-    case 'hero_banner':
+    case 'hero_banner': {
+      // The banner style shows the artwork itself; the component style keeps
+      // the rate card. Both are the page's H1.
+      if (s(p.style, 'component') === 'banner') {
+        const banners = arr<Banner>(p.banners).filter((banner) => banner.image)
+        if (!banners.length) return null
+        const height = s(p.bannerHeight, 'wide')
+        return (
+          <HeroBanners
+            banners={banners}
+            autoplay={b(p.autoplay, true)}
+            interval={n(p.interval, 8)}
+            text={s(p.bannerText, 'overlay') === 'none' ? 'none' : 'overlay'}
+            height={height === 'standard' || height === 'tall' ? height : 'wide'}
+          />
+        )
+      }
       return (
-        <>
-          <HeroCarousel slides={arr(p.slides)} autoplay={b(p.autoplay, true)} />
-          {/* The two new features get a shortcut immediately below the banner. */}
-          <QuickAccess />
-        </>
+        <HeroCarousel
+          slides={arr(p.slides)}
+          autoplay={b(p.autoplay, true)}
+          interval={n(p.interval, 8)}
+          badge={s(p.badge)}
+          products={ctx.products}
+          height={s(p.heroHeight, 'standard') as HeroHeight}
+          look={p}
+        />
       )
+    }
+
+    case 'quick_access':
+      return <QuickAccess items={arr(p.items)} />
 
     /* ─────────────────────────── trust devices ────────────────────────── */
     case 'legality_bar': {
@@ -78,30 +197,25 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       const logos = arr<{ image: string; alt: string }>(p.partnerLogos)
       if (!items.length && !logos.length) return null
       return (
-        <div className="bg-gradient-to-r from-green-50 via-[#f3f4e4] to-green-50">
+        <div className="border-b border-line bg-paper">
           <Shell>
             <div className="flex flex-col items-center gap-5 py-5 text-center md:flex-row md:gap-8 md:text-left lg:gap-10">
-              <div className="flex shrink-0 items-center gap-4">
-                <Mark className="h-11 w-auto sm:h-12" />
+              <div className="flex shrink-0 items-center gap-3">
+                <Mark className="h-10 w-auto" />
                 <span className="leading-tight">
-                  <span className="block text-[17px] font-extrabold tracking-[-0.02em] text-green-600 sm:text-[19px]">
-                    KSP Sari Sedana Bali
-                  </span>
-                  <span className="block text-[12px] font-medium tracking-[0.1em] text-slate-400">Untuk kita</span>
+                  <span className="block text-[16px] font-extrabold tracking-[-0.02em] text-ink-900">KSP Sari Sedana Bali</span>
+                  <span className="block text-[11.5px] font-medium text-ink-400">Untuk kita</span>
                 </span>
               </div>
-
-              <div aria-hidden="true" className="hidden h-12 w-px bg-green-200 md:block" />
-
-              <dl className="min-w-0 flex-1 space-y-0.5">
+              <div aria-hidden="true" className="hidden h-10 w-px bg-line md:block" />
+              <dl className="tnum min-w-0 flex-1 space-y-0.5">
                 {items.map((item, i) => (
                   <div key={i} className="flex flex-wrap items-baseline justify-center gap-x-2 md:justify-start">
-                    <dt className="text-[13px] font-semibold text-navy-800 sm:text-[14.5px]">{item.label} :</dt>
-                    <dd className="tnum text-[13px] text-navy-700 sm:text-[14.5px]">{item.value}</dd>
+                    <dt className="text-[13px] font-semibold text-ink-700">{item.label}</dt>
+                    <dd className="text-[13px] text-ink-500">{item.value}</dd>
                   </div>
                 ))}
               </dl>
-
               {logos.length ? (
                 <ul className="flex shrink-0 items-center gap-5">
                   {logos.map((logo, i) => (
@@ -120,25 +234,30 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       const list = chosen.length ? ctx.branches.filter((x) => chosen.includes(x.id)) : ctx.branches
       if (!list.length) return null
       return (
-        <div className="relative bg-gradient-to-b from-green-500 to-green-600 text-white">
-          <span aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold-300/70 to-transparent" />
+        <div className="border-b border-line bg-night-900 text-white">
           <Shell>
-            <ul className="grid divide-y divide-white/15 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-              {list.map((branch, i) => (
-                <li key={branch.id} className={`py-5 ${i === 0 ? 'sm:pr-6' : i === list.length - 1 ? 'sm:pl-6' : 'sm:px-6'}`}>
-                  <p className="flex items-center gap-2 text-[15px] font-bold text-gold-300">
-                    <Icon.pin className="size-4 shrink-0" />
-                    {branch.name}
-                  </p>
-                  <p className="mt-1 text-[13.5px] leading-snug text-white/85">{branch.address}</p>
-                  {branch.phone ? (
-                    <a href={telLink(branch.phone)} className="tnum mt-2 inline-flex items-center gap-2 text-[15px] font-semibold text-white transition-colors hover:text-gold-200">
-                      <Icon.phone className="size-4 text-gold-300" />
-                      {branch.phone}
-                    </a>
-                  ) : null}
-                </li>
-              ))}
+            <ul className="grid divide-y divide-white/10 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+              {list.map((branch, i) => {
+                const state = getOpenState(branch.hours)
+                return (
+                  <li key={branch.id} className={`py-5 ${i === 0 ? 'sm:pr-6' : i === list.length - 1 ? 'sm:pl-6' : 'sm:px-6'}`}>
+                    <p className="flex items-center gap-2 text-[14.5px] font-bold text-white">
+                      <span aria-hidden="true" className={`size-1.5 rounded-full ${state.isOpen ? 'bg-green-400' : 'bg-gold-300'}`} />
+                      {branch.name}
+                    </p>
+                    <p className="mt-1 text-[13px] leading-snug text-white/55">{branch.address}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px]">
+                      <span className="text-white/50">{state.label}</span>
+                      {branch.phone ? (
+                        <a href={telLink(branch.phone)} className="tnum inline-flex items-center gap-1.5 font-semibold text-gold-300 hover:text-gold-200">
+                          <Icon.phone className="size-3.5" />
+                          {branch.phone}
+                        </a>
+                      ) : null}
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
           </Shell>
         </div>
@@ -150,32 +269,96 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       const custom = arr<{ icon?: string; value: string; label: string }>(p.items)
       const items = custom.length ? custom : ctx.stats.map((x) => ({ value: x.value, label: x.label, icon: x.icon ?? undefined }))
       if (!items.length) return null
+      const ledger = s(p.layout, 'ledger') === 'ledger'
+      const columns = statColumns(items.length)
       return (
         <Band tone={tone}>
           <Shell>
-            <Heading label={s(p.eyebrow, 'Pencapaian Kami')} title={s(p.heading)} lead={s(p.subtext)} align="center" />
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4 [&>li]:flex [&>li]:flex-col [&>li]:items-center">
-              {items.map((item, i) => {
-                const IconCmp = iconByName(item.icon)
-                return (
-                  <Card as="li" key={i} hover className="group/stat relative overflow-hidden p-5 text-center">
-                    {/* A gold seam along the top edge, revealed on hover — the
-                        only ornament on the card, and it earns attention. */}
-                    <span
-                      aria-hidden="true"
-                      className="absolute inset-x-0 top-0 h-[2px] origin-center scale-x-0 bg-gradient-to-r from-transparent via-gold-300 to-transparent transition-transform duration-500 [transition-timing-function:var(--ease-settle)] group-hover/stat:scale-x-100"
-                    />
-                    <span className="mx-auto">
-                      <Tile size="md" tone="soft">
-                        <IconCmp className="size-5" />
-                      </Tile>
-                    </span>
-                    <p className="figure mt-4 text-[19px] text-navy-800 sm:text-[21px]">{item.value}</p>
-                    <p className="mt-1.5 text-[10.5px] font-bold uppercase tracking-[0.13em] text-slate-400">{item.label}</p>
-                  </Card>
-                )
-              })}
-            </ul>
+            <Heading label={s(p.eyebrow)} title={s(p.heading)} lead={s(p.subtext)} />
+            {ledger ? (
+              /* A ledger row: figures on hairlines, no boxes. This is the
+                 shape a financial statement has, and it is the one place the
+                 site shows its numbers together.
+                 The hairlines are the gaps: a one-pixel gap over the line
+                 colour draws a rule between every pair of neighbours, however
+                 the row happens to wrap. Divide utilities cannot — they follow
+                 DOM order, not grid rows, and drew a rule through the middle of
+                 a row whenever the count did not fill it. */
+              <div className="surface overflow-hidden">
+                <ul className={`grid gap-px bg-line ${columns}`}>
+                  {items.map((item, i) => {
+                    // The icon the koperasi chose for the figure sits above
+                    // it here too; a ledger of bare numbers read as unfinished
+                    // next to the cards, and the icon field looked ignored.
+                    const IconCmp = iconByName(item.icon)
+                    return (
+                      <li key={i} className="flex flex-col items-center bg-surface px-4 py-6 text-center lg:py-7">
+                        <Tile size="lg" tone="green"><IconCmp className="size-6" /></Tile>
+                        <p className="figure mt-4 text-[1.75rem] text-ink-900 sm:text-[2rem]"><CountUp value={item.value} /></p>
+                        <p className="mt-1.5 text-[12px] font-bold uppercase tracking-[0.08em] text-ink-500">{item.label}</p>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            ) : (
+              <ul className={`grid gap-3 lg:gap-4 ${columns}`}>
+                {items.map((item, i) => {
+                  const IconCmp = iconByName(item.icon)
+                  return (
+                    <Card as="li" key={i} className="p-5">
+                      <Tile size="sm" tone="soft"><IconCmp className="size-4" /></Tile>
+                      <p className="figure mt-4 text-[1.5rem] text-ink-900"><CountUp value={item.value} /></p>
+                      <p className="mt-1.5 text-[12.5px] font-semibold text-ink-500">{item.label}</p>
+                    </Card>
+                  )
+                })}
+              </ul>
+            )}
+            {/* The console's editor saves HTML; one emptied out leaves a bare <p></p>, which shows nothing. */}
+            {s(p.note).replace(/<[^>]*>|&nbsp;/g, '').trim() ? (
+              <RichText value={s(p.note)} className="mt-4 max-w-[80ch] text-[12.5px] leading-relaxed text-ink-400" />
+            ) : null}
+          </Shell>
+        </Band>
+      )
+    }
+
+    /* ─────────────────────── chart from a spreadsheet ─────────────────── */
+    case 'data_chart': {
+      const source = ctx.dataSources?.[s(p.source)]
+      // Nothing chosen, or a sheet that could not be read: the live page says
+      // nothing at all, while a draft shows the shape with sample figures so
+      // an editor can see what they are adding.
+      const sample = !source?.chart.labels.length && ctx.preview
+      const chart = sample ? SAMPLE_CHART : source?.chart
+      if (!chart?.labels.length) return null
+      const hasNote = s(p.note).replace(/<[^>]*>|&nbsp;/g, '').trim()
+      const updated = b(p.showUpdated) && source?.syncedAt
+        ? new Date(source.syncedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Makassar' })
+        : ''
+      return (
+        <Band tone={tone}>
+          <Shell>
+            {s(p.heading) ? <Heading label={s(p.eyebrow)} title={s(p.heading)} lead={s(p.subtext)} /> : null}
+            <ChartFigure
+              chart={chart}
+              type={s(p.chartType, 'bar')}
+              format={s(p.valueFormat, 'compact')}
+              showSummary={b(p.showSummary, true)}
+              showValues={b(p.showValues, true)}
+              showLegend={b(p.showLegend, true)}
+              showTable={b(p.showTable)}
+              height={s(p.height, 'standard')}
+              title={s(p.heading) || source?.name}
+              updated={updated}
+              note={hasNote ? <RichText value={s(p.note)} /> : null}
+              notice={sample ? (
+                <p className="mb-5 rounded-[var(--radius-input)] border border-gold-200 bg-gold-50 px-3.5 py-2.5 text-[13px] font-medium text-gold-700">
+                  Contoh diagram dengan angka rekaan. Pilih “Data yang ditampilkan” pada blok ini untuk memakai angka dari spreadsheet.
+                </p>
+              ) : null}
+            />
           </Shell>
         </Band>
       )
@@ -194,39 +377,41 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
               label={s(p.eyebrow)}
               title={s(p.heading)}
               lead={s(p.subtext)}
-              alignAction="end"
-              action={
-                s(p.ctaLabel) ? (
-                  <Action href={s(p.ctaHref, '/produk')}>
-                    {s(p.ctaLabel)}
-                    <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
-                  </Action>
-                ) : undefined
-              }
+              action={s(p.ctaLabel) ? <Action href={s(p.ctaHref, '/produk')} variant="outline">{s(p.ctaLabel)}<Icon.arrow className="size-4" /></Action> : undefined}
             />
-            <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {list.map((product, i) => <ProductCard key={product.id} product={product} priority={i < 3} />)}
-            </ul>
+            {s(p.layout, 'cards') === 'rows' ? (
+              <ul className="grid gap-3">
+                {list.map((product, i) => <ProductRow key={product.id} product={product} index={i + 1} />)}
+              </ul>
+            ) : (
+              <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {list.map((product, i) => <ProductCard key={product.id} product={product} priority={i < 3} />)}
+              </ul>
+            )}
           </Shell>
         </Band>
       )
     }
 
     /* ─────────────────────────────── CTA ──────────────────────────────── */
-    case 'cta_banner':
+    case 'cta_banner': {
+      const solid = s(p.variant, 'image') === 'solid' || !s(p.image)
       return (
-        <section className="relative isolate overflow-hidden bg-green-700">
-          <div className="absolute inset-0 -z-10">
-            <Media src={s(p.image)} alt="" ratio="auto" rounded={false} sizes="100vw" className="!absolute inset-0 size-full [&>*]:!object-cover" />
-            <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-green-900/96 via-green-700/90 to-green-600/55" />
-            <Mark className="pointer-events-none absolute -right-10 -bottom-16 hidden h-[22rem] w-auto opacity-[0.07] lg:block" />
-          </div>
+        <section data-area="banner" className={`relative isolate overflow-hidden text-white ${solid ? 'bg-night-900 grid-dark' : 'bg-night-900'}`}>
+          {!solid ? (
+            <div className="absolute inset-0 -z-10">
+              <Media src={s(p.image)} alt="" ratio="auto" rounded={false} sizes="100vw" className="!absolute inset-0 size-full !rounded-none [&>*]:!object-cover" />
+              <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-night-900 via-night-900/90 to-night-900/50" />
+            </div>
+          ) : (
+            <Mark className="pointer-events-none absolute -right-10 -bottom-16 hidden h-[22rem] w-auto opacity-[0.06] lg:block" />
+          )}
           <Shell>
-            <div className="flex flex-col gap-7 py-14 sm:py-18 lg:flex-row lg:items-center lg:justify-between lg:py-20">
+            <div className="flex flex-col gap-7 py-14 lg:flex-row lg:items-center lg:justify-between lg:py-20">
               <div className="max-w-[44ch]">
                 {s(p.eyebrow) ? <Label tone="gold">{s(p.eyebrow)}</Label> : null}
-                <h2 className="t-h1 mt-2.5 !text-white">{s(p.heading)}</h2>
-                {s(p.body) ? <p className="mt-4 text-[16px] leading-relaxed text-white/85">{s(p.body)}</p> : null}
+                <h2 className="t-h1 mt-3 !text-white">{s(p.heading)}</h2>
+                <RichText value={s(p.body)} className="mt-4 text-[16px] leading-relaxed text-white/70" />
               </div>
               <div className="flex shrink-0 flex-wrap gap-3">
                 {s(p.ctaLabel) ? (
@@ -235,15 +420,16 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
                     <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
                   </Action>
                 ) : null}
-                <Action href="/profiling" variant="ghostLight" size="lg">
-                  <Icon.spark className="size-4" />
-                  Cari Produk
-                </Action>
+                {s(p.secondaryLabel) ? (
+                  <Action href={s(p.secondaryHref, '/profiling')} variant="ghostLight" size="lg">{s(p.secondaryLabel)}</Action>
+                ) : null}
               </div>
             </div>
           </Shell>
+          <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-gold-400/60 to-transparent" />
         </section>
       )
+    }
 
     /* ──────────────────────────────  news  ────────────────────────────── */
     case 'news_list': {
@@ -256,13 +442,7 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
               label={s(p.eyebrow)}
               title={s(p.heading)}
               lead={s(p.subtext)}
-              alignAction="end"
-              action={
-                <Action href="/berita">
-                  {s(p.ctaLabel, 'Lihat Semua Berita')}
-                  <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
-                </Action>
-              }
+              action={<Action href={s(p.ctaHref, '/berita')} variant="outline">{s(p.ctaLabel, 'Lihat Semua Berita')}<Icon.arrow className="size-4" /></Action>}
             />
             <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {list.map((post, i) => <PostCard key={post.id} post={post} priority={i === 0} />)}
@@ -278,7 +458,7 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       return (
         <Band tone={tone}>
           <Shell>
-            <Heading label={s(p.eyebrow)} title={s(p.heading)} lead={s(p.subtext)} align="center" />
+            <Heading label={s(p.eyebrow)} title={s(p.heading)} lead={s(p.subtext)} />
             <TestimonialSlider items={list} />
           </Shell>
         </Band>
@@ -298,19 +478,10 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
               {items.map((item, i) => {
                 const IconCmp = iconByName(item.icon)
                 return (
-                  <Card as="li" key={i} hover className="group/feat relative overflow-hidden p-6">
-                    <span
-                      aria-hidden="true"
-                      className="absolute inset-y-0 left-0 w-[3px] origin-top scale-y-0 bg-gradient-to-b from-green-400 to-green-600 transition-transform duration-500 [transition-timing-function:var(--ease-settle)] group-hover/feat:scale-y-100"
-                    />
-                    <div className="flex items-start justify-between gap-4">
-                      <Tile tone="soft"><IconCmp className="size-5" /></Tile>
-                      <span className="tnum text-[11px] font-bold tracking-[0.16em] text-slate-200 transition-colors duration-300 group-hover/feat:text-gold-300">
-                        {String(i + 1).padStart(2, '0')}
-                      </span>
-                    </div>
-                    <h3 className="t-h3 mt-4">{item.title}</h3>
-                    {item.body ? <p className="mt-2 text-[14.5px] leading-relaxed text-slate-500">{item.body}</p> : null}
+                  <Card as="li" key={i} className="p-6">
+                    <Tile tone="dark"><IconCmp className="size-5" /></Tile>
+                    <h3 className="t-h3 mt-5">{item.title}</h3>
+                    <RichText value={item.body} className="mt-2 text-[14.5px] leading-relaxed text-ink-500" />
                   </Card>
                 )
               })}
@@ -346,35 +517,113 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
     }
 
     case 'org_chart': {
-      const fromProps = arr<{ title: string; members: { name: string; role?: string }[] }>(p.groups)
-      const groups = fromProps.length ? fromProps : arr<{ title: string; members: { name: string; role?: string }[] }>(ctx.settings.organization)
-      if (!groups.length) return null
+      // The chart is a list of levels. Charts saved before levels existed are
+      // converted by the shared helper, with the board from Pengaturan →
+      // Legalitas & Organisasi standing in when the block carries none.
+      const levels = orgLevelsFrom(p, arr<OrgColumn>(ctx.settings.organization), arr<OrgLevel>(ctx.settings.organizationChart))
+      if (!levels.length) return null
       return (
         <Band tone={tone}>
           <Shell>
-            <Heading label="Tata Kelola" title={s(p.heading, 'Struktur Organisasi')} align="center" />
-            {/* Structured text rather than a flat image — readable by Google and
-                by a phone, unlike the JPEG on the old site. */}
-            <div className="grid gap-5 lg:grid-cols-3">
-              {groups.map((group, i) => (
-                <Card key={i} className="p-6">
-                  <div className="flex items-center gap-3">
-                    <Tile size="sm" tone="soft"><Icon.users className="size-4" /></Tile>
-                    <h3 className="text-[13px] font-bold uppercase tracking-[0.11em] text-green-700">{group.title}</h3>
-                  </div>
-                  <ul className="mt-5 space-y-4">
-                    {group.members.map((m, j) => (
-                      <li key={j} className="border-l-2 border-green-100 pl-3.5">
-                        <p className="text-[15.5px] font-bold text-navy-800">{m.name}</p>
-                        {m.role ? <p className="mt-0.5 text-[12.5px] text-slate-400">{m.role}</p> : null}
-                      </li>
-                    ))}
-                  </ul>
-                </Card>
-              ))}
-            </div>
+            <Heading label={s(p.eyebrow, 'Tata kelola')} title={s(p.heading, 'Struktur Organisasi')} />
+            <OrgChart levels={levels} />
           </Shell>
         </Band>
+      )
+    }
+
+    /* ──────────────────────── free-form sections ─────────────────────── */
+    case 'media_text': {
+      if (!s(p.heading)) return null
+      return (
+        <Band tone={tone}>
+          <Shell>
+            <MediaText
+              eyebrow={s(p.eyebrow)}
+              heading={s(p.heading)}
+              body={s(p.body)}
+              bullets={arr<{ text: string }>(p.bullets)}
+              image={s(p.image)}
+              imageAlt={s(p.alt)}
+              imagePosition={s(p.imagePosition, 'right') === 'left' ? 'left' : 'right'}
+              imageRatio={s(p.imageRatio, '4/3')}
+              primary={{ label: s(p.ctaLabel), href: s(p.ctaHref) }}
+              secondary={{ label: s(p.secondaryLabel), href: s(p.secondaryHref) }}
+            />
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'steps': {
+      const items = arr<Step>(p.items)
+      if (!items.length) return null
+      return (
+        <Band tone={tone}>
+          <Shell>
+            {s(p.heading) ? <Heading label={s(p.eyebrow)} title={s(p.heading)} lead={s(p.intro) || undefined} /> : null}
+            <Steps items={items} layout={s(p.layout, 'grid') === 'list' ? 'list' : 'grid'} primary={{ label: s(p.ctaLabel), href: s(p.ctaHref) }} />
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'timeline': {
+      const items = arr<Milestone>(p.items)
+      if (!items.length) return null
+      return (
+        <Band tone={tone}>
+          <Shell>
+            {s(p.heading) ? <Heading label={s(p.eyebrow)} title={s(p.heading)} /> : null}
+            <Timeline items={items} />
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'video_embed': {
+      if (!s(p.url)) return null
+      return (
+        <Band tone={tone}>
+          <Shell>
+            {s(p.heading) ? <Heading label={s(p.eyebrow)} title={s(p.heading)} align="center" /> : null}
+            <VideoEmbed url={s(p.url)} title={s(p.heading)} caption={s(p.caption)} width={s(p.width, 'narrow') === 'wide' ? 'wide' : 'narrow'} />
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'logo_cloud': {
+      const logos = arr<Logo>(p.logos).filter((logo) => logo.image)
+      if (!logos.length) return null
+      return (
+        <Band tone={tone}>
+          <Shell>
+            {s(p.heading) ? <Heading label={s(p.eyebrow)} title={s(p.heading)} align="center" /> : null}
+            <LogoCloud logos={logos} muted={b(p.muted, true)} />
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'app_download': {
+      if (!s(p.heading)) return null
+      const mode = s(p.buttons, 'stores')
+      return (
+        <AppDownload
+          eyebrow={s(p.eyebrow)}
+          heading={s(p.heading)}
+          body={s(p.body)}
+          bullets={arr<{ text: string }>(p.bullets)}
+          image={s(p.image)}
+          alt={s(p.alt)}
+          frame={s(p.frame, 'phone') === 'plain' ? 'plain' : 'phone'}
+          apps={appSettings(ctx.settings)}
+          mode={(mode === 'smart' || mode === 'both' ? mode : 'stores') as StoreMode}
+          smartLabel={s(p.smartLabel)}
+          tone={s(p.tone, 'dark') === 'light' ? 'light' : 'dark'}
+          bandTone={tone}
+        />
       )
     }
 
@@ -390,7 +639,7 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
                 <li key={i}>
                   <figure>
                     <Media src={img.image} alt={img.caption ?? ''} ratio="4/3" sizes="(max-width: 640px) 100vw, 33vw" />
-                    {img.caption ? <figcaption className="mt-2.5 text-[13px] text-slate-400">{img.caption}</figcaption> : null}
+                    {img.caption ? <figcaption className="mt-2.5 text-[13px] text-ink-400">{img.caption}</figcaption> : null}
                   </figure>
                 </li>
               ))}
@@ -401,32 +650,44 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
     }
 
     case 'document_list': {
-      const list = ctx.documents.filter((d) => !s(p.category) || d.category === s(p.category))
+      // A list of kind slugs; empty means every kind. Older pages stored one
+      // string here — '' or 'all' for everything, else a slug — and a
+      // revision restored from that time still can, so all three are read.
+      const raw = p.category
+      const chosen = Array.isArray(raw) ? raw.filter((k): k is string => typeof k === 'string' && k !== '')
+        : typeof raw === 'string' && raw && raw !== 'all' ? [raw] : []
+      // The kinds to list, as rows: the chosen ones, or every kind when none
+      // was chosen — in the order the koperasi set, empty ones included.
+      const all = ctx.documentCategories ?? []
+      const kinds = (chosen.length ? all.filter((c) => chosen.includes(c.slug)) : all)
+        .map((c) => ({ slug: c.slug, name: c.name, icon: c.icon ?? 'file-text', order: c.sortOrder }))
+      const list = ctx.documents.filter((d) => !chosen.length || chosen.includes(d.category))
       return (
         <Band tone={tone}>
           <Shell>
-            {s(p.heading) ? <Heading label="Unduhan" title={s(p.heading)} /> : null}
-            {list.length ? (
-              <ul className="grid gap-3">
+            {s(p.heading) ? <Heading label={s(p.eyebrow, 'Unduhan')} title={s(p.heading)} /> : null}
+            {!list.length && !kinds.length ? (
+              <Blank title="Belum ada dokumen" body="Dokumen akan tersedia di sini setelah diunggah oleh pengurus koperasi." />
+            ) : s(p.layout, 'shelf') === 'shelf' ? (
+              // Covers on a shelf, tabbed by category when the block shows them all.
+              <DocumentShelf items={list} kinds={kinds} />
+            ) : (
+              <ul className="surface divide-y divide-line overflow-hidden">
                 {list.map((doc) => (
                   <li key={doc.id}>
-                    <a href={doc.url} target="_blank" rel="noopener noreferrer"
-                      className="surface surface-i group/doc flex items-center gap-4 p-4 sm:p-5">
-                      <Tile tone="soft"><Icon.download className="size-5" /></Tile>
+                    <a href={doc.url} target="_blank" rel="noopener noreferrer" className="group/doc flex items-center gap-4 p-4 transition-colors hover:bg-paper sm:p-5">
+                      <Tile tone="outline"><Icon.fileText className="size-5" /></Tile>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[15px] font-bold text-navy-800 transition-colors group-hover/doc:text-green-700">{doc.title}</span>
-                        {doc.year ? <span className="tnum mt-0.5 block text-[13px] text-slate-400">Tahun buku {doc.year}</span> : null}
+                        <span className="block truncate text-[15px] font-bold text-ink-900 transition-colors group-hover/doc:text-green-700">{doc.title}</span>
+                        {doc.year ? <span className="tnum mt-0.5 block text-[13px] text-ink-400">Tahun buku {doc.year}</span> : null}
                       </span>
                       <span className="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-semibold text-green-700">
-                        Unduh
-                        <Icon.arrow className="size-3.5 transition-transform duration-300 group-hover/doc:translate-x-0.5" />
+                        Unduh <Icon.download className="size-4" />
                       </span>
                     </a>
                   </li>
                 ))}
               </ul>
-            ) : (
-              <Blank title="Belum ada dokumen" body="Dokumen akan tersedia di sini setelah diunggah oleh pengurus koperasi." />
             )}
           </Shell>
         </Band>
@@ -438,26 +699,76 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       return (
         <Band tone={tone} className="!py-10 sm:!py-14">
           <Shell>
-            <Card tone="soft" className="relative overflow-hidden p-7 sm:p-9">
-              <div aria-hidden="true" className="pointer-events-none absolute -right-14 -top-14 size-52 rounded-full bg-green-100/70 blur-2xl" />
+            <div className="surface-dark relative overflow-hidden p-7 text-white sm:p-9">
+              <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200/60 to-transparent" />
+              <div className="grid-dark absolute inset-0 -z-0 opacity-60" aria-hidden="true" />
               <div className="relative flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
                 <div className="max-w-[48ch]">
-                  <div className="flex items-center gap-3">
-                    <Tile><Icon.spark className="size-5" /></Tile>
-                    <Label>Panduan Cepat</Label>
-                  </div>
-                  <h2 className="t-h2 mt-4">{s(p.heading)}</h2>
-                  {s(p.body) ? <p className="t-lead mt-3">{s(p.body)}</p> : null}
+                  {s(p.eyebrow) ? <Label tone="gold">{s(p.eyebrow)}</Label> : null}
+                  <h2 className="t-h2 mt-3 !text-white">{s(p.heading)}</h2>
+                  <RichText value={s(p.body)} className="mt-3 text-[16px] leading-relaxed text-white/70" />
                 </div>
                 <div className="shrink-0">
-                  <Action href="/profiling" size="lg" className="w-full sm:w-auto">
-                    {s(p.ctaLabel, 'Mulai')}
+                  <Action href={s(p.ctaHref, '/profiling')} variant="light" size="lg" className="w-full sm:w-auto">
+                    {s(p.ctaLabel, 'Mulai, ±30 detik')}
                     <Icon.arrow className="size-4 transition-transform duration-300 group-hover/act:translate-x-1" />
                   </Action>
-                  {s(p.note) ? <p className="mt-2.5 text-center text-[12.5px] text-slate-400">{s(p.note)}</p> : null}
+                  {s(p.note) ? <p className="mt-2.5 text-center text-[12.5px] text-white/50">{s(p.note)}</p> : null}
                 </div>
               </div>
-            </Card>
+            </div>
+          </Shell>
+        </Band>
+      )
+
+    case 'feedback_form':
+      return (
+        <Band tone={tone} id="masukan">
+          <Shell>
+            <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-16">
+              <div>
+                {s(p.eyebrow) ? <Label>{s(p.eyebrow)}</Label> : null}
+                <h2 className="t-h2 mt-3">
+                  {s(p.heading, 'Kritik & Saran')}
+                  {s(p.headingAccent) ? <> <span className="text-green-700">{s(p.headingAccent)}</span></> : null}
+                </h2>
+                <RichText value={s(p.body)} className="t-lead mt-4 max-w-[46ch]" />
+
+                {arr(p.points).length ? (
+                  <ul className="mt-8 divide-y divide-line border-y border-line">
+                    {arr<{ title: string; body?: string }>(p.points).map((point, i) => (
+                      <li key={i} className="flex items-start gap-3.5 py-4">
+                        <Icon.checkCircle className="mt-0.5 size-5 shrink-0 text-green-600" />
+                        <span className="min-w-0">
+                          <span className="block text-[14.5px] font-bold text-ink-900">{point.title}</span>
+                          {point.body ? <span className="mt-0.5 block text-[13.5px] leading-relaxed text-ink-500">{point.body}</span> : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+
+              <FeedbackForm
+                title={s(p.formTitle, 'Sampaikan Masukan')}
+                askIdentity={b(p.askIdentity, true)}
+                askBranch={b(p.askBranch, true)}
+                askRating={b(p.askRating, true)}
+                note={s(p.note)}
+                successMessage={s(p.successMessage, 'Terima kasih. Masukan Anda sudah kami terima dan akan dibaca pengurus.')}
+                branches={ctx.branches}
+              />
+            </div>
+
+            {/* What the pengurus chose to show back: proof the box is read. */}
+            {b(p.showPublished, true) && ctx.publishedFeedback?.length ? (
+              <div className="mt-14 border-t border-line pt-10">
+                <h3 className="t-h3">{s(p.publishedHeading, 'Masukan yang sudah kami terima')}</h3>
+                <div className="mt-6">
+                  <TestimonialSlider items={ctx.publishedFeedback.slice(0, n(p.publishedLimit, 4)).map(publishedAsQuote)} />
+                </div>
+              </div>
+            ) : null}
           </Shell>
         </Band>
       )
@@ -469,43 +780,41 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
             <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-16">
               <div>
                 {s(p.eyebrow) ? <Label>{s(p.eyebrow)}</Label> : null}
-                <h2 className="t-h2 mt-2.5">
+                <h2 className="t-h2 mt-3">
                   {s(p.heading)}
-                  {s(p.headingAccent) ? <> <span className="text-green-600">{s(p.headingAccent)}</span></> : null}
+                  {s(p.headingAccent) ? <> <span className="text-green-700">{s(p.headingAccent)}</span></> : null}
                 </h2>
-                {s(p.body) ? <p className="t-lead mt-3.5 max-w-[46ch]">{s(p.body)}</p> : null}
+                <RichText value={s(p.body)} className="t-lead mt-4 max-w-[46ch]" />
 
-                <ul className="mt-8 grid gap-3">
-                  {arr<{ title: string; body?: string }>(p.benefits).map((benefit, i) => (
-                    <Card as="li" key={i} className="flex items-start gap-3.5 p-4">
-                      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-green-50 text-green-600">
-                        <Icon.checkCircle className="size-5" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-[14.5px] font-bold text-navy-800">{benefit.title}</span>
-                        {benefit.body ? <span className="mt-0.5 block text-[13.5px] leading-relaxed text-slate-500">{benefit.body}</span> : null}
-                      </span>
-                    </Card>
-                  ))}
-                </ul>
+                {arr(p.benefits).length ? (
+                  <ul className="mt-8 divide-y divide-line border-y border-line">
+                    {arr<{ title: string; body?: string }>(p.benefits).map((benefit, i) => (
+                      <li key={i} className="flex items-start gap-3.5 py-4">
+                        <Icon.checkCircle className="mt-0.5 size-5 shrink-0 text-green-600" />
+                        <span className="min-w-0">
+                          <span className="block text-[14.5px] font-bold text-ink-900">{benefit.title}</span>
+                          {benefit.body ? <span className="mt-0.5 block text-[13.5px] leading-relaxed text-ink-500">{benefit.body}</span> : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
 
-                {/* The green figure card from the design — social proof beside the form. */}
                 {s(p.statValue) ? (
-                  <div className="relative mt-4 overflow-hidden rounded-[var(--radius-card)] bg-green-600 p-6 text-white">
-                    <div aria-hidden="true" className="pointer-events-none absolute -bottom-10 -right-8 size-40 rounded-full bg-white/10" />
-                    <Icon.quote className="relative size-7 text-white/70" />
-                    <p className="tnum relative mt-4 text-[26px] font-extrabold tracking-[-0.02em]">{s(p.statValue)}</p>
-                    <p className="relative mt-0.5 text-[14.5px] font-semibold">{s(p.statLabel)}</p>
-                    {s(p.statNote) ? <p className="relative mt-1.5 max-w-[36ch] text-[12.5px] leading-relaxed text-white/75">{s(p.statNote)}</p> : null}
+                  <div className="surface-dark relative mt-6 overflow-hidden p-6 text-white">
+                    <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200/60 to-transparent" />
+                    <p className="figure text-[2.25rem] text-gold-300">{s(p.statValue)}</p>
+                    <p className="mt-2 text-[14.5px] font-semibold">{s(p.statLabel)}</p>
+                    {s(p.statNote) ? <p className="mt-1 max-w-[36ch] text-[12.5px] leading-relaxed text-white/55">{s(p.statNote)}</p> : null}
                   </div>
                 ) : null}
               </div>
 
               <LeadForm
-                title={s(p.formTitle, 'Kirim Permintaan')}
+                title={s(p.formTitle, 'Kirim Masukan')}
                 askProduct={b(p.askProduct, true)}
                 askBranch={b(p.askBranch, true)}
-                successMessage={s(p.successMessage, 'Terima kasih. Petugas kami akan menghubungi Anda.')}
+                successMessage={s(p.successMessage, 'Terima kasih. Petugas kami akan menghubungi Anda dalam 1×24 jam kerja.')}
                 products={ctx.products}
                 branches={ctx.branches}
               />
@@ -518,7 +827,7 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       return (
         <Band tone={tone} id="lokasi">
           <Shell>
-            <Heading label="Kantor Kami" title={s(p.heading, 'Kantor Terdekat dari Anda')} lead={s(p.body)} />
+            <Heading label={s(p.eyebrow, 'Kantor kami')} title={s(p.heading, 'Kantor Terdekat dari Anda')} lead={s(p.body)} />
             <BranchFinder branches={ctx.branches} showMap={b(p.showMap, true)} />
           </Shell>
         </Band>
@@ -528,7 +837,7 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       return (
         <Band tone={tone}>
           <Shell>
-            <Heading label="Kontak" title={s(p.heading, 'Hubungi Kantor Kami')} />
+            <Heading label={s(p.eyebrow, 'Kontak')} title={s(p.heading, 'Hubungi Kantor Kami')} />
             <ul className="grid gap-5 lg:grid-cols-3">
               {ctx.branches.map((branch) => <BranchCard key={branch.id} branch={branch} showHours={b(p.showHours, true)} />)}
             </ul>
@@ -538,15 +847,14 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
 
     case 'simulation_calculator': {
       const chosen = s(p.product)
-      // Only products whose figures the koperasi has confirmed may be calculated.
-      const loans = ctx.products.filter((x) => x.category === 'pinjaman' && x.isVerified && x.ratePercent != null)
-      const preselected = loans.find((x) => x.id === chosen)
+      const loans = (ctx.simulations ?? []).filter((x) => x.kind === 'installment' && hasLoanRate(x))
+      const preselected = loans.find((x) => x.product.id === chosen)
       return (
         <Band tone={tone} id="simulasi">
           <Shell>
-            <Heading label="Kalkulator" title={s(p.heading, 'Simulasi Angsuran')} lead={s(p.body)} />
+            <Heading label={s(p.eyebrow, 'Kalkulator')} title={s(p.heading, 'Simulasi Angsuran')} lead={s(p.body)} />
             {loans.length ? (
-              <SimulationCalculator products={loans} initialProductId={preselected?.id} disclaimer={s(p.disclaimer, 'Simulasi awal, bukan penawaran final.')} />
+              <SimulationCalculator simulations={loans} initialSimulationId={preselected?.id} disclaimer={s(p.disclaimer, 'Simulasi awal, bukan penawaran final.')} />
             ) : (
               <Blank
                 title="Simulasi belum tersedia"
@@ -559,9 +867,171 @@ function BlockSwitch({ block, ctx, index }: { block: Block; ctx: BlockContext; i
       )
     }
 
+    /* ────────────────────── full-page section blocks ───────────────────── */
+    case 'post_index': {
+      const list = ctx.posts
+      return (
+        <Band tone={tone}>
+          <Shell>
+            {s(p.heading) || s(p.eyebrow) ? <Heading label={s(p.eyebrow)} title={s(p.heading)} lead={s(p.subtext)} /> : null}
+            {list.length ? (
+              <>
+                <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {list.map((post, i) => <PostCard key={post.id} post={post} priority={i < 3} />)}
+                </ul>
+                {ctx.postsMeta && ctx.postsMeta.totalPages > 1 ? (
+                  <Pagination page={ctx.postsMeta.page} totalPages={ctx.postsMeta.totalPages} basePath={ctx.basePath ?? '/berita'} />
+                ) : null}
+              </>
+            ) : (
+              <Blank
+                title={s(p.emptyTitle, 'Belum ada berita')}
+                body={s(p.emptyBody, 'Berita dan informasi terbaru akan tampil di sini.')}
+                action={<Action href="/">Kembali ke beranda</Action>}
+              />
+            )}
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'job_list': {
+      const jobs = ctx.jobs ?? []
+      const TYPES: Record<string, string> = { full_time: 'Penuh Waktu', part_time: 'Paruh Waktu', contract: 'Kontrak', internship: 'Magang' }
+      return (
+        <Band tone={tone}>
+          <Shell>
+            {s(p.heading) || s(p.eyebrow) ? <Heading label={s(p.eyebrow)} title={s(p.heading)} lead={s(p.subtext)} /> : null}
+            {jobs.length ? (
+              <ul className="grid gap-4">
+                {jobs.map((job) => (
+                  <Card as="li" key={job.id} hover className="group p-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="mb-2.5 flex flex-wrap gap-2">
+                          <Pill tone="green">{TYPES[job.employmentType] ?? job.employmentType}</Pill>
+                          {job.department ? <Pill tone="quiet">{job.department}</Pill> : null}
+                        </div>
+                        <h3 className="t-h3">
+                          <Link href={`/karir/${job.slug}`} className="transition-colors group-hover:text-green-700">{job.title}</Link>
+                        </h3>
+                        <p className="mt-1.5 flex items-center gap-1.5 text-[13.5px] text-ink-600">
+                          <Icon.pin className="size-4 text-ink-400" />
+                          {job.location ?? job.branchName ?? 'Karangasem, Bali'}
+                        </p>
+                      </div>
+                      <Action href={`/karir/${job.slug}`} variant="outline" className="shrink-0 self-start sm:self-auto">
+                        Lihat dan lamar <Icon.arrow className="size-4" />
+                      </Action>
+                    </div>
+                  </Card>
+                ))}
+              </ul>
+            ) : (
+              <Blank
+                title={s(p.emptyTitle, 'Belum ada lowongan saat ini')}
+                body={s(p.emptyBody, 'Belum ada posisi yang dibuka. Silakan cek kembali secara berkala atau kirim lamaran spontan ke kantor kami.')}
+                action={<Action href="/kontak">Hubungi kami</Action>}
+              />
+            )}
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'faq_index': {
+      const category = s(p.category, 'all')
+      const faqs = (ctx.faqs ?? []).filter((f) => category === 'all' || f.category === category)
+      if (!faqs.length) return null
+      const LABELS: Record<string, string> = { umum: 'Umum', keanggotaan: 'Keanggotaan', simpanan: 'Simpanan', pinjaman: 'Pinjaman' }
+      const groups = b(p.grouped, true)
+        ? Object.entries(faqs.reduce<Record<string, typeof faqs>>((acc, f) => {
+            const key = f.category ?? 'umum'
+            ;(acc[key] ??= []).push(f)
+            return acc
+          }, {}))
+        : [['', faqs] as [string, typeof faqs]]
+
+      return (
+        <Band tone={tone}>
+          <Shell>
+            <div className="mx-auto max-w-3xl">
+              {s(p.heading) || s(p.eyebrow) ? <Heading label={s(p.eyebrow)} title={s(p.heading)} align="center" /> : null}
+              <div className="grid gap-10">
+                {groups.map(([key, items]) => (
+                  <div key={key || 'all'}>
+                    {key ? <h3 className="t-h3 mb-4">{LABELS[key] ?? key}</h3> : null}
+                    <Accordion items={items.map((f) => ({ title: f.question, body: isHtml(f.answer) ? f.answer : `<p>${f.answer}</p>` }))} defaultOpen={-1} />
+                  </div>
+                ))}
+
+                {s(p.ctaHeading) ? (
+                  <div className="surface-dark relative overflow-hidden p-7 text-center text-white sm:p-8">
+                    <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-gold-300 via-gold-200/60 to-transparent" />
+                    <h3 className="t-h3 !text-white">{s(p.ctaHeading)}</h3>
+                    <RichText value={s(p.ctaBody)} className="mt-2 text-[15px] text-white/65" />
+                    <div className="mt-6 flex flex-wrap justify-center gap-3">
+                      {s(p.primaryLabel) ? (
+                        <Action href={s(p.primaryHref, '/kontak')} variant="light">{s(p.primaryLabel)}<Icon.arrow className="size-4" /></Action>
+                      ) : null}
+                      {s(p.secondaryLabel) ? (
+                        <Action href={s(p.secondaryHref, '/lokasi')} variant="ghostLight">{s(p.secondaryLabel)}</Action>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'simulation_tabs': {
+      const all = ctx.simulations ?? []
+      const loans = all.filter((x) => x.kind === 'installment' && hasLoanRate(x))
+      const savings = all.filter((x) => x.kind !== 'installment')
+      // A link names a product (?produk=sigemas); open whichever calculator simulates it.
+      const linked = [...loans, ...savings].find((x) => x.product.slug === ctx.query?.produk)
+      const tab = linked
+        ? (linked.kind === 'installment' ? 'pinjaman' : 'simpanan')
+        : ctx.query?.jenis === 'simpanan' ? 'simpanan' : (s(p.defaultTab, 'pinjaman') as 'pinjaman' | 'simpanan')
+      return (
+        <Band tone={tone} id="simulasi">
+          <Shell>
+            <SimulationTabs
+              loans={loans}
+              savings={savings}
+              initialTab={tab}
+              initialSimulationId={linked?.id}
+              initialAmount={ctx.query?.nominal ? Number(ctx.query.nominal) : undefined}
+              initialTenor={ctx.query?.tenor ? Number(ctx.query.tenor) : undefined}
+              disclaimer={s(p.disclaimer, 'Simulasi awal, bukan penawaran final.')}
+              loanCopy={{ label: s(p.loanLabel), heading: s(p.loanHeading), lead: s(p.loanLead), note: s(p.loanNote) }}
+              loanNotes={arr<{ title: string; body: string }>(p.loanNotes)}
+              savingsCopy={{ label: s(p.savingsLabel), heading: s(p.savingsHeading), lead: s(p.savingsLead), note: s(p.savingsNote) }}
+            />
+          </Shell>
+        </Band>
+      )
+    }
+
+    case 'profiling_wizard':
+      return (
+        <Band tone={tone}>
+          <Shell>
+            {/* The wizard keeps its step in the URL, so it needs a boundary to
+                prerender the page around it. */}
+            <Suspense fallback={<div className="mx-auto h-96 max-w-2xl animate-pulse rounded-[var(--radius-card)] bg-ink-100" />}>
+              <ProfilingWizard products={ctx.products} branches={ctx.branches} />
+            </Suspense>
+          </Shell>
+        </Band>
+      )
+
     default:
       return null
   }
 }
 
-export { Link, More, Pill, Card }
+export { Link, More, Pill, Card, Rule }

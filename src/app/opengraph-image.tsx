@@ -1,4 +1,6 @@
 import { ImageResponse } from 'next/og'
+import { THEME_FAMILIES, buildRamp, themeColors } from '@/contracts'
+import { getSettings } from '@/lib/api'
 
 export const alt = 'KSP Sari Sedana Bali — Koperasi Simpan Pinjam di Karangasem'
 export const size = { width: 1200, height: 630 }
@@ -9,6 +11,10 @@ export const contentType = 'image/png'
  * so links shared on WhatsApp — the main channel here — rendered as bare URLs.
  */
 export default async function Image() {
+  // Painted in the primary colour chosen under Identitas, shade for shade.
+  const settings = await getSettings().catch(() => ({} as Record<string, unknown>))
+  const colors = themeColors((settings.brand as { colors?: Record<string, unknown> } | undefined)?.colors)
+  const green = buildRamp(THEME_FAMILIES.find((f) => f.key === 'primary')!, colors.primary)
   return new ImageResponse(
     (
       <div
@@ -18,7 +24,7 @@ export default async function Image() {
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
-          background: 'linear-gradient(135deg, #26451d 0%, #356620 55%, #438226 100%)',
+          background: `linear-gradient(135deg, ${green[900]} 0%, ${green[800]} 55%, ${green[700]} 100%)`,
           padding: '72px',
           fontFamily: 'sans-serif',
         }}
@@ -34,7 +40,7 @@ export default async function Image() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{ color: '#ffffff', fontSize: 34, fontWeight: 700, letterSpacing: -0.5 }}>KSP Sari Sedana Bali</span>
-            <span style={{ color: '#c5e2b0', fontSize: 20, letterSpacing: 3, textTransform: 'uppercase' }}>Untuk Kita</span>
+            <span style={{ color: green[200], fontSize: 20, letterSpacing: 3, textTransform: 'uppercase' }}>Untuk Kita</span>
           </div>
         </div>
 
@@ -42,12 +48,12 @@ export default async function Image() {
           <span style={{ color: '#ffffff', fontSize: 62, fontWeight: 700, lineHeight: 1.1, letterSpacing: -1.5, maxWidth: 900 }}>
             Koperasi Simpan Pinjam di Karangasem
           </span>
-          <span style={{ color: '#c5e2b0', fontSize: 28, maxWidth: 820, lineHeight: 1.4 }}>
+          <span style={{ color: green[200], fontSize: 28, maxWidth: 820, lineHeight: 1.4 }}>
             Simpanan berjangka, simpanan harian, dan pinjaman modal usaha. Melayani sejak 2002.
           </span>
         </div>
 
-        <div style={{ display: 'flex', gap: 32, color: '#e1f0d6', fontSize: 22 }}>
+        <div style={{ display: 'flex', gap: 32, color: green[100], fontSize: 22 }}>
           <span>Kantor Pusat Selat</span>
           <span>·</span>
           <span>Cabang Rendang</span>

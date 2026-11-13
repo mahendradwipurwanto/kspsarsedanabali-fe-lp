@@ -1,4 +1,4 @@
-import { SITE } from '@/contracts'
+import { SITE, DEFAULT_SEO_TECH, productTerm, type SeoTechSettings, type TermUnit } from '@/contracts'
 import { absoluteUrl, SITE_URL } from './seo'
 import type { Branch, Product, Post, Job } from './api'
 
@@ -12,11 +12,20 @@ import type { Branch, Product, Post, Job } from './api'
 
 const DAY_SCHEMA = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
+/** Pengaturan → SEO, merged over the shipped defaults. */
+export const seoTechOf = (settings: Record<string, unknown> = {}): SeoTechSettings =>
+  ({ ...DEFAULT_SEO_TECH, ...((settings.seoTech ?? {}) as Partial<SeoTechSettings>) })
+
 export function organizationLd(settings: Record<string, unknown> = {}) {
   const site = (settings.site ?? {}) as Record<string, string>
+  const seo = seoTechOf(settings)
+  // Organization always, plus whatever the koperasi declares itself to be.
+  // FinancialService is the default and the one that earns the richer card;
+  // the console can say CreditUnion instead, which is nearer the truth in law.
+  const types = seo.schemaType === 'Organization' ? ['Organization'] : ['Organization', seo.schemaType]
   return {
     '@context': 'https://schema.org',
-    '@type': ['Organization', 'FinancialService'],
+    '@type': types,
     '@id': `${SITE_URL}/#organization`,
     name: SITE.shortName,
     legalName: SITE.legalName,
@@ -26,6 +35,12 @@ export function organizationLd(settings: Record<string, unknown> = {}) {
     foundingDate: SITE.foundedAt,
     email: site.email || undefined,
     telephone: site.phone || undefined,
+    // The social profiles from Pengaturan → Footer, so Google ties them to the
+    // organisation rather than treating each as a stranger.
+    sameAs: [
+      ...Object.values((settings.social ?? {}) as Record<string, string>),
+      ...(Array.isArray(seo.schemaSameAs) ? seo.schemaSameAs : []),
+    ].filter((u) => /^https?:\/\//i.test(String(u ?? ''))),
     areaServed: SITE.areaServed.map((name) => ({ '@type': 'AdministrativeArea', name })),
     address: {
       '@type': 'PostalAddress',
@@ -39,7 +54,8 @@ export function organizationLd(settings: Record<string, unknown> = {}) {
   }
 }
 
-export function websiteLd() {
+export function websiteLd(settings: Record<string, unknown> = {}) {
+  const seo = seoTechOf(settings)
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
@@ -48,6 +64,36 @@ export function websiteLd() {
     name: SITE.shortName,
     inLanguage: 'id-ID',
     publisher: { '@id': `${SITE_URL}/#organization` },
+    // Only declared when asked for: Google shows a sitelinks search box for a
+    // site it believes has search, and claiming one that does not work is worse
+    // than claiming nothing.
+    ...(seo.schemaSearchAction
+      ? {
+          potentialAction: {
+            '@type': 'SearchAction',
+            target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/berita?cari={search_term_string}` },
+            'query-input': 'required name=search_term_string',
+          },
+        }
+      : {}),
+  }
+}
+
+/**
+ * The extra JSON-LD typed into Pengaturan → SEO, if it parses.
+ *
+ * Invalid JSON is dropped rather than printed: a broken script tag in the head
+ * invalidates every other block of structured data on the page, so a typo in
+ * this box would cost the koperasi the markup that does work.
+ */
+export function extraLd(settings: Record<string, unknown> = {}): unknown[] {
+  const raw = String(seoTechOf(settings).schemaExtra ?? '').trim()
+  if (!raw) return []
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : [parsed]
+  } catch {
+    return []
   }
 }
 
@@ -85,8 +131,12 @@ export function localBusinessLd(branch: Branch) {
   }
 }
 
+/** UN/CEFACT codes schema.org expects for a duration's unit. */
+const TERM_UNIT_CODE: Record<TermUnit, string> = { day: 'DAY', week: 'WEE', month: 'MON' }
+
 export function productLd(product: Product) {
   const isLoan = product.category === 'pinjaman'
+  const term = productTerm(product)
   return {
     '@context': 'https://schema.org',
     '@type': isLoan ? 'LoanOrCredit' : 'BankAccount',
@@ -101,8 +151,8 @@ export function productLd(product: Product) {
           amount: product.minAmount != null && product.maxAmount != null
             ? { '@type': 'MonetaryAmount', currency: 'IDR', minValue: product.minAmount, maxValue: product.maxAmount }
             : undefined,
-          loanTerm: product.tenorOptions.length
-            ? { '@type': 'QuantitativeValue', minValue: Math.min(...product.tenorOptions), maxValue: Math.max(...product.tenorOptions), unitCode: 'MON' }
+          loanTerm: term
+            ? { '@type': 'QuantitativeValue', minValue: term.min, maxValue: term.max ?? term.min, unitCode: TERM_UNIT_CODE[term.unit] }
             : undefined,
         }
       : {}),

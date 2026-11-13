@@ -38,7 +38,8 @@ const config: NextConfig = {
   reactStrictMode: true,
   turbopack: { root: nextPackageRoot(here) },
   poweredByHeader: false,
-
+  // Next 16 otherwise writes AGENTS.md / CLAUDE.md into the repo on first dev run.
+  agentRules: false,
 
   images: {
     // AVIF first — the audit flagged mobile weight as the main speed problem.

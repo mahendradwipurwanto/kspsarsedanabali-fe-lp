@@ -9,7 +9,23 @@ import { z, type ZodTypeAny } from 'zod'
  * Add a field here and it appears in the CMS with no extra form code.
  */
 
-export type FieldDef =
+/**
+ * Shown only while a sibling field holds one of these values. The hidden
+ * field's value is kept, not cleared, so switching back loses nothing. A
+ * sibling left empty counts as holding its own default.
+ */
+export interface ShowWhen { field: string; is: string | boolean | (string | boolean)[] }
+type Conditional = {
+  showWhen?: ShowWhen
+  /**
+   * Fields sharing a group are folded together in the console under this
+   * title, after the block's other fields: a set of style options stays out of
+   * the way of the content until someone opens it.
+   */
+  group?: string
+}
+
+export type FieldDef = Conditional & (
   | { kind: 'text'; label: string; help?: string; placeholder?: string; required?: boolean; max?: number; default?: string }
   | { kind: 'textarea'; label: string; help?: string; placeholder?: string; required?: boolean; max?: number; rows?: number; default?: string }
   | { kind: 'richtext'; label: string; help?: string; required?: boolean }
@@ -20,10 +36,59 @@ export type FieldDef =
   | { kind: 'link'; label: string; help?: string; required?: boolean; placeholder?: string; max?: number; default?: string }
   | { kind: 'icon'; label: string; help?: string; required?: boolean; max?: number; default?: string }
   | { kind: 'color'; label: string; help?: string; required?: boolean; max?: number; default?: string }
-  | { kind: 'reference'; label: string; help?: string; to: 'product' | 'post' | 'branch' | 'page'; multiple?: boolean }
-  | { kind: 'repeater'; label: string; help?: string; itemLabel?: string; min?: number; max?: number; of: FieldMap }
+  | {
+      kind: 'reference'; label: string; help?: string; to: 'product' | 'post' | 'branch' | 'page' | 'document-category' | 'data-source'; multiple?: boolean
+      /** A single reference the block cannot be drawn without: saving with none chosen is refused, rather than publishing a section that shows nothing. */
+      required?: boolean
+    }
+  | {
+      kind: 'repeater'; label: string; help?: string; itemLabel?: string; min?: number; max?: number; of: FieldMap; default?: Record<string, unknown>[]
+      /**
+       * Each row can be switched off without being deleted: it stays in the
+       * console, dimmed, and the website leaves it out (see `withoutHidden`).
+       * The row carries the switch under `HIDDEN_KEY`.
+       */
+      hideable?: boolean
+    }
+)
 
 export type FieldMap = Record<string, FieldDef>
+
+/**
+ * Whether a field is shown for the values its siblings hold now (see `ShowWhen`).
+ * A field that depends on a hidden one is hidden too: a border's colour has no
+ * business showing once the border's own setting is out of view.
+ */
+export function isFieldShown(def: FieldDef, siblings: Record<string, unknown>, fields: FieldMap, depth = 0): boolean {
+  const cond = def.showWhen
+  if (!cond) return true
+  const other = fields[cond.field]
+  if (other && depth < 5 && !isFieldShown(other, siblings, fields, depth + 1)) return false
+  let v = siblings[cond.field]
+  if ((v === undefined || v === null || v === '') && other && 'default' in other && other.default !== undefined) v = other.default
+  const wanted = Array.isArray(cond.is) ? cond.is : [cond.is]
+  return wanted.some((w) => String(w) === String(v ?? ''))
+}
+
+/** The text a visitor reads from a field that may hold HTML: tags dropped, entities for spaces and ampersands undone. */
+export function plainText(html: string | null | undefined): string {
+  if (!html) return ''
+  return html
+    .replace(/<\/(p|li|h[1-6]|div)>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** Whether a stored value is HTML from the rich editor rather than plain text written before it. */
+export const isHtml = (v: string | null | undefined): boolean => !!v && /<(p|ul|ol|li|strong|em|u|br|h[1-6]|div|span|a)\b/i.test(v)
 
 /** Convenience constructors — `field.text({ label: '…' })` reads better than a literal. */
 export const field = {
@@ -41,21 +106,53 @@ export const field = {
   repeater: (o: Omit<Extract<FieldDef, { kind: 'repeater' }>, 'kind'>) => ({ kind: 'repeater', ...o }) as FieldDef,
 }
 
+/** Where a row of a `hideable` repeater keeps its "disembunyikan" switch. */
+export const HIDDEN_KEY = 'hidden'
+
+/**
+ * A block's props as the website draws them: rows switched off in a `hideable`
+ * repeater are left out, at any depth. Done once, where the block is rendered,
+ * so no component has to remember to skip them, and the first row that is
+ * still shown takes whatever role the first row has (a hero's H1, say).
+ */
+export function withoutHidden(fields: FieldMap, props: Record<string, unknown>): Record<string, unknown> {
+  let out = props
+  for (const [key, def] of Object.entries(fields)) {
+    if (def.kind !== 'repeater') continue
+    const rows = props[key]
+    if (!Array.isArray(rows)) continue
+    const kept = (rows as unknown[])
+      .filter((row) => !(def.hideable && row && typeof row === 'object' && (row as Record<string, unknown>)[HIDDEN_KEY] === true))
+      .map((row) => (row && typeof row === 'object' ? withoutHidden(def.of, row as Record<string, unknown>) : row))
+    if (kept.length !== rows.length || kept.some((row, i) => row !== rows[i])) out = { ...out, [key]: kept }
+  }
+  return out
+}
+
+/** #rgb, #rrggbb or #rrggbbaa (the last two digits are opacity): what a color field may hold. */
+export const COLOR_FIELD_VALUE = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
+
 function leafToZod(f: FieldDef): ZodTypeAny {
   switch (f.kind) {
     case 'text':
     case 'link':
-    case 'icon':
-    case 'color': {
+    case 'icon': {
       let s = z.string()
       if ('max' in f && f.max) s = s.max(f.max)
       return f.required ? s.min(1, 'Wajib diisi') : s.optional().or(z.literal(''))
     }
+    case 'color': {
+      // A hex colour, because the website writes it straight into a style.
+      const s = z.string().trim().regex(COLOR_FIELD_VALUE, 'Tulis warna seperti #4e8b2c.')
+      return f.required ? s : s.optional().or(z.literal(''))
+    }
     case 'textarea':
     case 'richtext': {
-      let s = z.string()
-      if ('max' in f && f.max) s = s.max(f.max)
-      return f.required ? s.min(1, 'Wajib diisi') : s.optional().or(z.literal(''))
+      // Both are written in a rich editor and saved as HTML, so the limit is on
+      // the words a visitor reads, not on the tags around them.
+      const max = 'max' in f ? f.max : undefined
+      const s = z.string().refine((v) => !max || plainText(v).length <= max, { message: `Maksimal ${max} karakter` })
+      return f.required ? s.refine((v) => plainText(v).length > 0 || /<(img|table)\b/i.test(v), { message: 'Wajib diisi' }) : s.optional().or(z.literal(''))
     }
     case 'number': {
       let n = z.number()
@@ -74,9 +171,11 @@ function leafToZod(f: FieldDef): ZodTypeAny {
       // media id (uuid) or a direct URL
       return f.required ? z.string().min(1, 'Gambar wajib dipilih') : z.string().optional().or(z.literal(''))
     case 'reference':
-      return f.multiple ? z.array(z.string()).optional() : z.string().optional()
+      if (f.multiple) return z.array(z.string()).optional()
+      return f.required ? z.string({ required_error: 'belum dipilih' }).min(1, 'belum dipilih') : z.string().optional()
     case 'repeater': {
-      let a = z.array(fieldsToZod(f.of))
+      const row = fieldsToZod(f.of)
+      let a = z.array(f.hideable ? row.extend({ [HIDDEN_KEY]: z.boolean().optional() }) : row)
       if (f.min !== undefined) a = a.min(f.min, `Minimal ${f.min} item`)
       if (f.max !== undefined) a = a.max(f.max, `Maksimal ${f.max} item`)
       return a.optional().default([])
@@ -94,7 +193,13 @@ export function fieldsToZod(fields: FieldMap) {
 export function defaultsFor(fields: FieldMap): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const [key, def] of Object.entries(fields)) {
-    if (def.kind === 'repeater') out[key] = []
+    // A repeater's default is the rows a block starts with, so text the site
+    // shows before anyone edits it is there in the form to be changed.
+    if (def.kind === 'repeater') out[key] = def.default ? def.default.map((row) => ({ ...row })) : []
+    // A multi-select reference is validated as an array; the empty string the
+    // generic branch produced was rejected with 422, so a block like "Kontak
+    // cabang" could not be saved until someone ticked and unticked a branch.
+    else if (def.kind === 'reference') out[key] = def.multiple ? [] : ''
     else if ('default' in def && def.default !== undefined) out[key] = def.default
     else if (def.kind === 'boolean') out[key] = false
     else if (def.kind === 'number') out[key] = undefined

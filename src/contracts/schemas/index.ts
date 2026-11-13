@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { branchHoursProblems } from '../site'
 
 /* ---------------------------------- shared --------------------------------- */
 
@@ -9,14 +10,6 @@ export const slugSchema = z
   .max(60, 'Maksimal 60 karakter')
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Gunakan huruf kecil dan tanda hubung saja')
 
-/** Indonesian mobile numbers, normalised to 62xxxxxxxxxx. */
-export const phoneSchema = z
-  .string()
-  .trim()
-  .min(8, 'Nomor terlalu pendek')
-  .max(20, 'Nomor terlalu panjang')
-  .regex(/^[0-9+\-\s()]+$/, 'Hanya angka dan tanda + - ( )')
-
 export function normalisePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '')
   if (digits.startsWith('62')) return digits
@@ -25,9 +18,45 @@ export function normalisePhone(raw: string): string {
   return digits
 }
 
+/*
+ * One rule for every phone number the koperasi collects or publishes, shared
+ * by the website's forms, the console's record forms and the API, so a number
+ * a visitor could type is a number staff can call back.
+ */
+export const PHONE_HINT = 'Angka saja, tanpa spasi. Contoh: 081234567890'
+export const PHONE_ERROR = 'Nomor harus berupa angka, 9–15 digit, diawali 0 atau 62. Contoh: 081234567890'
+export const EMAIL_ERROR = 'Format email tidak valid. Contoh: nama@email.com'
+export const URL_ERROR = 'Tautan harus diawali https://'
+
+/** An Indonesian number once normalised: country code plus 8 to 13 digits. */
+export const isValidPhone = (raw: string): boolean => /^62\d{8,13}$/.test(normalisePhone(raw))
+export const isValidEmail = (raw: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(raw.trim())
+export const isValidUrl = (raw: string): boolean => /^https:\/\/[^\s]+\.[^\s]+$/i.test(raw.trim())
+
+/** What a phone input keeps as someone types: digits, and a plus only at the start. */
+export const cleanPhoneInput = (raw: string): string => raw.replace(/[^\d+]/g, '').replace(/(?!^)\+/g, '').slice(0, 16)
+
+/** Indonesian numbers, normalised to 62xxxxxxxxxx. */
+export const phoneSchema = z
+  .string()
+  .trim()
+  .min(8, 'Nomor terlalu pendek')
+  .max(20, 'Nomor terlalu panjang')
+  .regex(/^[0-9+\-\s()]+$/, 'Hanya angka dan tanda + - ( )')
+  .refine(isValidPhone, PHONE_ERROR)
+
+/** A phone field that may be left empty, for records rather than leads. */
+export const optionalPhoneSchema = phoneSchema.optional().or(z.literal(''))
+
 /* ------------------------------------ SEO ---------------------------------- */
 
 export const seoSchema = z.object({
+  /**
+   * The phrase this page is trying to rank for. Nothing is generated from it —
+   * it exists so the scorer can tell the editor whether the phrase they care
+   * about actually appears where Google looks for it.
+   */
+  focusKeyword: z.string().max(80).optional().or(z.literal('')),
   metaTitle: z.string().max(70, 'Judul terlalu panjang untuk hasil Google').optional().or(z.literal('')),
   metaDescription: z.string().max(180, 'Deskripsi terlalu panjang').optional().or(z.literal('')),
   ogImage: z.string().optional().or(z.literal('')),
@@ -42,7 +71,38 @@ export const SEO_RULES = {
   description: { min: 70, ideal: [120, 158] as const, max: 180 },
   minWords: 300,
   minInternalLinks: 3,
+  /** Above this the phrase reads as stuffed rather than used. */
+  maxKeywordDensityPct: 3,
 } as const
+
+/**
+ * Accent- and case-insensitive phrase match. Indonesian rarely uses accents, but
+ * copy pasted from Word arrives with typographic quotes and non-breaking spaces,
+ * and an editor should not have a check fail over an invisible character.
+ */
+export function containsPhrase(haystack: string, phrase: string): boolean {
+  const clean = (v: string) =>
+    v.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[\u2018\u2019\u201c\u201d]/g, "'").replace(/\s+/g, ' ').trim()
+  const h = clean(haystack)
+  const n = clean(phrase)
+  return n.length > 0 && h.includes(n)
+}
+
+export function countPhrase(haystack: string, phrase: string): number {
+  const clean = (v: string) => v.toLowerCase().replace(/\s+/g, ' ').trim()
+  const h = clean(haystack)
+  const n = clean(phrase)
+  if (!n) return 0
+  let count = 0
+  let from = 0
+  for (;;) {
+    const at = h.indexOf(n, from)
+    if (at === -1) break
+    count++
+    from = at + n.length
+  }
+  return count
+}
 
 export interface SeoCheck {
   id: string
@@ -62,6 +122,10 @@ export function scoreSeo(input: {
   imagesTotal: number
   imagesWithAlt: number
   internalLinks: number
+  /** Optional: only scored when the editor has set a focus keyword. */
+  focusKeyword?: string
+  h1Text?: string
+  bodyText?: string
 }): { checks: SeoCheck[]; score: number } {
   const c: SeoCheck[] = []
   const t = (input.title ?? '').trim().length
@@ -123,10 +187,55 @@ export function scoreSeo(input: {
   )
 
   c.push(
-    input.slug && slugSchema.safeParse(input.slug).success
-      ? { id: 'slug', label: 'Alamat halaman', status: 'pass', hint: `/${input.slug}` }
+    input.slug && (input.slug === '/' || slugSchema.safeParse(input.slug).success)
+      ? { id: 'slug', label: 'Alamat halaman', status: 'pass', hint: input.slug === '/' ? '/' : `/${input.slug}` }
       : { id: 'slug', label: 'Alamat halaman', status: 'fail', hint: 'Gunakan huruf kecil dan tanda hubung, tanpa spasi.' },
   )
+
+  /**
+   * Focus-keyword checks only run when the editor has named a phrase. Scoring a
+   * page against a keyword nobody chose would just add noise, and the score is
+   * a publish gate — it has to stay honest about what it actually knows.
+   */
+  const kw = (input.focusKeyword ?? '').trim()
+  if (kw) {
+    const inTitle = containsPhrase(input.title ?? '', kw)
+    const inDesc = containsPhrase(input.description ?? '', kw)
+    const inSlug = containsPhrase((input.slug ?? '').replace(/-/g, ' '), kw)
+    const inH1 = containsPhrase(input.h1Text ?? '', kw)
+
+    c.push(
+      inTitle
+        ? { id: 'kw_title', label: 'Kata kunci di judul', status: 'pass', hint: `"${kw}" sudah ada di judul.` }
+        : { id: 'kw_title', label: 'Kata kunci di judul', status: 'fail', hint: `"${kw}" belum ada di judul Google. Ini penempatan yang paling berpengaruh.` },
+    )
+    c.push(
+      inDesc
+        ? { id: 'kw_desc', label: 'Kata kunci di deskripsi', status: 'pass', hint: 'Sudah ada di deskripsi.' }
+        : { id: 'kw_desc', label: 'Kata kunci di deskripsi', status: 'warn', hint: `Tambahkan "${kw}" ke deskripsi — Google menebalkannya di hasil pencarian.` },
+    )
+    c.push(
+      inSlug
+        ? { id: 'kw_slug', label: 'Kata kunci di alamat', status: 'pass', hint: 'Sudah ada di alamat halaman.' }
+        : { id: 'kw_slug', label: 'Kata kunci di alamat', status: 'warn', hint: `Alamat halaman belum memuat "${kw}".` },
+    )
+    c.push(
+      inH1
+        ? { id: 'kw_h1', label: 'Kata kunci di judul utama', status: 'pass', hint: 'Sudah ada di judul utama halaman.' }
+        : { id: 'kw_h1', label: 'Kata kunci di judul utama', status: 'warn', hint: `Judul utama (H1) belum memuat "${kw}".` },
+    )
+
+    const body = input.bodyText ?? ''
+    const hits = countPhrase(body, kw)
+    const density = input.wordCount > 0 ? (hits * kw.split(/\s+/).length * 100) / input.wordCount : 0
+    c.push(
+      hits === 0
+        ? { id: 'kw_body', label: 'Kata kunci di isi', status: 'fail', hint: `"${kw}" tidak muncul sama sekali di isi halaman.` }
+        : density > SEO_RULES.maxKeywordDensityPct
+          ? { id: 'kw_body', label: 'Kata kunci di isi', status: 'warn', hint: `Muncul ${hits}× (${density.toFixed(1)}%). Terlalu sering — tulis senatural mungkin.` }
+          : { id: 'kw_body', label: 'Kata kunci di isi', status: 'pass', hint: `Muncul ${hits}× (${density.toFixed(1)}%) — wajar.` },
+    )
+  }
 
   const weight = { pass: 1, warn: 0.5, fail: 0 }
   const score = Math.round((c.reduce((s, x) => s + weight[x.status], 0) / c.length) * 100)
@@ -160,6 +269,81 @@ export const updateUserSchema = createUserSchema.partial().omit({ password: true
   password: z.string().min(10).max(200).optional().or(z.literal('')),
 })
 
+/* --------------------------------- invitations ------------------------------ */
+
+/**
+ * Two ways to bring someone into the console:
+ *   `link`      they get a link and choose their own password (nobody else ever knows it)
+ *   `password`  the admin sets a first password and tells them it; the email only says they were added
+ */
+export const INVITE_MODES = ['link', 'password'] as const
+export type InviteMode = (typeof INVITE_MODES)[number]
+
+/** How long an invitation link works. */
+export const INVITE_TTL_DAYS = 7
+export const PASSWORD_MIN = 10
+
+export const inviteUserSchema = z
+  .object({
+    name: z.string().trim().min(2, 'Nama minimal 2 huruf').max(120),
+    email: z.string().trim().email(EMAIL_ERROR).max(200),
+    roleIds: z.array(idSchema).min(1, 'Pilih minimal satu peran'),
+    branchIds: z.array(idSchema).optional(),
+    mode: z.enum(INVITE_MODES).default('link'),
+    password: z.string().max(200).optional().or(z.literal('')),
+    /** Email the invitee. Off, or with no email set up, the admin passes the link on by hand. */
+    sendEmail: z.boolean().default(true),
+  })
+  .superRefine((v, ctx) => {
+    if (v.mode === 'password' && (v.password ?? '').length < PASSWORD_MIN) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['password'], message: `Kata sandi minimal ${PASSWORD_MIN} karakter` })
+    }
+  })
+
+export const acceptInviteSchema = z.object({
+  token: z.string().min(20).max(200),
+  password: z.string().min(PASSWORD_MIN, `Kata sandi minimal ${PASSWORD_MIN} karakter`).max(200),
+})
+
+/** What the console is told after inviting someone. */
+export interface InviteResult {
+  id: string
+  name: string
+  email: string
+  mode: InviteMode
+  /** The link to set a password; only for `link`. Shown to the admin so it can be sent by hand. */
+  inviteUrl: string | null
+  expiresAt: string | null
+  /** Whether an email actually went out, and if not, why. */
+  emailSent: boolean
+  emailError: string | null
+}
+
+/* ------------------------------ outgoing email ------------------------------ */
+
+export const smtpSettingsSchema = z.object({
+  host: z.string().trim().min(3, 'Isi alamat server email').max(200).regex(/^[A-Za-z0-9.-]+$/, 'Tulis nama servernya saja, misalnya smtp.gmail.com'),
+  port: z.number().int().min(1).max(65535).default(587),
+  user: z.string().trim().max(200).optional().or(z.literal('')),
+  /** Empty on a save keeps the password already stored. */
+  password: z.string().max(500).optional().or(z.literal('')),
+  fromName: z.string().trim().max(80).optional().or(z.literal('')),
+  fromEmail: z.string().trim().email(EMAIL_ERROR).max(200),
+})
+
+/** The email set-up as the console may know it: where it sends from, never the password. */
+export interface EmailIntegration {
+  configured: boolean
+  /** Set up in the console, or by the server's own environment. */
+  source: 'console' | 'env' | null
+  host: string | null
+  port: number | null
+  user: string | null
+  fromName: string | null
+  fromEmail: string | null
+  updatedAt: string | null
+}
+
 export const roleSchema = z.object({
   name: z.string().min(2).max(60),
   description: z.string().max(240).optional().or(z.literal('')),
@@ -178,6 +362,15 @@ export const LEAD_STATUS_LABELS: Record<(typeof LEAD_STATUSES)[number], string> 
   selesai: 'Selesai',
   ditolak: 'Ditolak',
 }
+
+/**
+ * The statuses that close a case. Both record a decision somebody made, so the
+ * API refuses further changes to a lead sitting on one and the console stops
+ * offering the follow-up form. Anything still open stays editable.
+ */
+export const CLOSED_LEAD_STATUSES: readonly string[] = ['selesai', 'ditolak']
+
+export const isLeadClosed = (status: string): boolean => CLOSED_LEAD_STATUSES.includes(status)
 
 export const LEAD_PURPOSES = [
   { value: 'modal_usaha', label: 'Modal Usaha' },
@@ -217,6 +410,63 @@ export const updateLeadSchema = z.object({
   note: z.string().max(2000).optional(),
 })
 
+/* ------------------------------ kritik & saran ----------------------------- */
+
+/**
+ * Feedback is not a lead. A lead wants to be called back and must leave a phone
+ * number; someone filing a complaint or an idea may want to stay anonymous, so
+ * every contact field here is optional and only the message is required.
+ */
+export const FEEDBACK_CATEGORIES = ['kritik', 'saran', 'pertanyaan', 'apresiasi'] as const
+export type FeedbackCategory = (typeof FEEDBACK_CATEGORIES)[number]
+
+export const FEEDBACK_CATEGORY_LABELS: Record<FeedbackCategory, string> = {
+  kritik: 'Kritik',
+  saran: 'Saran',
+  pertanyaan: 'Pertanyaan',
+  apresiasi: 'Apresiasi',
+}
+
+export const FEEDBACK_STATUSES = ['baru', 'dibaca', 'ditindaklanjuti', 'selesai'] as const
+export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number]
+
+export const FEEDBACK_STATUS_LABELS: Record<FeedbackStatus, string> = {
+  baru: 'Baru',
+  dibaca: 'Dibaca',
+  ditindaklanjuti: 'Ditindaklanjuti',
+  selesai: 'Selesai',
+}
+
+/**
+ * The status that closes a piece of feedback. Same rule as a lead: once someone
+ * has recorded that it is done, reopening it would quietly rewrite that.
+ */
+export const CLOSED_FEEDBACK_STATUSES: readonly string[] = ['selesai']
+
+export const isFeedbackClosed = (status: string): boolean => CLOSED_FEEDBACK_STATUSES.includes(status)
+
+export const publicFeedbackSchema = z.object({
+  category: z.enum(FEEDBACK_CATEGORIES).default('saran'),
+  rating: z.number().int().min(1).max(5).optional(),
+  name: z.string().trim().max(120).optional().or(z.literal('')),
+  email: z.string().trim().email(EMAIL_ERROR).optional().or(z.literal('')),
+  phone: optionalPhoneSchema,
+  subject: z.string().trim().max(150).optional().or(z.literal('')),
+  message: z.string().trim().min(10, 'Tuliskan masukan Anda, minimal 10 karakter').max(4000),
+  branchId: idSchema.optional(),
+  sessionId: z.string().max(64).optional(),
+  // Same honeypot rule as the lead form: left unconstrained on purpose so a bot
+  // is never told which field gave it away. The handler drops it silently.
+  website: z.string().max(200).optional(),
+  turnstileToken: z.string().optional(),
+})
+export type PublicFeedback = z.infer<typeof publicFeedbackSchema>
+
+export const updateFeedbackSchema = z.object({
+  status: z.enum(FEEDBACK_STATUSES).optional(),
+  note: z.string().max(2000).optional(),
+})
+
 /* --------------------------------- profiling ------------------------------- */
 
 export const profilingAnswersSchema = z.object({
@@ -243,19 +493,134 @@ export const blockInputSchema = z.object({
   isVisible: z.boolean().default(true),
 })
 
+/**
+ * A moment, written either way.
+ *
+ * The console's date fields are `<input type="date">`, which yields
+ * "2026-09-07" — a value `z.string().datetime()` rejects outright, so saving a
+ * news item with a publish date failed with "publishedAt: invalid datetime".
+ * A plain date is a legitimate answer to "when does this go out", so it is
+ * accepted and widened to midnight UTC, which reads as the same calendar day
+ * across Indonesia.
+ *
+ * It yields a Date rather than a string on purpose: the value goes straight
+ * into a timestamp column, and a string there fails at the driver rather than
+ * at the door — which is what turned a mistyped date into a 500.
+ */
+export const dateTimeSchema = z
+  .union([z.string(), z.date()])
+  .refine(
+    (v) => v instanceof Date || /^\d{4}-\d{2}-\d{2}$/.test(v) || !Number.isNaN(Date.parse(v)),
+    'Tanggal tidak dikenali',
+  )
+  .transform((v) => (v instanceof Date ? v : new Date(/^\d{4}-\d{2}-\d{2}$/.test(v) ? `${v}T00:00:00.000Z` : v)))
+
+/** Page slugs follow the slug rule, except the home page, which is "/". */
+export const pageSlugSchema = slugSchema.or(z.literal('/'))
+
 export const pageSchema = z.object({
   title: z.string().min(1, 'Judul wajib diisi').max(160),
-  slug: slugSchema,
+  slug: pageSlugSchema,
   status: z.enum(PAGE_STATUSES).default('draft'),
   seo: seoSchema.default({}),
   blocks: z.array(blockInputSchema).default([]),
-  publishedAt: z.string().datetime().nullable().optional(),
+  publishedAt: dateTimeSchema.nullable().optional(),
+  /** Listed in the footer's bottom row. Asked for, not assumed. */
+  showInFooter: z.boolean().default(false),
 })
 
 /* --------------------------------- products -------------------------------- */
 
 export const PRODUCT_CATEGORIES = ['simpanan', 'pinjaman'] as const
 export const RATE_METHODS = ['flat', 'annuity', 'effective', 'none'] as const
+
+/**
+ * How long a product runs, as the koperasi writes it on a brochure: one figure
+ * ("210 hari") or a range ("3–4 bulan"), in days, weeks or months. It is what
+ * the website prints as "Jangka waktu"; the month list in `tenorOptions` still
+ * feeds the recommender and follows this when the unit is months.
+ */
+export const TERM_UNITS = ['day', 'week', 'month'] as const
+export type TermUnit = (typeof TERM_UNITS)[number]
+export const TERM_UNIT_LABELS: Record<TermUnit, string> = { day: 'hari', week: 'minggu', month: 'bulan' }
+
+export const productTermSchema = z
+  .object({
+    min: z.number().int().min(1).max(3650),
+    /** Empty for a single figure. */
+    max: z.number().int().min(1).max(3650).nullable().optional(),
+    unit: z.enum(TERM_UNITS),
+  })
+  .refine((t) => t.max == null || t.max >= t.min, { message: 'Batas atas jangka waktu harus sama atau lebih besar dari batas bawah.', path: ['max'] })
+export type ProductTerm = z.infer<typeof productTermSchema>
+
+/** "210 hari", "3–4 bulan"; null when there is nothing to say. */
+export function formatTerm(term: ProductTerm | null | undefined): string | null {
+  if (!term || !term.min) return null
+  const unit = TERM_UNIT_LABELS[term.unit] ?? 'bulan'
+  return term.max != null && term.max !== term.min ? `${term.min}–${term.max} ${unit}` : `${term.min} ${unit}`
+}
+
+/** A product's term: the one the editor wrote, else the range of its older month list. */
+export function productTerm(p: { term?: ProductTerm | null; tenorOptions?: number[] | null }): ProductTerm | null {
+  if (p.term?.min) return p.term
+  const months = p.tenorOptions ?? []
+  if (!months.length) return null
+  const lo = Math.min(...months)
+  const hi = Math.max(...months)
+  return { min: lo, max: hi === lo ? null : hi, unit: 'month' }
+}
+
+/**
+ * What a product's amount range is called: a loan's plafon is the most one may
+ * borrow, while a savings product's range is what one deposits, and the
+ * koperasi asked for "Setoran" there.
+ */
+export function productAmountLabel(category: string | null | undefined): 'Plafon' | 'Setoran' {
+  return category === 'simpanan' ? 'Setoran' : 'Plafon'
+}
+
+/** The months a term covers, for the recommender: every whole month in a range of months, nothing otherwise. */
+export function termMonths(term: ProductTerm | null | undefined): number[] {
+  if (!term || term.unit !== 'month') return []
+  const hi = Math.min(term.max ?? term.min, 120)
+  const out: number[] = []
+  for (let m = term.min; m <= hi; m++) out.push(m)
+  return out
+}
+
+/**
+ * The period a product's rate is quoted in. The stored `ratePercent` stays a
+ * yearly figure, since every calculation works from it; this is the unit the
+ * editor typed it in and the website prints it in ("1,1% per bulan", "0,05% per hari").
+ */
+export const PRODUCT_RATE_PERIODS = ['day', 'month', 'year'] as const
+export type ProductRatePeriod = (typeof PRODUCT_RATE_PERIODS)[number]
+export const PRODUCT_RATE_PERIOD_LABELS: Record<ProductRatePeriod, string> = { day: 'per hari', month: 'per bulan', year: 'per tahun' }
+export const PRODUCT_RATE_PERIOD_SHORT: Record<ProductRatePeriod, string> = { day: 'hari', month: 'bln', year: 'thn' }
+const PERIODS_PER_YEAR: Record<ProductRatePeriod, number> = { day: 365, month: 12, year: 1 }
+
+const asPeriod = (p?: string | null): ProductRatePeriod => (PRODUCT_RATE_PERIODS as readonly string[]).includes(p ?? '') ? (p as ProductRatePeriod) : 'month'
+const roundRate = (n: number) => Math.round(n * 1e6) / 1e6
+
+/** A rate typed in a period, as the yearly figure that is stored. */
+export const annualRate = (value: number, period?: string | null): number => roundRate(value * PERIODS_PER_YEAR[asPeriod(period)])
+
+/** The stored yearly figure, in the period the product quotes it in. */
+export const rateInPeriod = (annual: number, period?: string | null): number => roundRate(annual / PERIODS_PER_YEAR[asPeriod(period)])
+
+/** "1,1%" — the rate in the product's period, up to three decimals, the Indonesian way. */
+export function formatRate(annual: number | null | undefined, period?: string | null): string | null {
+  if (annual == null) return null
+  const v = Math.round(rateInPeriod(annual, period) * 1000) / 1000
+  return `${String(v).replace('.', ',')}%`
+}
+
+/** The period a product quotes its rate in; products saved before the choice existed quote per month. */
+export const productRatePeriod = (p: { ratePeriod?: string | null }): ProductRatePeriod => asPeriod(p.ratePeriod)
+
+/** What the product page says under "Simulasi Angsuran …" when the product leaves `simulationLead` empty. */
+export const PRODUCT_SIMULATION_LEAD = 'Geser nominal dan pilih jangka waktu untuk melihat perkiraan angsuran bulanan Anda.'
 
 export const productSchema = z.object({
   name: z.string().min(2).max(120),
@@ -268,11 +633,18 @@ export const productSchema = z.object({
   requirements: z.array(z.string()).optional(),
   image: z.string().optional().or(z.literal('')),
   rateMethod: z.enum(RATE_METHODS).default('none'),
-  ratePercent: z.number().min(0).max(100).optional(),
+  /** Stored per year whatever `ratePeriod` says; a daily rate of 0,3% is 109,5 here. */
+  ratePercent: z.number().min(0).max(1000).optional(),
+  /** The period the rate is typed in and shown in. */
+  ratePeriod: z.enum(PRODUCT_RATE_PERIODS).default('month'),
   rateNote: z.string().max(180).optional().or(z.literal('')),
+  /** The line under the loan calculator's heading on the product page. Empty uses `PRODUCT_SIMULATION_LEAD`. */
+  simulationLead: z.string().max(240).optional().or(z.literal('')),
   minAmount: z.number().int().min(0).optional(),
   maxAmount: z.number().int().min(0).optional(),
   tenorOptions: z.array(z.number().int().min(1).max(120)).optional(),
+  /** The "Jangka waktu" the website prints. Empty falls back to the range of `tenorOptions` in months. */
+  term: productTermSchema.nullable().optional(),
   purposes: z.array(z.string()).optional(),
   /**
    * Rates reach the public and drive the simulator, so they are published only
@@ -286,15 +658,230 @@ export const productSchema = z.object({
   seo: seoSchema.default({}),
 })
 
+/* -------------------------------- simulations ------------------------------- */
+
+/**
+ * The calculators on /simulasi, one row per product that can be simulated.
+ *
+ * - `installment` — loan instalments. The rate and its method stay on the
+ *   product, behind the product's sign-off, so a figure is confirmed once.
+ * - `term_deposit` — a lump sum for a term, interest plus a reward per year (SIGEMAS).
+ * - `monthly_deposit` — a fixed deposit every month, compounding (SIMAPAN).
+ * - `daily_deposit` — a deposit every day for a set number of days, plus a bonus (SIPURA).
+ */
+export const RATE_PERIODS = ['month', 'year'] as const
+export type RatePeriod = (typeof RATE_PERIODS)[number]
+export const RATE_PERIOD_LABELS: Record<RatePeriod, string> = { month: 'per bulan', year: 'per tahun' }
+
+/**
+ * The period each kind's formula reads its rate in: a term deposit's interest
+ * is quoted per year, a monthly deposit's per month, a loan's per month.
+ */
+export const SIMULATION_RATE_BASIS = { installment: 'month', term_deposit: 'year', monthly_deposit: 'month', daily_deposit: 'month' } as const
+
+/** A simulation's rate in the period its formula works in, whichever period the editor wrote it in. */
+export function simulationRate(sim: { kind: string; ratePercent?: number | null; ratePeriod?: string | null }): number | null {
+  if (sim.ratePercent == null) return null
+  const basis = SIMULATION_RATE_BASIS[sim.kind as keyof typeof SIMULATION_RATE_BASIS] ?? 'month'
+  const period = sim.ratePeriod === 'year' || sim.ratePeriod === 'month' ? sim.ratePeriod : basis
+  if (period === basis) return sim.ratePercent
+  return Math.round((basis === 'year' ? sim.ratePercent * 12 : sim.ratePercent / 12) * 1e6) / 1e6
+}
+
+/** A simulation's own loan rate as a monthly figure, whichever period the editor wrote it in. */
+export function simulationMonthlyRate(ratePercent: number | null | undefined, ratePeriod?: string | null): number | null {
+  if (ratePercent == null) return null
+  return ratePeriod === 'year' ? ratePercent / 12 : ratePercent
+}
+
+/**
+ * How a loan's instalments fall due. Monthly is the ordinary loan. Seasonal is
+ * the koperasi's pinjaman musiman for farmers and seasonal traders: paid every
+ * six months, at most ten instalments over five years.
+ */
+export const INSTALLMENT_SCHEMES = ['monthly', 'seasonal'] as const
+export type InstallmentScheme = (typeof INSTALLMENT_SCHEMES)[number]
+export const INSTALLMENT_SCHEME_LABELS: Record<InstallmentScheme, string> = { monthly: 'Bulanan', seasonal: 'Musiman (per 6 bulan)' }
+export const SEASONAL_PERIOD_MONTHS = 6
+/** Months between two instalments under a scheme. */
+export const schemePeriodMonths = (scheme: string | null | undefined): number => (scheme === 'seasonal' ? SEASONAL_PERIOD_MONTHS : 1)
+
+/**
+ * What the interest is charged on. Menurun charges the remaining balance, so
+ * instalments shrink. Flat charges the original plafon every period, the way
+ * the core banking schedule of a seasonal loan reads.
+ */
+export const INTEREST_METHODS = ['declining', 'flat'] as const
+export type InterestMethod = (typeof INTEREST_METHODS)[number]
+export const INTEREST_METHOD_LABELS: Record<InterestMethod, string> = { declining: 'Menurun: bunga dari sisa pokok', flat: 'Flat: bunga dari plafon' }
+
+export const SIMULATION_KINDS = ['installment', 'term_deposit', 'monthly_deposit', 'daily_deposit'] as const
+export type SimulationKind = (typeof SIMULATION_KINDS)[number]
+
+export const SIMULATION_KIND_LABELS: Record<SimulationKind, string> = {
+  installment: 'Angsuran pinjaman',
+  term_deposit: 'Simpanan berjangka (bunga + reward)',
+  monthly_deposit: 'Setoran bulanan berbunga',
+  daily_deposit: 'Setoran harian + bonus',
+}
+
+const money = z.number().int().min(0).max(100_000_000_000)
+const nullableMoney = money.nullable().optional()
+
+/**
+ * The table shown under a calculator, written the way the koperasi prints it:
+ * a header row and rows of cells, all text, so a cell can hold "Rp2.500.000",
+ * "5%" or a note. The row whose first cell reads as the amount a visitor typed
+ * is marked on the website.
+ */
+export const simulationTableSchema = z
+  .object({
+    caption: z.string().max(160).optional().or(z.literal('')),
+    /** Where the figures come from, shown beside the caption. Empty shows nothing. */
+    source: z.string().max(120).optional().or(z.literal('')),
+    columns: z.array(z.string().max(60)).min(1, 'Tabel butuh minimal satu kolom.').max(12, 'Tabel paling banyak 12 kolom.'),
+    rows: z.array(z.array(z.string().max(80))).max(100, 'Tabel paling banyak 100 baris.'),
+  })
+  .refine((t) => t.rows.every((r) => r.length === t.columns.length), { message: 'Setiap baris harus punya sel sebanyak kolomnya.' })
+export type SimulationTable = z.infer<typeof simulationTableSchema>
+
+/**
+ * The columns a loan's repayment schedule can show, one row per month, in the
+ * koperasi's spreadsheet order: No, Pokok, Bunga, Total, Saldo.
+ */
+export const LOAN_TABLE_COLUMNS = ['period', 'principal', 'interest', 'installment', 'balance'] as const
+export type LoanTableColumn = (typeof LOAN_TABLE_COLUMNS)[number]
+
+export const LOAN_TABLE_COLUMN_LABELS: Record<LoanTableColumn, string> = {
+  period: 'Bulan ke',
+  principal: 'Pokok',
+  interest: 'Bunga',
+  installment: 'Angsuran',
+  balance: 'Sisa pinjaman',
+}
+
+/** A fee taken from the plafon: a percentage of it, or a fixed rupiah amount. */
+export const LOAN_FEE_BASES = ['percent', 'fixed'] as const
+export type LoanFeeBasis = (typeof LOAN_FEE_BASES)[number]
+
+/**
+ * How a loan simulation's tables are laid out. The figures are never stored:
+ * the website works the schedule out from the plafon and tenor the visitor
+ * picks and the product's rate, the way the koperasi's spreadsheet does, so
+ * changing any of the three changes every row.
+ *
+ * `columns` picks which schedule columns show, in which order, under which
+ * heading. `fees` lists the costs taken at disbursement; empty shows no fee table.
+ */
+export const loanTableSchema = z
+  .object({
+    caption: z.string().max(160).optional().or(z.literal('')),
+    source: z.string().max(120).optional().or(z.literal('')),
+    columns: z
+      .array(z.object({ key: z.enum(LOAN_TABLE_COLUMNS), label: z.string().max(40), visible: z.boolean() }))
+      .min(1)
+      .max(LOAN_TABLE_COLUMNS.length),
+    feesCaption: z.string().max(160).optional().or(z.literal('')),
+    fees: z
+      .array(z.object({
+        label: z.string().min(1, 'Isi nama biayanya.').max(60),
+        basis: z.enum(LOAN_FEE_BASES),
+        value: z.number().min(0).max(100_000_000_000),
+        /** Hidden fees stay in the console but leave the website's table and its totals. */
+        visible: z.boolean().default(true),
+      }))
+      .max(20, 'Paling banyak 20 biaya.')
+      .default([]),
+  })
+  .refine((t) => new Set(t.columns.map((c) => c.key)).size === t.columns.length, { message: 'Setiap kolom hanya boleh muncul sekali.' })
+  .refine((t) => t.columns.some((c) => c.visible), { message: 'Tampilkan minimal satu kolom.' })
+  .refine((t) => t.fees.every((f) => f.basis !== 'percent' || f.value <= 100), { message: 'Biaya persen tidak boleh lebih dari 100%.' })
+export type LoanTable = z.infer<typeof loanTableSchema>
+
+export const simulationSchema = z
+  .object({
+    name: z.string().min(2).max(120),
+    tagline: z.string().max(160).optional().or(z.literal('')),
+    kind: z.enum(SIMULATION_KINDS),
+    productId: z.string().uuid('Pilih produk yang disimulasikan.'),
+    minAmount: money,
+    maxAmount: money,
+    /** Slider step. Empty lets the calculator choose one from the range. */
+    step: nullableMoney,
+    /** Where the slider starts. Empty starts it inside the range. */
+    defaultAmount: nullableMoney,
+    /** Tenor choices in months. Not used by `daily_deposit`, which runs `termDays`. */
+    tenors: z.array(z.number().int().min(1).max(600)).default([]),
+    /** The label at the top right of the result card, e.g. "Bunga 1,3%/bln". Empty shows nothing on a loan card. */
+    rateInfo: z.string().max(80).optional().or(z.literal('')),
+    /** `term_deposit`: interest % per year. `monthly_deposit` and `installment`: % per month (a loan's is the reference rate; empty uses the product's). */
+    ratePercent: z.number().min(0).max(100).nullable().optional(),
+    /** Whether `ratePercent` is per month or per year; `simulationRate` gives each formula the period it works in. */
+    ratePeriod: z.enum(RATE_PERIODS).default('month'),
+    /** `installment`: instalments every month, or every six months for a seasonal loan. */
+    installmentScheme: z.enum(INSTALLMENT_SCHEMES).default('monthly'),
+    /** `installment`: interest on the remaining balance (menurun) or on the plafon every period (flat). */
+    interestMethod: z.enum(INTEREST_METHODS).default('declining'),
+    /** `term_deposit`: reward % per year. */
+    rewardPercent: z.number().min(0).max(100).nullable().optional(),
+    /** `daily_deposit`: bonus as a multiple of one day's deposit. */
+    bonusMultiplier: z.number().min(0).max(1000).nullable().optional(),
+    /** `daily_deposit`: how many days the deposits run. */
+    termDays: z.number().int().min(1).max(3650).nullable().optional(),
+    /** Amounts listed in the reference table under a savings calculator. Empty shows no table. */
+    tableAmounts: z.array(money).default([]),
+    /** The table the editor wrote. When set it replaces the table worked out from `tableAmounts`. */
+    table: simulationTableSchema.nullable().optional(),
+    /** `installment`: the schedule and fee tables, worked out live on the website. Empty shows no table. */
+    loanTable: loanTableSchema.nullable().optional(),
+    /** The explanation in the result card. Empty uses one written from the figures. */
+    note: z.string().max(400).optional().or(z.literal('')),
+    isActive: z.boolean().default(true),
+    sortOrder: z.number().int().default(0),
+  })
+
+/**
+ * The checks that need more than one field. Kept apart from the shape so the
+ * API can apply them to a PATCH once it has merged the stored row — a partial
+ * update carries only the fields that changed.
+ */
+export function simulationProblems(v: z.infer<typeof simulationSchema>): { field: string; message: string }[] {
+  const out: { field: string; message: string }[] = []
+  if (v.maxAmount < v.minAmount) out.push({ field: 'maxAmount', message: 'Nominal maksimum harus sama atau lebih besar dari minimum.' })
+  if (v.defaultAmount != null && (v.defaultAmount < v.minAmount || v.defaultAmount > v.maxAmount)) {
+    out.push({ field: 'defaultAmount', message: 'Nominal awal harus di antara minimum dan maksimum.' })
+  }
+  if (v.kind !== 'daily_deposit' && !v.tenors.length) out.push({ field: 'tenors', message: 'Isi minimal satu pilihan jangka waktu (bulan).' })
+  if (v.kind === 'monthly_deposit' && v.tenors.some((m) => m % 12 !== 0)) {
+    out.push({ field: 'tenors', message: 'Setoran bulanan ditampilkan per tahun, jadi jangka waktunya kelipatan 12 bulan.' })
+  }
+  if (v.kind === 'installment' && v.installmentScheme === 'seasonal' && v.tenors.some((m) => m % SEASONAL_PERIOD_MONTHS !== 0)) {
+    out.push({ field: 'tenors', message: 'Angsuran musiman jatuh tiap 6 bulan, jadi jangka waktunya kelipatan 6 bulan. Contoh: 12, 24, 36, 48, 60.' })
+  }
+  if ((v.kind === 'term_deposit' || v.kind === 'monthly_deposit') && v.ratePercent == null) out.push({ field: 'ratePercent', message: 'Isi suku bunganya.' })
+  if (v.kind === 'daily_deposit' && v.termDays == null) out.push({ field: 'termDays', message: 'Isi lama setoran dalam hari.' })
+  if (v.kind === 'daily_deposit' && v.bonusMultiplier == null) out.push({ field: 'bonusMultiplier', message: 'Isi kelipatan bonusnya.' })
+  return out
+}
+
 /* --------------------------------- branches -------------------------------- */
 
-export const branchHoursSchema = z.array(
-  z.object({
-    day: z.number().int().min(0).max(6), // 0 = Sunday
-    opensAt: z.string().regex(/^\d{2}:\d{2}$/).nullable(),
-    closesAt: z.string().regex(/^\d{2}:\d{2}$/).nullable(),
-  }),
-)
+const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Tulis jam sebagai JJ:MM, misalnya 08:00.')
+
+export const branchHoursSchema = z
+  .array(
+    z.object({
+      day: z.number().int().min(0).max(6), // 0 = Sunday
+      opensAt: clockTime.nullable(),
+      closesAt: clockTime.nullable(),
+    }),
+  )
+  .max(7)
+  // Both times or neither, closing after opening, each day once: an office
+  // "open" from 15.00 to 08.00 would read as open all night on the website.
+  .superRefine((hours, ctx) => {
+    for (const p of branchHoursProblems(hours)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: p.message })
+  })
 
 export const branchSchema = z.object({
   name: z.string().min(2).max(120),
@@ -306,9 +893,9 @@ export const branchSchema = z.object({
   regency: z.string().max(120).default('Karangasem'),
   province: z.string().max(120).default('Bali'),
   postalCode: z.string().max(10).optional().or(z.literal('')),
-  phone: z.string().max(40).optional().or(z.literal('')),
-  whatsapp: z.string().max(40).optional().or(z.literal('')),
-  email: z.string().email().optional().or(z.literal('')),
+  phone: optionalPhoneSchema,
+  whatsapp: optionalPhoneSchema,
+  email: z.string().email(EMAIL_ERROR).optional().or(z.literal('')),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   mapsUrl: z.string().url().optional().or(z.literal('')),
@@ -329,7 +916,7 @@ export const postSchema = z.object({
   coverImage: z.string().optional().or(z.literal('')),
   categoryId: idSchema.optional().nullable(),
   status: z.enum(PAGE_STATUSES).default('draft'),
-  publishedAt: z.string().datetime().nullable().optional(),
+  publishedAt: dateTimeSchema.nullable().optional(),
   seo: seoSchema.default({}),
 })
 
@@ -344,7 +931,7 @@ export const jobSchema = z.object({
   location: z.string().max(160).optional().or(z.literal('')),
   description: z.string().optional().or(z.literal('')),
   requirements: z.array(z.string()).optional(),
-  closesAt: z.string().datetime().nullable().optional(),
+  closesAt: dateTimeSchema.nullable().optional(),
   isActive: z.boolean().default(true),
   seo: seoSchema.default({}),
 })
@@ -358,6 +945,31 @@ export const jobApplicationSchema = z.object({
   cvKey: z.string().min(1, 'CV wajib diunggah'),
   consent: z.literal(true, { errorMap: () => ({ message: 'Persetujuan penyimpanan data wajib dicentang' }) }),
   website: z.string().max(200).optional(),
+})
+
+/**
+ * How far an application has got.
+ *
+ * Deliberately short. A koperasi hiring two or three people a year needs to
+ * know who has been looked at and who has been called; a full applicant
+ * tracking pipeline would be a form nobody fills in honestly.
+ */
+export const JOB_APPLICATION_STATUSES = ['baru', 'ditinjau', 'dipanggil', 'diterima', 'ditolak'] as const
+export type JobApplicationStatus = (typeof JOB_APPLICATION_STATUSES)[number]
+
+export const JOB_APPLICATION_STATUS_LABELS: Record<JobApplicationStatus, string> = {
+  baru: 'Baru',
+  ditinjau: 'Sudah ditinjau',
+  dipanggil: 'Dipanggil wawancara',
+  diterima: 'Diterima',
+  ditolak: 'Tidak lolos',
+}
+
+/** The two that end it. Kept open for editing — an applicant may be reconsidered. */
+export const isJobApplicationClosed = (status: string) => status === 'diterima' || status === 'ditolak'
+
+export const updateJobApplicationSchema = z.object({
+  status: z.enum(JOB_APPLICATION_STATUSES),
 })
 
 /* ---------------------------------- media ---------------------------------- */

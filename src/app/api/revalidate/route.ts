@@ -8,6 +8,14 @@ import { revalidateTag, revalidatePath } from 'next/cache'
  * stays statically cached — the koperasi's team sees their edit live within
  * seconds, without the site paying a per-request rendering cost.
  */
+/** CMS pages whose route is not `/<slug>`. */
+const PAGE_ROUTES: Record<string, string> = {
+  '/': '/',
+  home: '/',
+  'produk-simpanan': '/produk/simpanan',
+  'produk-pinjaman': '/produk/pinjaman',
+}
+
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('x-revalidate-secret')
   if (!process.env.REVALIDATE_SECRET || secret !== process.env.REVALIDATE_SECRET) {
@@ -18,10 +26,32 @@ export async function POST(req: NextRequest) {
   const tags = body.tags ?? []
   const paths = body.paths ?? []
 
-  // Next 16 requires a cacheLife profile; `max` expires the entry immediately
-  // rather than waiting out the remaining ISR window.
-  for (const tag of tags) revalidateTag(tag, 'max')
+  // Expire now, not stale-while-revalidate. With the 'max' profile the site
+  // kept answering the old copy (x-nextjs-cache: STALE) until a background
+  // render finished — two seconds when idle, half a minute on a busy machine —
+  // so an editor saved a menu, opened the website and saw nothing change. With
+  // an immediate expiry the next request renders fresh and waits for it.
+  //
+  // This is still scoped: only the routes whose fetches carried the tag
+  // expire. A menu change does reach every route, because every route shows
+  // the header, but a post publish leaves the product pages untouched — which
+  // is the difference from the layout-wide path revalidation rejected below.
+  for (const tag of tags) revalidateTag(tag, { expire: 0 })
   for (const path of paths) revalidatePath(path)
+
+  // A page's own route is revalidated by path as well as by tag.
+  //
+  // Tags reach the routes that were rendered ahead of time, but a page an
+  // editor created is rendered on demand, and there the tagged fetch entry
+  // survived `revalidateTag` — the API answered 404 for a deleted page while
+  // the site went on serving it from cache. Only the affected route is named:
+  // revalidating the whole layout instead fixed that case and made every other
+  // edit slower to appear, which is the thing this hook exists to prevent.
+  for (const tag of tags) {
+    if (!tag.startsWith('page:')) continue
+    const slug = tag.slice(5)
+    revalidatePath(PAGE_ROUTES[slug] ?? `/${slug}`)
+  }
 
   // A page publish should also refresh the homepage lists that embed it.
   if (tags.some((t) => t.startsWith('post:') || t === 'posts')) revalidatePath('/')

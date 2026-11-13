@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import { mediaSrc } from '@/contracts'
 
 /**
  * Image wrapper with a deterministic placeholder.
@@ -31,16 +32,18 @@ export function Media({
   /** Shown inside the placeholder while the real artwork has not been uploaded. */
   fallbackLabel?: string
 }) {
-  const box = `relative overflow-hidden bg-surface-alt ${rounded ? 'rounded-[var(--radius-tile)]' : ''} ${className}`
+  const box = `relative overflow-hidden bg-paper ${rounded ? 'rounded-[var(--radius-tile)]' : ''} ${className}`
+  // Image fields store object keys; resolve to the proxy path or the public URL.
+  const resolved = mediaSrc(src, { publicBase: process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL })
 
-  if (!src) {
+  if (!resolved) {
     return (
       <div className={box} style={{ aspectRatio: ratio }}>
         <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-green-100 via-green-50 to-white p-5 text-center">
           <span>
             <svg viewBox="0 0 34 60" className="mx-auto h-9 w-auto opacity-70" fill="none" aria-hidden="true">
-              <path d="M30 2C30 18 18 24 4 30c0-16 12-22 26-28Z" fill="#7cba57" />
-              <path d="M4 58c0-16 12-22 26-28 0 16-12 22-26 28Z" fill="#dfae3c" />
+              <path d="M30 2C30 18 18 24 4 30c0-16 12-22 26-28Z" className="fill-green-400" />
+              <path d="M4 58c0-16 12-22 26-28 0 16-12 22-26 28Z" className="fill-gold-400" />
             </svg>
             {fallbackLabel ? (
               <span className="mt-3 block text-[13px] font-bold leading-snug text-green-700/80">{fallbackLabel}</span>
@@ -51,16 +54,16 @@ export function Media({
     )
   }
 
-  const isProxied = src.startsWith('/api/media/')
+  const isProxied = resolved.startsWith('/api/media/')
   return (
     <div className={box} style={{ aspectRatio: ratio }}>
       {isProxied ? (
         // Proxy route streams from a signed URL; Next cannot optimise it, so it
         // is served as-is with lazy loading.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={alt} className="absolute inset-0 size-full object-cover" loading={priority ? 'eager' : 'lazy'} decoding="async" />
+        <img src={resolved} alt={alt} className="absolute inset-0 size-full object-cover" loading={priority ? 'eager' : 'lazy'} decoding="async" />
       ) : (
-        <Image src={src} alt={alt} fill sizes={sizes} priority={priority} className="object-cover" />
+        <Image src={resolved} alt={alt} fill sizes={sizes} priority={priority} className="object-cover" />
       )}
     </div>
   )

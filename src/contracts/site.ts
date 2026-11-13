@@ -1,5 +1,8 @@
 /** Facts about the cooperative, taken from the legal documents and the current site. */
 
+import { field, type FieldMap } from './fields'
+import { DEFAULT_THEME_COLORS, type ThemeColors, type ThemeAreas } from './theme'
+
 export const SITE = {
   legalName: 'Koperasi Simpan Pinjam Sari Sedana Bali',
   shortName: 'KSP Sari Sedana Bali',
@@ -34,7 +37,250 @@ export const NAV_MAIN = [
   { label: 'Laporan Keuangan', href: '/laporan-keuangan' },
 ] as const
 
+/**
+ * Site-wide chrome that the CMS can edit under Pengaturan → Website. These are
+ * the fallbacks the landing page renders when a settings group has never been
+ * saved, and the values the seed writes on first run. Keeping them here — not
+ * in the landing page — means the CMS form, the seed and the site all agree.
+ */
+/**
+ * A navigation entry.
+ *
+ * `href` may be empty when the item has children: some groups exist only to
+ * open a dropdown ("Tentang", "Layanan") and have no page of their own. The
+ * header renders those as a heading that opens on hover rather than a link.
+ */
+export interface MenuItem { label: string; href: string; children?: MenuItem[] }
+
+/** True when this entry only opens its dropdown and leads nowhere itself. */
+export const isMenuGroup = (item: MenuItem): boolean =>
+  !item.href.trim() && Boolean(item.children?.length)
+
+/** One entry of the bottom bar phones get: an icon over a short word. */
+export interface BottomNavItem { icon: string; label: string; href: string }
+
+export interface HeaderSettings {
+  ctaLabel: string
+  ctaHref: string
+  /** Show the "cari produk" shortcut on wide screens. */
+  showProfilingShortcut: boolean
+  profilingLabel: string
+  /** Sticky announcement above the header. Empty hides it. */
+  announcement: string
+  announcementHref: string
+  /** The bar pinned to the bottom of phone screens, beside the hamburger menu. */
+  showBottomNav: boolean
+  /** At most five: any more and the labels no longer fit a phone. */
+  bottomNav: BottomNavItem[]
+}
+
+export const BOTTOM_NAV_MAX = 5
+
+/**
+ * The bottom bar's editor form, as a field map so the console renders it with
+ * the same icon picker and link suggestions every block gets.
+ */
+export const BOTTOM_NAV_FIELDS: FieldMap = {
+  items: field.repeater({
+    label: 'Tombol di menu bawah', itemLabel: 'Tombol', min: 2, max: BOTTOM_NAV_MAX,
+    help: 'Dua sampai lima tombol. Tampil di ponsel saja, sebagai bar tetap di bagian bawah layar.',
+    of: {
+      icon: field.icon({ label: 'Ikon', required: true, default: 'home' }),
+      label: field.text({ label: 'Tulisan', required: true, max: 12, help: 'Satu kata pendek; ruangnya sempit.' }),
+      href: field.link({ label: 'Menuju ke', required: true }),
+    },
+  }),
+}
+
+export interface FooterSettings {
+  ctaHeading: string
+  ctaBody: string
+  primaryLabel: string
+  primaryHref: string
+  secondaryLabel: string
+  secondaryHref: string
+  showBranches: boolean
+  bottomNote: string
+  /** Show the social icons under the description. */
+  showSocial: boolean
+  /** Small heading above the icons; empty hides the heading only. */
+  socialHeading: string
+}
+
+/**
+ * Social channels the footer can link to, edited under Pengaturan → Footer.
+ * The order here is the order of the icons; an empty address hides its icon.
+ */
+export const SOCIAL_PLATFORMS = [
+  { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/…' },
+  { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/…' },
+  { key: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@…' },
+  { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@…' },
+  { key: 'x', label: 'X (Twitter)', placeholder: 'https://x.com/…' },
+  { key: 'linkedin', label: 'LinkedIn', placeholder: 'https://linkedin.com/company/…' },
+  { key: 'telegram', label: 'Telegram', placeholder: 'https://t.me/…' },
+] as const
+
+export type SocialKey = (typeof SOCIAL_PLATFORMS)[number]['key']
+export type SocialSettings = Record<SocialKey, string>
+
+export const DEFAULT_SOCIAL: SocialSettings = { facebook: '', instagram: '', youtube: '', tiktok: '', x: '', linkedin: '', telegram: '' }
+
+export interface BrandSettings {
+  name: string
+  tagline: string
+  /** Media URL. Empty renders the built-in leaf mark. */
+  logo: string
+  logoLight: string
+  /** The brand colours the website is painted with. See theme.ts. */
+  colors: ThemeColors
+  /** Colours for the header, footer and page banners that differ from the site's. See theme.ts. */
+  areas?: ThemeAreas
+}
+
+export const DEFAULT_HEADER: HeaderSettings = {
+  ctaLabel: 'Hubungi Kami',
+  ctaHref: 'whatsapp',
+  showProfilingShortcut: true,
+  profilingLabel: 'Cari produk',
+  announcement: '',
+  announcementHref: '',
+  showBottomNav: true,
+  bottomNav: [
+    { icon: 'home', label: 'Beranda', href: '/' },
+    { icon: 'wallet', label: 'Produk', href: '/produk' },
+    { icon: 'calculator', label: 'Simulasi', href: '/simulasi' },
+    { icon: 'newspaper', label: 'Berita', href: '/berita' },
+  ],
+}
+
+export const DEFAULT_FOOTER: FooterSettings = {
+  ctaHeading: 'Ada yang bisa kami bantu?',
+  ctaBody: 'Petugas kami siap membantu, tanpa biaya konsultasi.',
+  primaryLabel: 'Cari produk yang cocok',
+  primaryHref: '/profiling',
+  secondaryLabel: 'Kunjungi kantor',
+  secondaryHref: '/lokasi',
+  showBranches: true,
+  bottomNote: '',
+  showSocial: true,
+  socialHeading: 'Ikuti kami',
+}
+
+export const DEFAULT_BRAND: BrandSettings = {
+  name: SITE.shortName,
+  tagline: SITE.tagline,
+  logo: '',
+  logoLight: '',
+  colors: DEFAULT_THEME_COLORS,
+}
+
+/**
+ * The koperasi's mobile app, edited under Pengaturan → Aplikasi.
+ *
+ * One place for the store links, read by every "Unduh Aplikasi" block and by
+ * the smart link at APP_SMART_LINK, which sends a phone to its own store.
+ */
+export interface AppSettings {
+  appName: string
+  appStoreUrl: string
+  playStoreUrl: string
+  /** Custom scheme or universal link the installed app answers to. Empty skips the attempt. */
+  deepLink: string
+  /** Send a phone straight to its store when it opens the smart link. */
+  autoRedirect: boolean
+  /** Shown on the smart-link page to desktop visitors and when a store is not set. */
+  note: string
+}
+
+export const APP_SMART_LINK = '/aplikasi'
+
+export const DEFAULT_APPS: AppSettings = {
+  appName: 'Aplikasi KSP Sari Sedana Bali',
+  appStoreUrl: '',
+  playStoreUrl: '',
+  deepLink: '',
+  autoRedirect: true,
+  note: 'Buka tautan ini dari ponsel Anda untuk langsung memasang aplikasi.',
+}
+
+export const DEFAULT_QUICK_ACCESS = [
+  { icon: 'spark', title: 'Cari Produk yang Cocok', body: '4 pertanyaan singkat, ±30 detik', href: '/profiling' },
+  { icon: 'calculator', title: 'Simulasi Angsuran', body: 'Hitung perkiraan cicilan bulanan', href: '/simulasi' },
+  { icon: 'map-pin', title: 'Kantor Terdekat', body: 'Jam buka, telepon, petunjuk arah', href: '/lokasi' },
+]
+
+export const DEFAULT_FOOTER_MENU: MenuItem[] = [
+  { label: 'Produk', href: '/produk', children: [
+    { label: 'Simpanan', href: '/produk/simpanan' },
+    { label: 'Pinjaman', href: '/produk/pinjaman' },
+    { label: 'Simulasi Angsuran', href: '/simulasi' },
+    { label: 'Cari Produk yang Cocok', href: '/profiling' },
+  ] },
+  { label: 'Koperasi', href: '/tentang-kami', children: [
+    { label: 'Tentang Kami', href: '/tentang-kami' },
+    { label: 'Laporan Keuangan', href: '/laporan-keuangan' },
+    { label: 'Berita & Artikel', href: '/berita' },
+    { label: 'Karir', href: '/karir' },
+  ] },
+  { label: 'Bantuan', href: '/kontak', children: [
+    { label: 'Lokasi Kantor', href: '/lokasi' },
+    { label: 'Tanya Jawab', href: '/faq' },
+    { label: 'Kontak Kami', href: '/kontak' },
+  ] },
+]
+
 export const DAY_NAMES_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] as const
+
+export type BranchHours = { day: number; opensAt: string | null; closesAt: string | null }[]
+
+/** The week as an office reads it, Monday first. `day` stays 0 = Sunday, as stored. */
+export const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0] as const
+export const DAY_SHORT_ID = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'] as const
+
+/** A new office's week, as the koperasi's offices keep it: weekdays 08.00–15.00, Saturday to 13.00, Sunday closed. */
+export const DEFAULT_BRANCH_HOURS: BranchHours = WEEK_ORDER.map((day) => ({
+  day,
+  opensAt: day === 0 ? null : '08:00',
+  closesAt: day === 0 ? null : day === 6 ? '13:00' : '15:00',
+}))
+
+const dotted = (t: string) => t.replace(':', '.')
+
+/**
+ * The week in one line, runs of days with the same hours joined:
+ * "Sen–Jum 08.00–15.00 · Sab 08.00–12.00 · Min tutup".
+ */
+export function summarizeHours(hours: BranchHours): string {
+  if (!hours.length) return ''
+  const slot = (day: number) => {
+    const h = hours.find((x) => x.day === day)
+    return h?.opensAt && h.closesAt ? `${dotted(h.opensAt)}–${dotted(h.closesAt)}` : 'tutup'
+  }
+  const runs: { from: number; to: number; slot: string }[] = []
+  for (const day of WEEK_ORDER) {
+    const s = slot(day)
+    const last = runs[runs.length - 1]
+    if (last && last.slot === s) last.to = day
+    else runs.push({ from: day, to: day, slot: s })
+  }
+  return runs
+    .map((r) => `${DAY_SHORT_ID[r.from]}${r.from === r.to ? '' : `–${DAY_SHORT_ID[r.to]}`} ${r.slot}`)
+    .join(' · ')
+}
+
+/** What is wrong with a week of hours, per day, in words an editor can act on. */
+export function branchHoursProblems(hours: BranchHours): { day: number; message: string }[] {
+  const out: { day: number; message: string }[] = []
+  const seen = new Set<number>()
+  for (const h of hours) {
+    if (seen.has(h.day)) out.push({ day: h.day, message: `${DAY_NAMES_ID[h.day]} tertulis lebih dari sekali.` })
+    seen.add(h.day)
+    if (!h.opensAt !== !h.closesAt) out.push({ day: h.day, message: `${DAY_NAMES_ID[h.day]}: isi jam buka dan jam tutup, atau tandai tutup.` })
+    else if (h.opensAt && h.closesAt && h.closesAt <= h.opensAt) out.push({ day: h.day, message: `${DAY_NAMES_ID[h.day]}: jam tutup harus setelah jam buka.` })
+  }
+  return out
+}
 
 /** Live open/closed state in WITA, independent of the viewer's own clock setting. */
 export function getOpenState(
@@ -96,3 +342,211 @@ export const telLink = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`
 
 export const directionsLink = (lat: number, lng: number, label?: string) =>
   `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}${label ? `&destination_place_id=&query=${encodeURIComponent(label)}` : ''}`
+
+/**
+ * Icon names the website can draw. The CMS icon picker offers exactly this list,
+ * so an editor can never type a name the site does not know.
+ */
+export const ICON_NAMES = [
+  'home', 'spark', 'calculator', 'map-pin', 'phone', 'users', 'trending-up', 'wallet', 'handshake', 'piggy-bank', 'award',
+  'star', 'shield-check', 'building', 'percent', 'briefcase', 'file-text', 'newspaper', 'mail', 'clock', 'compass', 'leaf', 'check',
+] as const
+export type IconName = (typeof ICON_NAMES)[number]
+
+/** Fixed routes of the website, offered as suggestions wherever a link is picked. */
+export const INTERNAL_ROUTES: { href: string; label: string }[] = [
+  { href: '/', label: 'Beranda' },
+  { href: '/tentang-kami', label: 'Tentang Kami' },
+  { href: '/produk', label: 'Semua produk' },
+  { href: '/produk/simpanan', label: 'Produk simpanan' },
+  { href: '/produk/pinjaman', label: 'Produk pinjaman' },
+  { href: '/simulasi', label: 'Simulasi angsuran' },
+  { href: '/profiling', label: 'Cari produk yang cocok' },
+  { href: '/lokasi', label: 'Lokasi kantor' },
+  { href: '/berita', label: 'Berita' },
+  { href: '/faq', label: 'Tanya jawab' },
+  { href: '/karir', label: 'Karir' },
+  { href: '/laporan-keuangan', label: 'Laporan keuangan' },
+  { href: '/kontak', label: 'Kontak' },
+  { href: '/aplikasi', label: 'Unduh aplikasi (diarahkan ke toko sesuai perangkat)' },
+  { href: 'whatsapp', label: 'WhatsApp koperasi (nomor dari pengaturan)' },
+]
+
+/** An address outside the website, opened in a new tab; anything else is a route of this site. */
+export const isExternalHref = (href: string): boolean => /^https?:\/\//i.test(href)
+
+/**
+ * Resolve a stored media value to something an <img> can load.
+ *
+ * Image fields store the object key (`media/2026/09/…jpg`), so the same row
+ * works whether the bucket is public or still proxied. Absolute URLs and
+ * already-proxied paths pass through, so older rows keep rendering.
+ *
+ * - `publicBase`: the bucket's public URL, once it has a read policy.
+ * - `proxyBase`: origin of the website that hosts `/api/media/*` (the console
+ *   passes its own website URL; the website passes nothing and stays relative).
+ */
+export function mediaSrc(value: string | null | undefined, opts: { publicBase?: string; proxyBase?: string } = {}): string {
+  if (!value) return ''
+  if (/^https?:\/\//.test(value)) return value
+  if (value.startsWith('/api/media/')) return `${opts.proxyBase ?? ''}${value}`
+  if (value.startsWith('/')) return value
+  if (opts.publicBase) return `${opts.publicBase.replace(/\/$/, '')}/${value}`
+  return `${opts.proxyBase ?? ''}/api/media/${encodeURIComponent(value)}`
+}
+
+/* ────────────────────────── SEO infrastructure ─────────────────────────── */
+
+/**
+ * Pengaturan → SEO, the technical half.
+ *
+ * Every switch here is honoured by a real route on the website — robots.txt,
+ * sitemap.xml, rss.xml and the JSON-LD in the page head. Nothing is decorative:
+ * a setting that changed nothing would be worse than no setting at all, because
+ * an editor would believe they had turned something off.
+ */
+export interface SeoTechSettings {
+  /* robots.txt */
+  /** Off puts `noindex` on the whole site and answers robots.txt with Disallow: /. */
+  indexable: boolean
+  /** Paths refused to every crawler, on top of the built-in ones. */
+  robotsDisallow: string[]
+  /** Paths allowed back in, for a file inside an otherwise closed folder. */
+  robotsAllow: string[]
+  /** Seconds a crawler is asked to wait between requests. 0 omits the line. */
+  crawlDelay: number
+  /** Appended to robots.txt verbatim, for a directive this form does not model. */
+  robotsExtra: string
+
+  /* sitemap.xml */
+  sitemapEnabled: boolean
+  /** Announce the sitemap from robots.txt. */
+  sitemapInRobots: boolean
+  sitemapPages: boolean
+  sitemapPosts: boolean
+  sitemapProducts: boolean
+  sitemapBranches: boolean
+  sitemapJobs: boolean
+
+  /* rss.xml */
+  rssEnabled: boolean
+  /** How many of the newest posts the feed carries. */
+  rssLimit: number
+  /** Feed title and description; empty falls back to the site's own. */
+  rssTitle: string
+  rssDescription: string
+  /** Whole article HTML in the feed, not just the excerpt. */
+  rssFullContent: boolean
+
+  /* AI crawlers */
+  /**
+   * What the model trainers and answer engines are told. `allow` writes nothing
+   * — the site is open by default — `block` writes a Disallow for each known
+   * agent, `custom` blocks only the ones named in `aiCrawlersBlocked`.
+   */
+  aiCrawlers: 'allow' | 'block' | 'custom'
+  aiCrawlersBlocked: string[]
+
+  /* structured data */
+  schemaEnabled: boolean
+  /** The organisation's schema.org type. FinancialService earns the richer card. */
+  schemaType: 'FinancialService' | 'Organization' | 'LocalBusiness' | 'CreditUnion'
+  /** Emit the WebSite node, which is what a sitelinks search box hangs off. */
+  schemaWebsite: boolean
+  /** Declare /berita?cari= as the site's search action. */
+  schemaSearchAction: boolean
+  /** Profiles to claim as the organisation's own, beyond the footer's social links. */
+  schemaSameAs: string[]
+  /** Extra JSON-LD, one object or an array, added to every page as-is. */
+  schemaExtra: string
+}
+
+/** Crawlers that exist to train or answer with someone else's content. */
+export const AI_CRAWLERS = [
+  { agent: 'GPTBot', label: 'GPTBot (OpenAI, pelatihan model)' },
+  { agent: 'OAI-SearchBot', label: 'OAI-SearchBot (pencarian ChatGPT)' },
+  { agent: 'ChatGPT-User', label: 'ChatGPT-User (kunjungan atas permintaan pengguna)' },
+  { agent: 'ClaudeBot', label: 'ClaudeBot (Anthropic)' },
+  { agent: 'Claude-User', label: 'Claude-User (kunjungan atas permintaan pengguna)' },
+  { agent: 'PerplexityBot', label: 'PerplexityBot' },
+  { agent: 'Google-Extended', label: 'Google-Extended (pelatihan Gemini)' },
+  { agent: 'Applebot-Extended', label: 'Applebot-Extended (pelatihan Apple)' },
+  { agent: 'Bytespider', label: 'Bytespider (ByteDance)' },
+  { agent: 'CCBot', label: 'CCBot (Common Crawl)' },
+  { agent: 'meta-externalagent', label: 'meta-externalagent (Meta)' },
+  { agent: 'Amazonbot', label: 'Amazonbot' },
+] as const
+
+export const DEFAULT_SEO_TECH: SeoTechSettings = {
+  indexable: true,
+  robotsDisallow: [],
+  robotsAllow: [],
+  crawlDelay: 0,
+  robotsExtra: '',
+
+  sitemapEnabled: true,
+  sitemapInRobots: true,
+  sitemapPages: true,
+  sitemapPosts: true,
+  sitemapProducts: true,
+  sitemapBranches: true,
+  sitemapJobs: true,
+
+  rssEnabled: true,
+  rssLimit: 30,
+  rssTitle: '',
+  rssDescription: '',
+  rssFullContent: false,
+
+  aiCrawlers: 'allow',
+  aiCrawlersBlocked: [],
+
+  schemaEnabled: true,
+  schemaType: 'FinancialService',
+  schemaWebsite: true,
+  schemaSearchAction: false,
+  schemaSameAs: [],
+  schemaExtra: '',
+}
+
+/* ──────────────────────────── tag manager ──────────────────────────────── */
+
+/**
+ * Pengaturan → SEO → Google Tag Manager.
+ *
+ * The container id lives in the database rather than an environment variable so
+ * the koperasi's own marketing team can point the site at a new container
+ * without a deploy. Nothing secret belongs here: every value is published in
+ * the page source, and the settings endpoint is public.
+ */
+export interface AnalyticsSettings {
+  /** GTM-XXXXXXX. Empty loads no container. */
+  gtmId: string
+  /** G-XXXXXXXXXX. Only used when no container is set — GTM should own GA4. */
+  gaId: string
+  /**
+   * Deny analytics and advertising storage until the visitor agrees. Leave on
+   * unless the container itself already implements consent.
+   */
+  consentMode: boolean
+  /** Pushed onto the dataLayer before the container loads, on every page. */
+  dataLayer: { key: string; value: string }[]
+  /**
+   * Prefix put in front of every block's tracking class, so one container rule
+   * (`[class^="ksp-"]`) can catch the lot.
+   */
+  classPrefix: string
+}
+
+export const DEFAULT_ANALYTICS: AnalyticsSettings = {
+  gtmId: '',
+  gaId: '',
+  consentMode: false,
+  dataLayer: [],
+  classPrefix: 'ksp-',
+}
+
+/** GTM-XXXXXXX, the only shape Google issues. */
+export const GTM_ID_RULE = /^GTM-[A-Z0-9]{4,10}$/
+/** G-XXXXXXXXXX, a GA4 measurement id. */
+export const GA_ID_RULE = /^G-[A-Z0-9]{6,12}$/
