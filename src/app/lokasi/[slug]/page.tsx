@@ -7,6 +7,7 @@ import { breadcrumbLd, localBusinessLd } from '@/lib/jsonld'
 import { Shell, Band, Breadcrumbs, JsonLd, Action, Card, Icon, Heading, Label } from '@/components/ui'
 import { OpenBadge } from '@/components/BranchCard'
 import { LeadForm } from '@/components/interactive/LeadForm'
+import { BranchDirections } from '@/components/interactive/BranchDirections'
 
 export const revalidate = 3600
 
@@ -42,6 +43,7 @@ export default async function BranchPage({ params }: { params: Promise<{ slug: s
   ]
   const others = branches.filter((b) => b.id !== branch.id)
   const area = branch.district ?? branch.regency
+  const mapsHref = branch.mapsUrl || directionsLink(branch.latitude, branch.longitude, branch.name)
 
   return (
     <>
@@ -124,31 +126,19 @@ export default async function BranchPage({ params }: { params: Promise<{ slug: s
                 <Action href={waLink(branch.whatsapp || branch.phone || '', `Halo ${branch.name}, saya ingin bertanya tentang produk koperasi.`)} external>
                   <Icon.whatsapp className="size-4" /> WhatsApp
                 </Action>
-                <Action href={branch.mapsUrl || directionsLink(branch.latitude, branch.longitude, branch.name)} external variant="outline">
-                  <Icon.compass className="size-4" /> Petunjuk arah
+                <Action href={mapsHref} external variant="outline">
+                  <Icon.compass className="size-4" /> Google Maps
                 </Action>
               </div>
             </div>
 
             <div>
-              <Card className="overflow-hidden">
-                <iframe
-                  title={`Peta lokasi ${branch.name}`}
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  className="h-72 w-full border-0"
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${branch.longitude - 0.012}%2C${branch.latitude - 0.008}%2C${branch.longitude + 0.012}%2C${branch.latitude + 0.008}&layer=mapnik&marker=${branch.latitude}%2C${branch.longitude}`}
-                />
-                <div className="p-5">
-                  <p className="text-[13px] font-semibold text-ink-900">Koordinat</p>
-                  <p className="tnum mt-1 text-sm text-ink-500">
-                    {branch.latitude.toFixed(5)}, {branch.longitude.toFixed(5)}
-                  </p>
-                  <Action href={directionsLink(branch.latitude, branch.longitude, branch.name)} external className="mt-4 w-full">
-                    Buka di aplikasi peta <Icon.arrow className="size-4" />
-                  </Action>
-                </div>
-              </Card>
+              {/* The office and the way to it, drawn on arrival. The list's cards
+                  lead here for the link out to Google Maps. */}
+              <BranchDirections
+                branch={{ id: branch.id, name: branch.name, lat: branch.latitude, lng: branch.longitude }}
+                mapsHref={mapsHref}
+              />
             </div>
           </div>
         </Shell>
