@@ -462,6 +462,21 @@ export const DATA_SOURCE_REFRESH_OPTIONS = [
   { value: 0, label: 'Hanya saat tombol "Perbarui data" ditekan' },
 ] as const
 
+/**
+ * "Perbarui data sekarang" may be pressed once per this many minutes for each
+ * data source. Every press reads Google Sheets and clears the website's cache,
+ * and the sheet rarely changes faster than that.
+ */
+export const DATA_SOURCE_MANUAL_REFRESH_MINUTES = 5
+
+/** When "Perbarui data sekarang" can next be pressed, from the last read (successful or not); null when it can be now. */
+export function manualRefreshAvailableAt(last: { syncedAt?: string | Date | null; lastErrorAt?: string | Date | null }, now: Date = new Date()): Date | null {
+  const times = [last.syncedAt, last.lastErrorAt].map((t) => (t ? new Date(t).getTime() : NaN)).filter((t) => !Number.isNaN(t))
+  if (!times.length) return null
+  const at = new Date(Math.max(...times) + DATA_SOURCE_MANUAL_REFRESH_MINUTES * 60_000)
+  return at.getTime() > now.getTime() ? at : null
+}
+
 /** A range as Sheets writes it: A1:D20, A:D, or 2:40. Empty means the whole tab. */
 export const SHEET_RANGE_RULE = /^(?:[A-Za-z]{1,3}\d{0,7}:[A-Za-z]{1,3}\d{0,7}|\d{1,7}:\d{1,7})$/
 
