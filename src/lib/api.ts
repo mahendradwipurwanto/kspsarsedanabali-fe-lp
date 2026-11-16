@@ -1,5 +1,5 @@
 import 'server-only'
-import type { LoanTable, ProductTerm, PublicDataSource } from '@/contracts'
+import type { LoanTable, ProductTerm, PublicDataSource, PublicForm, PublicFormResult } from '@/contracts'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4001'
 
@@ -236,6 +236,25 @@ export const getDataSource = (id: string) =>
   apiGet<Wrapped<PublicDataSource>>(`/data-sources/${encodeURIComponent(id)}`, { tags: ['data-sources', `data-source:${id}`] })
     .then((r) => r?.data ?? null)
     .catch(() => null)
+/**
+ * A form from the Formulir menu, reached only by its own link.
+ *
+ * Read fresh on every visit: whether it still takes answers depends on the
+ * clock and on how many have already answered, and a cached "masih dibuka"
+ * would let someone fill in a form that closed an hour ago.
+ */
+export const getForm = (slug: string) =>
+  apiGet<Wrapped<PublicForm>>(`/forms/${encodeURIComponent(slug)}`, { tags: ['forms', `form-slug:${slug}`], revalidate: 0 }).then((r) => r?.data ?? null)
+/**
+ * The tally behind a "Hasil Formulir" block. Like a chart from a spreadsheet,
+ * it may fail without taking the page with it.
+ */
+export const getFormResult = (ref: string) => {
+  const formId = ref.split(':')[0] ?? ''
+  return apiGet<Wrapped<PublicFormResult>>(`/form-results/${encodeURIComponent(ref)}`, { tags: ['forms', `form:${formId}`], revalidate: 120 })
+    .then((r) => r?.data ?? null)
+    .catch(() => null)
+}
 export const getSettings = () => apiGet<Wrapped<Record<string, unknown>>>('/settings', { tags: ['settings'] }).then((r) => r?.data ?? {})
 export const getMenu = (key: string) => apiGet<Wrapped<unknown[]>>(`/menus/${key}`, { tags: ['menus'] }).then((r) => r?.data ?? [])
 

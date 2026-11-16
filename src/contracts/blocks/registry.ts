@@ -623,6 +623,60 @@ export const BLOCKS = {
     },
   }),
 
+  /**
+   * The tally of one question of a form made in the Formulir menu.
+   *
+   * The form itself never appears on the website; this block shows only how
+   * a choice question was answered (14 "Setuju" against 3 "Tidak Setuju") and,
+   * if wanted, how many have responded against the target. Nobody's own answer
+   * leaves the console.
+   */
+  form_results: def({
+    type: 'form_results',
+    label: 'Hasil Formulir',
+    description: 'Rekap jawaban satu pertanyaan pilihan dari menu Formulir, sebagai diagram, beserta jumlah responden dan targetnya.',
+    category: 'Konten',
+    icon: 'users',
+    headingLevel: 'h2',
+    fields: {
+      eyebrow: field.text({ label: 'Label kecil di atas', max: 40, default: 'Hasil survei' }),
+      heading: field.text({ label: 'Judul bagian', max: 70 }),
+      subtext: field.textarea({ label: 'Penjelasan singkat', max: 240, rows: 2 }),
+      question: field.reference({
+        label: 'Pertanyaan yang ditampilkan',
+        to: 'form-question',
+        required: true,
+        help: 'Hanya pertanyaan pilihan (pilihan ganda, dropdown, kotak centang, skala) yang bisa direkap. Jawaban isian, tanda tangan, dan foto tidak pernah tampil di website.',
+      }),
+      chartType: field.select({
+        label: 'Bentuk diagram',
+        options: [
+          { value: 'bar-horizontal', label: 'Batang mendatar: cocok untuk pilihan yang panjang' },
+          { value: 'bar', label: 'Batang tegak' },
+          { value: 'pie', label: 'Lingkaran: pembagian dari seluruh jawaban' },
+          { value: 'donut', label: 'Donat: lingkaran dengan total di tengah' },
+        ],
+        default: 'bar-horizontal',
+      }),
+      showProgress: field.boolean({
+        label: 'Tampilkan jumlah responden dan targetnya',
+        default: true,
+        help: 'Misalnya “312 dari 500 responden (62%)”. Target diisi di pengaturan formulir; tanpa target hanya jumlahnya yang tampil.',
+      }),
+      showValues: field.boolean({ label: 'Tulis angka pada diagram', default: true }),
+      showSummary: field.boolean({ label: 'Tampilkan ringkasan di samping diagram', default: true }),
+      showLegend: field.boolean({ label: 'Tampilkan keterangan warna', default: true }),
+      showTable: field.boolean({ label: 'Tampilkan tabel angka di bawah diagram', default: false }),
+      height: field.select({
+        label: 'Tinggi diagram',
+        options: [{ value: 'short', label: 'Pendek' }, { value: 'standard', label: 'Standar' }, { value: 'tall', label: 'Tinggi' }],
+        default: 'standard',
+      }),
+      note: field.textarea({ label: 'Catatan kecil di bawah diagram', max: 240, rows: 2, placeholder: 'Survei Pra RAT, 1–15 Desember 2026.' }),
+      showUpdated: field.boolean({ label: 'Tulis kapan rekap terakhir diperbarui', default: false }),
+    },
+  }),
+
   document_list: def({
     type: 'document_list',
     label: 'Daftar Dokumen',

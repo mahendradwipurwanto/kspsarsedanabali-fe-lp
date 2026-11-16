@@ -1,5 +1,5 @@
 import {
-  getBranches, getDataSource, getDocumentCategories, getDocuments, getFaqs, getJobs, getPosts, getProducts, getPublishedFeedback, getSettings, getSimulations, getStats, getTestimonials,
+  getBranches, getDataSource, getFormResult, getDocumentCategories, getDocuments, getFaqs, getJobs, getPosts, getProducts, getPublishedFeedback, getSettings, getSimulations, getStats, getTestimonials,
 } from './api'
 import type { BlockContext } from '@/components/blocks'
 
@@ -35,6 +35,8 @@ const NEEDS: Record<string, (keyof Needs)[]> = {
   app_download: ['settings'],
   // data_chart reads one record per block, by id; see below.
   data_chart: [],
+  // form_results likewise reads one tally per block.
+  form_results: [],
 }
 
 interface Needs {
@@ -99,6 +101,12 @@ export async function getBlockContext(
       .map((b) => b.props.source as string),
   )]
   const chartsLoading = Promise.all(chartIds.map((id) => getDataSource(id).then((data) => [id, data] as const)))
+  const resultRefs = [...new Set(
+    blocks
+      .filter((b) => b.type === 'form_results' && b.isVisible && typeof b.props.question === 'string' && b.props.question)
+      .map((b) => b.props.question as string),
+  )]
+  const resultsLoading = Promise.all(resultRefs.map((ref) => getFormResult(ref).then((data) => [ref, data] as const)))
 
   const [products, simulations, branches, postsRes, stats, testimonials, documents, documentCategories, settings, jobs, faqs, publishedFeedback] = await Promise.all([
     need.products ? getProducts() : Promise.resolve([]),
@@ -115,6 +123,7 @@ export async function getBlockContext(
     need.publishedFeedback && showsPublished ? getPublishedFeedback(feedbackLimit) : Promise.resolve([]),
   ])
   const dataSources = Object.fromEntries((await chartsLoading).filter(([, data]) => data))
+  const formResults = Object.fromEntries((await resultsLoading).filter(([, data]) => data))
 
   return {
     products,
@@ -130,6 +139,7 @@ export async function getBlockContext(
     faqs,
     publishedFeedback,
     dataSources,
+    formResults,
     preview: opts.preview,
     postsMeta: postsRes?.meta ? { page: postsRes.meta.page, totalPages: postsRes.meta.totalPages } : undefined,
     basePath: opts.basePath,
