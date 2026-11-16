@@ -1,0 +1,620 @@
+'use client'
+
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, type FormEvent, type Ref } from 'react'
+import Link from 'next/link'
+import {
+  checkAnswers, isFileType, mediaSrc, scaleRange, targetProgress, OTHER_PREFIX, OTHER_LABEL, FORM_IMAGE_MAX_SIDE, FORM_FILE_MAX_BYTES,
+  type FormField, type PublicForm,
+} from '@/contracts'
+import { API_BASE, apiPost, track } from '@/lib/client'
+import { Action, Icon } from '../ui'
+import { Field, Note, Select, field as fieldCls } from '../ui/form'
+
+/* ───────────────────────────── uploading ──────────────────────────── */
+
+/**
+ * One file to the form's private folder. A busy bucket or a dropped mobile
+ * connection gets one more try before the member is told; a refusal (a 4xx:
+ * wrong type, form closed) does not, because trying again cannot change it.
+ */
+async function uploadFile(slug: string, blob: Blob, kind: 'signature' | 'image'): Promise<string> {
+  try {
+    return await uploadOnce(slug, blob, kind)
+  } catch (e) {
+    if ((e as { status?: number }).status && (e as { status: number }).status < 500) throw e
+    await new Promise((r) => setTimeout(r, 1200))
+    return uploadOnce(slug, blob, kind)
+  }
+}
+
+async function uploadOnce(slug: string, blob: Blob, kind: 'signature' | 'image'): Promise<string> {
+  const res = await fetch(`${API_BASE}/v1/public/forms/${encodeURIComponent(slug)}/files`, {
+    method: 'POST',
+    headers: { 'content-type': blob.type || 'application/octet-stream', 'x-kind': kind },
+    body: blob,
+  })
+  const json = (await res.json().catch(() => ({}))) as { data?: { key?: string }; error?: { message?: string } }
+  if (!res.ok || !json.data?.key) throw Object.assign(new Error(json.error?.message ?? 'Berkas gagal diunggah. Periksa koneksi lalu coba lagi.'), { status: res.status })
+  return json.data.key
+}
+
+/**
+ * A photo as it should travel: no side longer than FORM_IMAGE_MAX_SIDE, as a
+ * JPEG. A twelve-megapixel phone photo of 4 MB leaves as a few hundred KB,
+ * which matters on a member's prepaid data and on a meeting hall's Wi-Fi.
+ */
+async function shrinkImage(file: File): Promise<Blob> {
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' } as ImageBitmapOptions)
+    const scale = Math.min(1, FORM_IMAGE_MAX_SIDE / Math.max(bitmap.width, bitmap.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(bitmap.width * scale)
+    canvas.height = Math.round(bitmap.height * scale)
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    bitmap.close()
+    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', 0.85))
+    if (blob) return blob
+  } catch { /* fall through: send it as it is when the browser can read it but not redraw it */ }
+  if (['image/jpeg', 'image/png', 'image/webp'].includes(file.type) && file.size <= FORM_FILE_MAX_BYTES) return file
+  throw new Error('Format foto tidak didukung. Gunakan foto JPG atau PNG.')
+}
+
+/* ───────────────────────────── signature ──────────────────────────── */
+
+export interface SignatureHandle { isEmpty: () => boolean; toBlob: () => Promise<Blob | null>; clear: () => void }
+
+type Point = [number, number]
+
+/**
+ * A box to sign in, with a finger or a mouse.
+ *
+ * Strokes are kept as points relative to the box, so turning the phone or
+ * resizing the window redraws the signature at the new size instead of
+ * wiping it. Scrolling is held off only while the pen is down inside the box.
+ */
+function SignaturePad({ ref, id, invalid, onChange }: { ref: Ref<SignatureHandle>; id: string; invalid?: boolean; onChange: (empty: boolean) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const strokes = useRef<Point[][]>([])
+  const drawing = useRef(false)
+  const [empty, setEmpty] = useState(true)
+
+  const redraw = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const dpr = window.devicePixelRatio || 1
+    const { width, height } = canvas.getBoundingClientRect()
+    if (canvas.width !== Math.round(width * dpr)) { canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr) }
+    const ctx = canvas.getContext('2d')!
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.clearRect(0, 0, width, height)
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.lineWidth = 2.4
+    ctx.strokeStyle = '#0f1b2d'
+    for (const s of strokes.current) {
+      const pts = s.map(([x, y]) => [x * width, y * height] as Point)
+      ctx.beginPath()
+      ctx.moveTo(pts[0]![0], pts[0]![1])
+      if (pts.length === 1) ctx.lineTo(pts[0]![0] + 0.1, pts[0]![1] + 0.1)
+      // Through the midpoints: a smooth line rather than a chain of straight segments.
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i]![0] + pts[i + 1]![0]) / 2, my = (pts[i]![1] + pts[i + 1]![1]) / 2
+        ctx.quadraticCurveTo(pts[i]![0], pts[i]![1], mx, my)
+      }
+      if (pts.length > 1) ctx.lineTo(pts[pts.length - 1]![0], pts[pts.length - 1]![1])
+      ctx.stroke()
+    }
+  }, [])
+
+  useEffect(() => {
+    redraw()
+    const ro = new ResizeObserver(() => redraw())
+    if (canvasRef.current) ro.observe(canvasRef.current)
+    return () => ro.disconnect()
+  }, [redraw])
+
+  const at = (e: React.PointerEvent<HTMLCanvasElement>): Point => {
+    const r = e.currentTarget.getBoundingClientRect()
+    return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]
+  }
+
+  const clear = useCallback(() => { strokes.current = []; setEmpty(true); onChange(true); redraw() }, [onChange, redraw])
+
+  useImperativeHandle(ref, () => ({
+    isEmpty: () => strokes.current.length === 0,
+    clear,
+    toBlob: async () => {
+      if (!strokes.current.length) return null
+      // Drawn again on a white card of fixed size, so every signature on file has the same shape.
+      const out = document.createElement('canvas')
+      out.width = 900; out.height = 360
+      const ctx = out.getContext('2d')!
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, out.width, out.height)
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 5; ctx.strokeStyle = '#0f1b2d'
+      for (const s of strokes.current) {
+        ctx.beginPath()
+        s.forEach(([x, y], i) => (i ? ctx.lineTo(x * out.width, y * out.height) : ctx.moveTo(x * out.width, y * out.height)))
+        if (s.length === 1) ctx.lineTo(s[0]![0] * out.width + 0.5, s[0]![1] * out.height + 0.5)
+        ctx.stroke()
+      }
+      return new Promise((r) => out.toBlob(r, 'image/png'))
+    },
+  }), [clear])
+
+  return (
+    <div>
+      <div className={`relative overflow-hidden rounded-[var(--radius-input)] border bg-white ${invalid ? 'border-[#d1483c]' : 'border-line-strong'}`}>
+        <canvas
+          ref={canvasRef}
+          id={id}
+          role="img"
+          aria-label="Kotak tanda tangan"
+          className="block h-[200px] w-full cursor-crosshair touch-none sm:h-[220px]"
+          onPointerDown={(e) => {
+            e.preventDefault()
+            e.currentTarget.setPointerCapture(e.pointerId)
+            drawing.current = true
+            strokes.current.push([at(e)])
+            redraw()
+          }}
+          onPointerMove={(e) => {
+            if (!drawing.current) return
+            const events = (e.nativeEvent.getCoalescedEvents?.() ?? [e.nativeEvent]) as PointerEvent[]
+            const r = e.currentTarget.getBoundingClientRect()
+            const stroke = strokes.current[strokes.current.length - 1]!
+            for (const ev of events) stroke.push([(ev.clientX - r.left) / r.width, (ev.clientY - r.top) / r.height])
+            redraw()
+          }}
+          onPointerUp={() => {
+            if (!drawing.current) return
+            drawing.current = false
+            setEmpty(false)
+            // Every finished stroke, not only the first: the parent re-uploads the signature as it now stands.
+            onChange(false)
+          }}
+          onPointerCancel={() => { drawing.current = false }}
+        />
+        {empty ? (
+          <span aria-hidden="true" className="pointer-events-none absolute inset-x-6 bottom-12 border-b border-dashed border-ink-200 text-center" />
+        ) : null}
+        {empty ? <span className="pointer-events-none absolute inset-0 grid place-items-center text-[13px] text-ink-300">Tanda tangan di sini</span> : null}
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <p className="text-[12.5px] text-ink-400">Gunakan jari (ponsel) atau mouse (komputer).</p>
+        <button type="button" onClick={clear} disabled={empty} className="cursor-pointer text-[13px] font-semibold text-green-700 underline-offset-4 hover:underline disabled:cursor-default disabled:text-ink-300 disabled:no-underline">
+          Ulangi tanda tangan
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────────────────────── photos ───────────────────────────── */
+
+interface Upload { id: string; preview: string; key: string | null; error: string | null }
+
+function ImageInput({ id, slug, max, value, onChange, invalid }: { id: string; slug: string; max: number; value: Upload[]; onChange: (fn: (prev: Upload[]) => Upload[]) => void; invalid?: boolean }) {
+  const input = useRef<HTMLInputElement>(null)
+
+  async function add(files: FileList | null) {
+    if (!files?.length) return
+    const room = max - value.length
+    for (const file of [...files].slice(0, room)) {
+      const uid = Math.random().toString(36).slice(2)
+      const preview = URL.createObjectURL(file)
+      onChange((prev) => [...prev, { id: uid, preview, key: null, error: null }])
+      try {
+        const blob = await shrinkImage(file)
+        const key = await uploadFile(slug, blob, 'image')
+        onChange((prev) => prev.map((u) => (u.id === uid ? { ...u, key } : u)))
+      } catch (e) {
+        onChange((prev) => prev.map((u) => (u.id === uid ? { ...u, error: (e as Error).message } : u)))
+      }
+    }
+    if (input.current) input.current.value = ''
+  }
+
+  return (
+    <div>
+      <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
+        {value.map((u) => (
+          <div key={u.id} className={`relative aspect-square overflow-hidden rounded-[var(--radius-input)] border bg-paper ${u.error ? 'border-[#d1483c]' : 'border-line'}`}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={u.preview} alt="" className={`size-full object-cover ${u.key ? '' : 'opacity-60'}`} />
+            {!u.key && !u.error ? <span className="absolute inset-0 grid place-items-center bg-white/40 text-[12px] font-semibold text-ink-700">Mengunggah…</span> : null}
+            {u.error ? <span className="absolute inset-x-0 bottom-0 bg-[#c23b2e] px-1.5 py-1 text-[11px] font-medium leading-tight text-white">{u.error}</span> : null}
+            <button
+              type="button"
+              aria-label="Hapus foto"
+              onClick={() => { URL.revokeObjectURL(u.preview); onChange((prev) => prev.filter((x) => x.id !== u.id)) }}
+              className="absolute right-1.5 top-1.5 grid size-7 cursor-pointer place-items-center rounded-full bg-night-900/75 text-white hover:bg-night-900"
+            >
+              <Icon.close className="size-3.5" />
+            </button>
+          </div>
+        ))}
+        {value.length < max ? (
+          <button
+            type="button"
+            id={id}
+            onClick={() => input.current?.click()}
+            className={`grid aspect-square cursor-pointer place-items-center rounded-[var(--radius-input)] border border-dashed bg-white text-center transition-colors hover:border-green-600 hover:text-green-700 ${invalid ? 'border-[#d1483c] text-[#c23b2e]' : 'border-line-strong text-ink-500'}`}
+          >
+            <span className="grid justify-items-center gap-1.5 px-2 text-[12.5px] font-semibold">
+              <span className="text-[24px] leading-none" aria-hidden="true">+</span>
+              {value.length ? 'Tambah foto' : 'Ambil / pilih foto'}
+            </span>
+          </button>
+        ) : null}
+      </div>
+      <input ref={input} type="file" accept="image/*" multiple={max - value.length > 1} className="sr-only" tabIndex={-1} onChange={(e) => void add(e.target.files)} />
+      <p className="mt-2 text-[12.5px] text-ink-400">{max > 1 ? `Paling banyak ${max} foto. ` : ''}Foto diperkecil otomatis sebelum dikirim.</p>
+    </div>
+  )
+}
+
+/* ───────────────────────────── the form ───────────────────────────── */
+
+const choiceBox = (active: boolean) =>
+  `flex min-h-[48px] cursor-pointer items-center gap-3 rounded-[var(--radius-input)] border px-4 py-2.5 text-[14.5px] transition-colors ${
+    active ? 'border-green-600 bg-green-50 text-ink-900' : 'border-line bg-white text-ink-700 hover:border-line-strong'
+  }`
+
+function Marker({ round, on }: { round: boolean; on: boolean }) {
+  return (
+    <span aria-hidden="true" className={`grid size-5 shrink-0 place-items-center border-2 ${round ? 'rounded-full' : 'rounded-[5px]'} ${on ? 'border-green-600 bg-green-600' : 'border-ink-300 bg-white'}`}>
+      {on ? (round ? <span className="size-2 rounded-full bg-white" /> : <svg viewBox="0 0 16 16" className="size-3 text-white" fill="none"><path d="m3 8.5 3.2 3.2L13 4.8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /></svg>) : null}
+    </span>
+  )
+}
+
+/**
+ * A form from the Formulir menu, filled in on the website.
+ *
+ * Checked here with the same rules the API applies, so a member learns what
+ * is missing before anything is sent. Photos upload as soon as they are
+ * picked; the signature is uploaded when the form is sent, then the answers.
+ */
+export function PublicFormView({ form, bare = false }: {
+  form: PublicForm
+  /** Opened through the "hanya formulir" link: nothing points away from the form, not even home. */
+  bare?: boolean
+}) {
+  const [values, setValues] = useState<Record<string, string | string[]>>({})
+  const [others, setOthers] = useState<Record<string, string>>({})
+  const [images, setImages] = useState<Record<string, Upload[]>>({})
+  const [signed, setSigned] = useState<Record<string, boolean>>({})
+  const pads = useRef<Record<string, SignatureHandle | null>>({})
+  /**
+   * Signatures go up in the background once the member pauses, so pressing
+   * "Kirim" does not wait on the bucket. Each new stroke starts a new version;
+   * only the upload of the version on screen is used.
+   */
+  const sigUploads = useRef<Record<string, { version: number; timer: ReturnType<typeof setTimeout> | null; key: Promise<string> | null }>>({})
+  const scheduleSignature = (fid: string, empty: boolean) => {
+    const prev = sigUploads.current[fid]
+    if (prev?.timer) clearTimeout(prev.timer)
+    const version = (prev?.version ?? 0) + 1
+    const entry: { version: number; timer: ReturnType<typeof setTimeout> | null; key: Promise<string> | null } = { version, timer: null, key: null }
+    sigUploads.current[fid] = entry
+    if (empty) return
+    entry.timer = setTimeout(() => {
+      entry.timer = null
+      entry.key = signatureKey(fid)
+      entry.key.catch(() => { if (sigUploads.current[fid] === entry) entry.key = null })
+    }, 1500)
+  }
+  const signatureKey = async (fid: string) => {
+    const blob = await pads.current[fid]?.toBlob()
+    if (!blob) throw new Error('Bubuhkan tanda tangan Anda.')
+    return uploadFile(form.slug, blob, 'signature')
+  }
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [error, setError] = useState('')
+  const [status, setStatus] = useState<'idle' | 'sending' | 'done'>('idle')
+  const [success, setSuccess] = useState('')
+
+  const set = (id: string, v: string | string[]) => {
+    setValues((x) => ({ ...x, [id]: v }))
+    if (errors[id]) setErrors((x) => { const n = { ...x }; delete n[id]; return n })
+  }
+
+  const progress = form.progress ? targetProgress(form.progress.responses, form.progress.target) : null
+
+  if (form.status !== 'open' || status === 'done') {
+    const done = status === 'done'
+    return (
+      <div className="surface relative overflow-hidden p-8 text-center sm:p-10">
+        <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-gold-300 to-transparent" />
+        <span className={`mx-auto grid size-14 place-items-center rounded-[var(--radius-tile)] ${done ? 'bg-green-600 text-white' : 'bg-paper text-ink-500'}`}>
+          {done ? <Icon.check className="size-7" /> : <Icon.clock className="size-7" />}
+        </span>
+        <h1 className="t-h2 mt-5 text-ink-900">{done ? 'Jawaban terkirim' : form.title}</h1>
+        <p className="t-lead mx-auto mt-4 max-w-md whitespace-pre-line">{done ? success : form.closedMessage}</p>
+        {bare ? null : (
+          <div className="mt-8 border-t border-line pt-6">
+            <Link href="/" className="text-[14px] font-semibold text-green-700 underline underline-offset-4 hover:text-green-800">Ke beranda KSP Sari Sedana</Link>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  /** What would be sent, with the files left for the upload step. */
+  function collect(): Record<string, unknown> {
+    const out: Record<string, unknown> = {}
+    for (const f of form.fields) {
+      const v = values[f.id]
+      if (v === undefined) continue
+      if ((f.type === 'choice') && v === OTHER_LABEL) out[f.id] = `${OTHER_PREFIX}${(others[f.id] ?? '').trim()}`
+      else if (f.type === 'checkboxes' && Array.isArray(v)) out[f.id] = v.map((x) => (x === OTHER_LABEL ? `${OTHER_PREFIX}${(others[f.id] ?? '').trim()}` : x))
+      else out[f.id] = v
+    }
+    return out
+  }
+
+  function localErrors(): Record<string, string> {
+    const plain = form.fields.filter((f) => !isFileType(f.type))
+    const { errors: found } = checkAnswers(plain, collect())
+    for (const f of form.fields) {
+      if (f.type === 'signature' && f.required && !signed[f.id]) found[f.id] = 'Bubuhkan tanda tangan Anda.'
+      if (f.type === 'image') {
+        const list = images[f.id] ?? []
+        if (list.some((u) => !u.key && !u.error)) found[f.id] = 'Tunggu sampai foto selesai terunggah.'
+        else if (list.some((u) => u.error)) found[f.id] = 'Ada foto yang gagal terunggah. Hapus lalu pilih ulang.'
+        else if (f.required && !list.length) found[f.id] = 'Unggah foto yang diminta.'
+      }
+    }
+    return found
+  }
+
+  function focusFirst(found: Record<string, string>) {
+    const first = form.fields.find((f) => found[f.id])
+    if (!first) return
+    const el = document.getElementById(`q-${first.id}`)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    ;(el?.querySelector('input,textarea,button,canvas') as HTMLElement | null)?.focus({ preventScroll: true })
+  }
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    // Read now: React clears currentTarget once the handler has awaited anything.
+    const honeypot = String(new FormData(e.currentTarget).get('website') ?? '')
+    setError('')
+    const found = localErrors()
+    setErrors(found)
+    if (Object.keys(found).length) { focusFirst(found); return }
+
+    setStatus('sending')
+    try {
+      const answers = collect()
+      for (const f of form.fields) {
+        if (f.type === 'image') {
+          const keys = (images[f.id] ?? []).map((u) => u.key).filter(Boolean)
+          if (keys.length) answers[f.id] = keys
+        }
+        if (f.type === 'signature' && signed[f.id]) {
+          const up = sigUploads.current[f.id]
+          if (up?.timer) { clearTimeout(up.timer); up.timer = null }
+          // The background upload of what is on screen, or a fresh one if it has not started or it failed.
+          answers[f.id] = await (up?.key ?? signatureKey(f.id)).catch(() => signatureKey(f.id))
+        }
+      }
+      const res = await apiPost<{ successMessage: string }>(`/public/forms/${encodeURIComponent(form.slug)}/responses`, { answers, website: honeypot })
+      if (!res.ok) {
+        setStatus('idle')
+        setError(res.message)
+        if (res.fields) { setErrors(res.fields); focusFirst(res.fields) }
+        return
+      }
+      track('form_submit', { form: form.slug })
+      setSuccess(res.data.successMessage)
+      setStatus('done')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (err) {
+      setStatus('idle')
+      setError((err as Error).message)
+    }
+  }
+
+  function render(f: FormField) {
+    const id = `q-${f.id}-input`
+    const v = values[f.id]
+    const err = errors[f.id]
+    const text = typeof v === 'string' ? v : ''
+    switch (f.type) {
+      case 'short_text':
+      case 'email':
+      case 'phone':
+      case 'number':
+        return (
+          <input
+            id={id}
+            value={text}
+            onChange={(e) => set(f.id, f.type === 'phone' ? e.target.value.replace(/[^\d+\s-]/g, '') : e.target.value)}
+            type={f.type === 'email' ? 'email' : f.type === 'phone' ? 'tel' : 'text'}
+            inputMode={f.type === 'number' ? 'decimal' : f.type === 'phone' ? 'tel' : undefined}
+            autoComplete={f.type === 'email' ? 'email' : f.type === 'phone' ? 'tel' : 'off'}
+            maxLength={f.type === 'short_text' ? 500 : 200}
+            placeholder={f.placeholder || undefined}
+            aria-invalid={err ? true : undefined}
+            className={fieldCls}
+          />
+        )
+      case 'long_text':
+        return <textarea id={id} value={text} onChange={(e) => set(f.id, e.target.value)} rows={4} maxLength={4000} placeholder={f.placeholder || undefined} aria-invalid={err ? true : undefined} className={fieldCls} />
+      case 'date':
+        return <input id={id} type="date" value={text} onChange={(e) => set(f.id, e.target.value)} aria-invalid={err ? true : undefined} className={`${fieldCls} max-w-[240px]`} />
+      case 'dropdown':
+        return <Select id={id} value={text} onChange={(x) => set(f.id, x)} placeholder="Pilih…" options={(f.options ?? []).map((o) => ({ value: o, label: o }))} />
+      case 'choice':
+      case 'checkboxes': {
+        const multi = f.type === 'checkboxes'
+        const picked = multi ? (Array.isArray(v) ? v : []) : [text]
+        const opts = [...(f.options ?? []), ...(f.allowOther ? [OTHER_LABEL] : [])]
+        return (
+          <div role={multi ? 'group' : 'radiogroup'} aria-label={f.label} className="grid gap-2">
+            {opts.map((o) => {
+              const on = picked.includes(o)
+              return (
+                <div key={o}>
+                  <button
+                    type="button"
+                    role={multi ? 'checkbox' : 'radio'}
+                    aria-checked={on}
+                    onClick={() => set(f.id, multi ? (on ? picked.filter((x) => x !== o) : [...picked, o]) : o)}
+                    className={`${choiceBox(on)} w-full text-left`}
+                  >
+                    <Marker round={!multi} on={on} />
+                    <span className="min-w-0 flex-1">{o === OTHER_LABEL ? 'Lainnya' : o}</span>
+                  </button>
+                  {o === OTHER_LABEL && on ? (
+                    <input
+                      value={others[f.id] ?? ''}
+                      onChange={(e) => setOthers((x) => ({ ...x, [f.id]: e.target.value }))}
+                      maxLength={300}
+                      placeholder="Tuliskan jawaban Anda"
+                      className={`${fieldCls} mt-2`}
+                      autoFocus
+                    />
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        )
+      }
+      case 'scale': {
+        const range = scaleRange(f)
+        return (
+          <div className="w-fit max-w-full">
+            <div role="radiogroup" aria-label={f.label} className="flex flex-wrap gap-2">
+              {range.map((n) => {
+                const on = text === String(n)
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => set(f.id, String(n))}
+                    className={`tnum grid size-12 cursor-pointer place-items-center rounded-[var(--radius-input)] border text-[15px] font-semibold transition-colors ${on ? 'border-night-900 bg-night-900 text-white' : 'border-line bg-white text-ink-700 hover:border-ink-900'}`}
+                  >
+                    {n}
+                  </button>
+                )
+              })}
+            </div>
+            {f.minLabel || f.maxLabel ? (
+              <p className="mt-2 flex justify-between gap-4 text-[12.5px] text-ink-500">
+                <span>{range[0]} = {f.minLabel || '–'}</span><span>{range[range.length - 1]} = {f.maxLabel || '–'}</span>
+              </p>
+            ) : null}
+          </div>
+        )
+      }
+      case 'signature':
+        return (
+          <SignaturePad
+            ref={(h) => { pads.current[f.id] = h }}
+            id={id}
+            invalid={!!err}
+            onChange={(empty) => {
+              scheduleSignature(f.id, empty)
+              setSigned((x) => ({ ...x, [f.id]: !empty }))
+              if (!empty && errors[f.id]) setErrors((x) => { const n = { ...x }; delete n[f.id]; return n })
+            }}
+          />
+        )
+      case 'image':
+        return (
+          <ImageInput
+            id={id}
+            slug={form.slug}
+            max={f.maxFiles ?? 1}
+            value={images[f.id] ?? []}
+            invalid={!!err}
+            onChange={(fn) => {
+              setImages((x) => ({ ...x, [f.id]: fn(x[f.id] ?? []) }))
+              if (errors[f.id]) setErrors((x) => { const n = { ...x }; delete n[f.id]; return n })
+            }}
+          />
+        )
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div className="surface relative overflow-hidden">
+      <span aria-hidden="true" className="block h-1.5 bg-green-600" />
+      <header className="border-b border-line p-6 sm:p-8">
+        <h1 className="t-h2 text-ink-900">{form.title}</h1>
+        {form.description ? <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-ink-600">{form.description}</p> : null}
+        {form.progress ? (
+          <div className="mt-5 rounded-[var(--radius-input)] bg-paper px-4 py-3">
+            <p className="text-[13px] text-ink-600">
+              <span className="tnum font-bold text-ink-900">{form.progress.responses.toLocaleString('id-ID')}</span>
+              {form.progress.target ? <> dari <span className="tnum font-bold text-ink-900">{form.progress.target.toLocaleString('id-ID')}</span> responden</> : ' responden'} sudah mengisi
+            </p>
+            {progress !== null ? (
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100" aria-hidden="true">
+                <div className="h-full rounded-full bg-green-600" style={{ width: `${progress}%` }} />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        <p className="mt-4 text-[12.5px] text-ink-400"><span className="text-[#d1483c]">*</span> wajib diisi</p>
+      </header>
+
+      <form onSubmit={onSubmit} noValidate className="grid gap-7 p-6 sm:p-8">
+        {form.fields.map((f) =>
+          f.type === 'picture' ? (
+            // Shown at its own proportions, the full width of the form: a chart from the annual
+            // report has to stay readable, so it is never cropped into a fixed box.
+            <figure key={f.id} className="grid gap-2.5">
+              {f.label ? <p className="text-[15px] font-bold text-ink-900">{f.label}</p> : null}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={mediaSrc(f.media, { publicBase: process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL })}
+                alt={f.help || f.label || 'Gambar'}
+                loading="lazy"
+                className="h-auto w-full rounded-[var(--radius-input)] border border-line bg-white"
+              />
+              {f.help ? <figcaption className="whitespace-pre-line text-[13px] leading-relaxed text-ink-500">{f.help}</figcaption> : null}
+            </figure>
+          ) : f.type === 'section' ? (
+            <div key={f.id} className="border-t border-line pt-6 first:border-0 first:pt-0">
+              {f.label ? <h2 className="t-h3 text-ink-900">{f.label}</h2> : null}
+              {f.help ? <p className="mt-1.5 whitespace-pre-line text-[14px] leading-relaxed text-ink-500">{f.help}</p> : null}
+            </div>
+          ) : (
+            <div key={f.id} id={`q-${f.id}`} className="scroll-mt-24">
+              <Field label={f.label} htmlFor={`q-${f.id}-input`} required={f.required} error={errors[f.id]} hint={f.help || undefined}>
+                {render(f)}
+              </Field>
+            </div>
+          ),
+        )}
+
+        {/* Honeypot: off-screen and hidden from assistive tech, never filled by a person. */}
+        <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" className="absolute left-[-9999px] size-px opacity-0" />
+
+        {error ? <Note>{error}</Note> : null}
+        {Object.keys(errors).length && !error ? <Note>Ada {Object.keys(errors).length} isian yang perlu diperbaiki. Periksa yang bertanda merah.</Note> : null}
+
+        <Action type="submit" variant="primary" disabled={status === 'sending'} full>
+          {status === 'sending' ? 'Mengirim…' : form.submitLabel}
+          {status === 'sending' ? null : <Icon.arrow className="size-4" />}
+        </Action>
+        <p className="text-center text-[12px] leading-relaxed text-ink-400">
+          Jawaban Anda hanya dibaca oleh pengurus KSP Sari Sedana Bali dan tidak ditampilkan di website.
+        </p>
+      </form>
+    </div>
+  )
+}

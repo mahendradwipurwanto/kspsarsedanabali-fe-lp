@@ -16,6 +16,7 @@ import { TagManager, TagManagerNoScript } from '@/components/TagManager'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import { MobileNav } from '@/components/layout/MobileNav'
+import { SiteChrome } from '@/components/layout/SiteChrome'
 import { PageViewTracker } from '@/components/interactive/PageViewTracker'
 import './globals.css'
 
@@ -161,6 +162,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         >
           Langsung ke isi halaman
         </a>
+        <SiteChrome>
         <Header
           nav={nav}
           header={header}
@@ -168,7 +170,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           whatsapp={whatsapp}
           branches={branches.map((b) => ({ name: b.name, phone: b.phone ?? '' }))}
         />
+        </SiteChrome>
         <main id="konten" className="flex-1">{children}</main>
+        <SiteChrome>
         <Footer
           branches={branches}
           menu={footerLinks}
@@ -180,6 +184,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           legalPages={legalPages}
         />
         {header.showBottomNav ? <MobileNav items={header.bottomNav} /> : null}
+        </SiteChrome>
         <PageViewTracker />
         {gaId ? <GoogleAnalytics gaId={gaId} /> : null}
       </body>

@@ -408,7 +408,10 @@ export function niceScale(min: number, max: number, target = 4): { min: number; 
   const rough = (hi - lo) / Math.max(1, target)
   const pow = 10 ** Math.floor(Math.log10(rough))
   const unit = rough / pow
-  const step = (unit <= 1 ? 1 : unit <= 2 ? 2 : unit <= 2.5 ? 2.5 : unit <= 5 ? 5 : 10) * pow
+  let step = (unit <= 1 ? 1 : unit <= 2 ? 2 : unit <= 2.5 ? 2.5 : unit <= 5 ? 5 : 10) * pow
+  // Counts (answers to a form, rows) never need a gridline at 0,25: with whole ends, keep whole steps.
+  if (Number.isInteger(min) && Number.isInteger(max) && step < 1) step = 1
+  if (Number.isInteger(min) && Number.isInteger(max) && step === 2.5) step = 2
   lo = Math.floor(lo / step) * step
   hi = Math.ceil(hi / step) * step
   const ticks: number[] = []

@@ -37,7 +37,7 @@ export type FieldDef = Conditional & (
   | { kind: 'icon'; label: string; help?: string; required?: boolean; max?: number; default?: string }
   | { kind: 'color'; label: string; help?: string; required?: boolean; max?: number; default?: string }
   | {
-      kind: 'reference'; label: string; help?: string; to: 'product' | 'post' | 'branch' | 'page' | 'document-category' | 'data-source'; multiple?: boolean
+      kind: 'reference'; label: string; help?: string; to: 'product' | 'post' | 'branch' | 'page' | 'document-category' | 'data-source' | 'form-question'; multiple?: boolean
       /** A single reference the block cannot be drawn without: saving with none chosen is refused, rather than publishing a section that shows nothing. */
       required?: boolean
     }

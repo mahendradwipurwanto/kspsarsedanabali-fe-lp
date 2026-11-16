@@ -1,7 +1,8 @@
 import { Fragment, Suspense } from 'react'
 import Link from 'next/link'
 import { getBlock, defaultPropsFor, visibleBlockProps, SAMPLE_CHART, isHtml, telLink, getOpenState, orgLevelsFrom, trackingAttrs, DEFAULT_ANALYTICS, FEEDBACK_CATEGORY_LABELS, type OrgColumn, type OrgLevel, type AnalyticsSettings } from '@/contracts'
-import type { PublicDataSource } from '@/contracts'
+import type { PublicDataSource, PublicFormResult } from '@/contracts'
+import { targetProgress } from '@/contracts'
 import type { Block, Branch, Product, Simulation, Post, Stat, Testimonial, DocumentItem, DocumentCategory, Job, Faq, PublishedFeedback } from '@/lib/api'
 import { Shell, Band, Heading, Label, Action, Card, Tile, Pill, Icon, Blank, More, Mark, Rule, iconByName, RichText } from '../ui'
 import { Media } from '../ui/Media'
@@ -43,6 +44,8 @@ export interface BlockContext {
   settings: Record<string, unknown>
   /** The figures for each "Diagram Data" block on the page, by the record it points at. */
   dataSources?: Record<string, PublicDataSource | null>
+  /** The tally for each "Hasil Formulir" block on the page, by "<form id>:<question id>". */
+  formResults?: Record<string, PublicFormResult | null>
   /** An editor's draft rather than the live page. */
   preview?: boolean
   /** Only the pages that render them fetch these. */
@@ -54,6 +57,9 @@ export interface BlockContext {
   /** Query string the route was opened with, for blocks that preselect from it. */
   query?: { produk?: string; nominal?: string; tenor?: string; jenis?: string }
 }
+
+/** Sample answers for a "Hasil Formulir" block in a draft with no question chosen yet. */
+const SAMPLE_FORM_CHART = { labels: ['Setuju', 'Tidak Setuju'], series: [{ name: 'Jawaban', values: [124, 18] }] }
 
 /** A loan calculator needs a rate to compute with: signed off, or the figure on record labelled as an estimate. */
 const hasLoanRate = (x: Simulation) => (x.ratePercent ?? x.product.ratePercent ?? x.product.ratePercentIndicative) != null
@@ -356,6 +362,61 @@ function BlockSwitch({ block, ctx, tone }: { block: Block; ctx: BlockContext; to
               notice={sample ? (
                 <p className="mb-5 rounded-[var(--radius-input)] border border-gold-200 bg-gold-50 px-3.5 py-2.5 text-[13px] font-medium text-gold-700">
                   Contoh diagram dengan angka rekaan. Pilih “Data yang ditampilkan” pada blok ini untuk memakai angka dari spreadsheet.
+                </p>
+              ) : null}
+            />
+          </Shell>
+        </Band>
+      )
+    }
+
+    /* ─────────────────────── tally from a form ─────────────────────────── */
+    case 'form_results': {
+      const result = ctx.formResults?.[s(p.question)]
+      // As with a spreadsheet chart: a live page with nothing to draw says
+      // nothing, a draft draws sample answers so the editor sees the shape.
+      const sample = !result && ctx.preview
+      const chart = sample ? SAMPLE_FORM_CHART : result?.chart
+      if (!chart?.labels.length) return null
+      const responses = sample ? 142 : result!.responses
+      const target = sample ? 200 : result!.target
+      const progress = targetProgress(responses, target)
+      const hasNote = s(p.note).replace(/<[^>]*>|&nbsp;/g, '').trim()
+      const updated = b(p.showUpdated) && result?.updatedAt
+        ? new Date(result.updatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Makassar' })
+        : ''
+      return (
+        <Band tone={tone}>
+          <Shell>
+            <Heading label={s(p.eyebrow)} title={s(p.heading) || (sample ? 'Hasil survei' : result!.question)} lead={s(p.subtext)} />
+            {b(p.showProgress, true) ? (
+              <div className="mb-6 max-w-xl">
+                <p className="text-[15px] text-ink-600">
+                  <span className="figure text-[1.75rem] text-ink-900">{responses.toLocaleString('id-ID')}</span>{' '}
+                  {target ? <>dari <span className="tnum font-bold text-ink-900">{target.toLocaleString('id-ID')}</span> responden{progress !== null ? <> ({progress}%)</> : null}</> : 'responden'}
+                </p>
+                {progress !== null ? (
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink-100" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label="Ketercapaian target responden">
+                    <div className="h-full rounded-full bg-green-600" style={{ width: `${progress}%` }} />
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            <ChartFigure
+              chart={chart}
+              type={s(p.chartType, 'bar-horizontal')}
+              format="number"
+              showSummary={b(p.showSummary, true)}
+              showValues={b(p.showValues, true)}
+              showLegend={b(p.showLegend, true)}
+              showTable={b(p.showTable)}
+              height={s(p.height, 'standard')}
+              title={s(p.heading) || result?.question}
+              updated={updated}
+              note={hasNote ? <RichText value={s(p.note)} /> : null}
+              notice={sample ? (
+                <p className="mb-5 rounded-[var(--radius-input)] border border-gold-200 bg-gold-50 px-3.5 py-2.5 text-[13px] font-medium text-gold-700">
+                  Contoh rekap dengan jawaban rekaan. Pilih “Pertanyaan yang ditampilkan” pada blok ini untuk memakai jawaban formulir.
                 </p>
               ) : null}
             />

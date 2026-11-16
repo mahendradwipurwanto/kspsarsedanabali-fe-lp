@@ -54,6 +54,13 @@ export const PERMISSIONS = {
   'feedback:update': 'Mengubah status dan catatan kritik & saran',
   'feedback:delete': 'Menghapus kritik & saran',
 
+  // Formulir: the answers hold members' personal data and signatures, so
+  // reading them is its own permission, apart from building the form.
+  'forms:read': 'Melihat formulir beserta jawaban yang masuk',
+  'forms:write': 'Membuat dan mengubah formulir',
+  'forms:delete': 'Menghapus formulir dan jawabannya',
+  'forms:export': 'Mengunduh jawaban formulir ke Excel',
+
   // Administration
   'users:read': 'Melihat daftar pengguna',
   'users:write': 'Menambah dan mengubah pengguna',
@@ -86,6 +93,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: Permission[] }[] =
     permissions: ['leads:read:all', 'leads:read:branch', 'leads:update', 'leads:assign', 'leads:export', 'leads:delete'],
   },
   { label: 'Kritik & Saran', permissions: ['feedback:read', 'feedback:update', 'feedback:delete'] },
+  { label: 'Formulir', permissions: ['forms:read', 'forms:write', 'forms:delete', 'forms:export'] },
   { label: 'Pengguna & Peran', permissions: ['users:read', 'users:write', 'users:delete', 'roles:read', 'roles:manage'] },
   { label: 'Sistem', permissions: ['analytics:read', 'settings:manage', 'redirects:manage', 'menus:manage', 'audit:read'] },
 ]
@@ -114,6 +122,7 @@ export const SYSTEM_ROLES = {
       'products:read', 'products:write',
       'branches:read', 'faqs:write', 'testimonials:write', 'documents:write', 'stats:write',
       'jobs:read', 'jobs:write', 'analytics:read',
+      'forms:read', 'forms:write',
     ] as Permission[],
     locked: false,
   },
@@ -133,6 +142,7 @@ export const SYSTEM_ROLES = {
     permissions: [
       'leads:read:all', 'leads:update', 'leads:assign', 'leads:export',
       'feedback:read', 'feedback:update',
+      'forms:read', 'forms:export',
       'analytics:read', 'branches:read', 'products:read', 'jobs:applications',
     ] as Permission[],
     locked: false,
@@ -146,7 +156,7 @@ export const SYSTEM_ROLES = {
   viewer: {
     name: 'Pengurus (Hanya Lihat)',
     description: 'Melihat laporan dan data tanpa bisa mengubah apa pun.',
-    permissions: ['analytics:read', 'leads:read:all', 'feedback:read', 'pages:read', 'posts:read', 'products:read', 'branches:read'] as Permission[],
+    permissions: ['analytics:read', 'leads:read:all', 'feedback:read', 'forms:read', 'pages:read', 'posts:read', 'products:read', 'branches:read'] as Permission[],
     locked: false,
   },
 } as const
