@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, type FormEvent, type Ref } from 'react'
 import Link from 'next/link'
 import {
-  checkAnswers, isFileType, mediaSrc, scaleRange, targetProgress, OTHER_PREFIX, OTHER_LABEL, FORM_IMAGE_MAX_SIDE, FORM_FILE_MAX_BYTES,
-  type FormField, type PublicForm,
+  checkAnswers, isFileType, mediaSrc, pictureImages, scaleRange, targetProgress, OTHER_PREFIX, OTHER_LABEL, FORM_IMAGE_MAX_SIDE, FORM_FILE_MAX_BYTES,
+  FORM_DOC_ACCEPT, FORM_DOC_MAX_BYTES, FORM_DOC_TYPES, type FormField, type PublicForm,
 } from '@/contracts'
 import { API_BASE, apiPost, track } from '@/lib/client'
 import { Action, Icon } from '../ui'
@@ -17,20 +17,21 @@ import { Field, Note, Select, field as fieldCls } from '../ui/form'
  * connection gets one more try before the member is told; a refusal (a 4xx:
  * wrong type, form closed) does not, because trying again cannot change it.
  */
-async function uploadFile(slug: string, blob: Blob, kind: 'signature' | 'image'): Promise<string> {
+async function uploadFile(slug: string, blob: Blob, kind: 'signature' | 'image' | 'file', filename = ''): Promise<string> {
   try {
-    return await uploadOnce(slug, blob, kind)
+    return await uploadOnce(slug, blob, kind, filename)
   } catch (e) {
     if ((e as { status?: number }).status && (e as { status: number }).status < 500) throw e
     await new Promise((r) => setTimeout(r, 1200))
-    return uploadOnce(slug, blob, kind)
+    return uploadOnce(slug, blob, kind, filename)
   }
 }
 
-async function uploadOnce(slug: string, blob: Blob, kind: 'signature' | 'image'): Promise<string> {
+async function uploadOnce(slug: string, blob: Blob, kind: 'signature' | 'image' | 'file', filename: string): Promise<string> {
   const res = await fetch(`${API_BASE}/v1/public/forms/${encodeURIComponent(slug)}/files`, {
     method: 'POST',
-    headers: { 'content-type': blob.type || 'application/octet-stream', 'x-kind': kind },
+    // The name travels encoded: a header cannot carry "Surat Kuasa – Bu Made.pdf" as it is.
+    headers: { 'content-type': blob.type || 'application/octet-stream', 'x-kind': kind, ...(filename ? { 'x-filename': encodeURIComponent(filename) } : {}) },
     body: blob,
   })
   const json = (await res.json().catch(() => ({}))) as { data?: { key?: string }; error?: { message?: string } }
@@ -257,6 +258,86 @@ function ImageInput({ id, slug, max, value, onChange, invalid }: { id: string; s
   )
 }
 
+/* ───────────────────────────── documents ──────────────────────────── */
+
+interface DocUpload { id: string; name: string; key: string | null; error: string | null }
+
+/** Why a document cannot go, before it is sent: its type by name, and its size. */
+function docProblem(file: File): string | null {
+  const ext = (file.name.match(/\.([a-z0-9]{2,5})$/i)?.[1] ?? '').toLowerCase()
+  if (!FORM_DOC_TYPES[ext]) return 'Hanya PDF, Word, Excel, PowerPoint, atau foto.'
+  if (file.size > FORM_DOC_MAX_BYTES) return `Lebih dari ${FORM_DOC_MAX_BYTES / 1024 / 1024} MB.`
+  return null
+}
+
+const sizeText = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toLocaleString('id-ID', { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
+
+/**
+ * "Unggah berkas": documents uploaded as soon as they are picked, each named
+ * as it was on the member's phone. A photo picked here is sent as it is, not
+ * shrunk: someone who asked for a scan wants to read it.
+ */
+function DocumentInput({ id, slug, max, value, onChange, invalid }: { id: string; slug: string; max: number; value: DocUpload[]; onChange: (fn: (prev: DocUpload[]) => DocUpload[]) => void; invalid?: boolean }) {
+  const input = useRef<HTMLInputElement>(null)
+
+  async function add(files: FileList | null) {
+    if (!files?.length) return
+    const room = max - value.length
+    for (const file of [...files].slice(0, room)) {
+      const uid = Math.random().toString(36).slice(2)
+      const problem = docProblem(file)
+      onChange((prev) => [...prev, { id: uid, name: `${file.name} · ${sizeText(file.size)}`, key: null, error: problem }])
+      if (problem) continue
+      try {
+        const key = await uploadFile(slug, file, 'file', file.name)
+        onChange((prev) => prev.map((u) => (u.id === uid ? { ...u, key } : u)))
+      } catch (e) {
+        onChange((prev) => prev.map((u) => (u.id === uid ? { ...u, error: (e as Error).message } : u)))
+      }
+    }
+    if (input.current) input.current.value = ''
+  }
+
+  return (
+    <div className="grid gap-2">
+      {value.map((u) => (
+        <div key={u.id} className={`flex items-center gap-3 rounded-[var(--radius-input)] border bg-white px-3.5 py-2.5 ${u.error ? 'border-[#d1483c]' : 'border-line'}`}>
+          <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-[8px] bg-paper text-ink-500">
+            <svg viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></svg>
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[14px] font-medium text-ink-900">{u.name}</span>
+            <span className={`block text-[12px] ${u.error ? 'font-medium text-[#c23b2e]' : u.key ? 'text-green-700' : 'text-ink-400'}`}>
+              {u.error ?? (u.key ? 'Terunggah' : 'Mengunggah…')}
+            </span>
+          </span>
+          <button
+            type="button"
+            aria-label={`Hapus ${u.name}`}
+            onClick={() => onChange((prev) => prev.filter((x) => x.id !== u.id))}
+            className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-ink-400 hover:bg-paper hover:text-ink-900"
+          >
+            <Icon.close className="size-3.5" />
+          </button>
+        </div>
+      ))}
+      {value.length < max ? (
+        <button
+          type="button"
+          id={id}
+          onClick={() => input.current?.click()}
+          className={`flex min-h-[56px] cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-input)] border border-dashed bg-white px-4 text-[14px] font-semibold transition-colors hover:border-green-600 hover:text-green-700 ${invalid ? 'border-[#d1483c] text-[#c23b2e]' : 'border-line-strong text-ink-600'}`}
+        >
+          <span className="text-[20px] leading-none" aria-hidden="true">+</span>
+          {value.length ? 'Tambah berkas' : 'Pilih berkas'}
+        </button>
+      ) : null}
+      <input ref={input} type="file" accept={FORM_DOC_ACCEPT} multiple={max - value.length > 1} className="sr-only" tabIndex={-1} onChange={(e) => void add(e.target.files)} />
+      <p className="text-[12.5px] text-ink-400">PDF, Word, Excel, PowerPoint, atau foto; paling besar {FORM_DOC_MAX_BYTES / 1024 / 1024} MB per berkas{max > 1 ? `, paling banyak ${max} berkas` : ''}.</p>
+    </div>
+  )
+}
+
 /* ───────────────────────────── the form ───────────────────────────── */
 
 const choiceBox = (active: boolean) =>
@@ -287,6 +368,7 @@ export function PublicFormView({ form, bare = false }: {
   const [values, setValues] = useState<Record<string, string | string[]>>({})
   const [others, setOthers] = useState<Record<string, string>>({})
   const [images, setImages] = useState<Record<string, Upload[]>>({})
+  const [docs, setDocs] = useState<Record<string, DocUpload[]>>({})
   const [signed, setSigned] = useState<Record<string, boolean>>({})
   const pads = useRef<Record<string, SignatureHandle | null>>({})
   /**
@@ -352,6 +434,8 @@ export function PublicFormView({ form, bare = false }: {
       if (v === undefined) continue
       if ((f.type === 'choice') && v === OTHER_LABEL) out[f.id] = `${OTHER_PREFIX}${(others[f.id] ?? '').trim()}`
       else if (f.type === 'checkboxes' && Array.isArray(v)) out[f.id] = v.map((x) => (x === OTHER_LABEL ? `${OTHER_PREFIX}${(others[f.id] ?? '').trim()}` : x))
+      // The box holds only what follows the fixed start; the answer is the two together.
+      else if (f.type === 'short_text' && f.prefix && typeof v === 'string') out[f.id] = v.trim() ? `${f.prefix}${v.trim()}` : ''
       else out[f.id] = v
     }
     return out
@@ -367,6 +451,12 @@ export function PublicFormView({ form, bare = false }: {
         if (list.some((u) => !u.key && !u.error)) found[f.id] = 'Tunggu sampai foto selesai terunggah.'
         else if (list.some((u) => u.error)) found[f.id] = 'Ada foto yang gagal terunggah. Hapus lalu pilih ulang.'
         else if (f.required && !list.length) found[f.id] = 'Unggah foto yang diminta.'
+      }
+      if (f.type === 'file') {
+        const list = docs[f.id] ?? []
+        if (list.some((u) => !u.key && !u.error)) found[f.id] = 'Tunggu sampai berkas selesai terunggah.'
+        else if (list.some((u) => u.error)) found[f.id] = 'Ada berkas yang tidak bisa dikirim. Hapus lalu pilih ulang.'
+        else if (f.required && !list.length) found[f.id] = 'Unggah berkas yang diminta.'
       }
     }
     return found
@@ -393,8 +483,8 @@ export function PublicFormView({ form, bare = false }: {
     try {
       const answers = collect()
       for (const f of form.fields) {
-        if (f.type === 'image') {
-          const keys = (images[f.id] ?? []).map((u) => u.key).filter(Boolean)
+        if (f.type === 'image' || f.type === 'file') {
+          const keys = ((f.type === 'image' ? images : docs)[f.id] ?? []).map((u) => u.key).filter(Boolean)
           if (keys.length) answers[f.id] = keys
         }
         if (f.type === 'signature' && signed[f.id]) {
@@ -430,23 +520,47 @@ export function PublicFormView({ form, bare = false }: {
       case 'short_text':
       case 'email':
       case 'phone':
-      case 'number':
-        return (
+      case 'number': {
+        const digits = f.type === 'short_text' && !!f.digitsOnly
+        const prefix = f.type === 'short_text' ? f.prefix : ''
+        const box = (
           <input
             id={id}
             value={text}
-            onChange={(e) => set(f.id, f.type === 'phone' ? e.target.value.replace(/[^\d+\s-]/g, '') : e.target.value)}
+            onChange={(e) => {
+              let next = e.target.value
+              if (f.type === 'phone') next = next.replace(/[^\d+\s-]/g, '')
+              // Pasting the whole number, start included, keeps only the part the box is for.
+              // Only on a paste: typing "0121…" after a start of "0121" is an answer, not a repeat.
+              if (prefix && next.length > text.length + 1 && next.startsWith(prefix)) next = next.slice(prefix.length)
+              if (digits) next = next.replace(/\D/g, '')
+              if (f.type === 'short_text' && f.maxLength) next = next.slice(0, f.maxLength)
+              set(f.id, next)
+            }}
             type={f.type === 'email' ? 'email' : f.type === 'phone' ? 'tel' : 'text'}
-            inputMode={f.type === 'number' ? 'decimal' : f.type === 'phone' ? 'tel' : undefined}
+            inputMode={digits ? 'numeric' : f.type === 'number' ? 'decimal' : f.type === 'phone' ? 'tel' : undefined}
             autoComplete={f.type === 'email' ? 'email' : f.type === 'phone' ? 'tel' : 'off'}
-            maxLength={f.type === 'short_text' ? 500 : 200}
+            // Without a length set, room for a pasted number with its start, which the handler then trims.
+            maxLength={f.type === 'short_text' ? (f.maxLength ? f.maxLength + (prefix?.length ?? 0) : 500) : 200}
             placeholder={f.placeholder || undefined}
             aria-invalid={err ? true : undefined}
-            className={fieldCls}
+            aria-describedby={prefix ? `${id}-prefix` : undefined}
+            className={prefix ? `${fieldCls} !rounded-l-none` : fieldCls}
           />
         )
+        if (!prefix) return box
+        // The fixed start sits in the box's frame, so the member types only what follows it.
+        return (
+          <div className="flex items-stretch">
+            <span id={`${id}-prefix`} className="tnum grid shrink-0 place-items-center rounded-l-[var(--radius-input)] border border-r-0 border-line-strong bg-paper px-3.5 text-[15px] font-semibold text-ink-700">
+              {prefix}
+            </span>
+            {box}
+          </div>
+        )
+      }
       case 'long_text':
-        return <textarea id={id} value={text} onChange={(e) => set(f.id, e.target.value)} rows={4} maxLength={4000} placeholder={f.placeholder || undefined} aria-invalid={err ? true : undefined} className={fieldCls} />
+        return <textarea id={id} value={text} onChange={(e) => set(f.id, e.target.value)} rows={4} maxLength={f.maxLength ?? 4000} placeholder={f.placeholder || undefined} aria-invalid={err ? true : undefined} className={fieldCls} />
       case 'date':
         return <input id={id} type="date" value={text} onChange={(e) => set(f.id, e.target.value)} aria-invalid={err ? true : undefined} className={`${fieldCls} max-w-[240px]`} />
       case 'dropdown':
@@ -544,6 +658,20 @@ export function PublicFormView({ form, bare = false }: {
             }}
           />
         )
+      case 'file':
+        return (
+          <DocumentInput
+            id={id}
+            slug={form.slug}
+            max={f.maxFiles ?? 1}
+            value={docs[f.id] ?? []}
+            invalid={!!err}
+            onChange={(fn) => {
+              setDocs((x) => ({ ...x, [f.id]: fn(x[f.id] ?? []) }))
+              if (errors[f.id]) setErrors((x) => { const n = { ...x }; delete n[f.id]; return n })
+            }}
+          />
+        )
       default:
         return null
     }
@@ -578,13 +706,16 @@ export function PublicFormView({ form, bare = false }: {
             // report has to stay readable, so it is never cropped into a fixed box.
             <figure key={f.id} className="grid gap-2.5">
               {f.label ? <p className="text-[15px] font-bold text-ink-900">{f.label}</p> : null}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={mediaSrc(f.media, { publicBase: process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL })}
-                alt={f.help || f.label || 'Gambar'}
-                loading="lazy"
-                className="h-auto w-full rounded-[var(--radius-input)] border border-line bg-white"
-              />
+              {pictureImages(f).map((m, i, all) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={`${i}-${m}`}
+                  src={mediaSrc(m, { publicBase: process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL })}
+                  alt={`${f.help || f.label || 'Gambar'}${all.length > 1 ? ` (${i + 1} dari ${all.length})` : ''}`}
+                  loading="lazy"
+                  className="h-auto w-full rounded-[var(--radius-input)] border border-line bg-white"
+                />
+              ))}
               {f.help ? <figcaption className="whitespace-pre-line text-[13px] leading-relaxed text-ink-500">{f.help}</figcaption> : null}
             </figure>
           ) : f.type === 'section' ? (
