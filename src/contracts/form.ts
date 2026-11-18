@@ -20,7 +20,7 @@ import type { ChartData } from './data-source'
 export const FORM_FIELD_TYPES = [
   'short_text', 'long_text', 'number', 'email', 'phone', 'date',
   'choice', 'dropdown', 'checkboxes', 'scale',
-  'signature', 'image',
+  'signature', 'image', 'file',
   'section', 'picture',
 ] as const
 export type FormFieldType = (typeof FORM_FIELD_TYPES)[number]
@@ -38,6 +38,7 @@ export const FORM_FIELD_TYPE_LABELS: Record<FormFieldType, string> = {
   scale: 'Skala nilai (misalnya 1–5)',
   signature: 'Tanda tangan',
   image: 'Unggah foto / gambar',
+  file: 'Unggah berkas (PDF, Word, Excel)',
   section: 'Judul bagian (bukan pertanyaan)',
   picture: 'Gambar (bukan pertanyaan)',
 }
@@ -47,7 +48,9 @@ export const OPTION_TYPES: readonly FormFieldType[] = ['choice', 'dropdown', 'ch
 /** Kinds whose answers fall into a fixed set of buckets, so they can be counted and drawn as a chart. */
 export const CHARTABLE_TYPES: readonly FormFieldType[] = ['choice', 'dropdown', 'checkboxes', 'scale']
 /** Kinds whose answer is a file kept in private storage rather than text. */
-export const FILE_TYPES: readonly FormFieldType[] = ['signature', 'image']
+export const FILE_TYPES: readonly FormFieldType[] = ['signature', 'image', 'file']
+/** Kinds whose answer can be checked against a rule ("Validasi jawaban" in Google Forms). */
+export const VALIDATED_TYPES: readonly FormFieldType[] = ['short_text', 'long_text']
 /** Kinds that can be marked "tidak boleh sama" (one response per member number, say). */
 export const UNIQUE_TYPES: readonly FormFieldType[] = ['short_text', 'number', 'email', 'phone']
 /**
@@ -66,9 +69,103 @@ export const isFileType = (t: FormFieldType) => FILE_TYPES.includes(t)
 export const FORM_MAX_FIELDS = 80
 export const FORM_MAX_OPTIONS = 40
 export const FORM_MAX_IMAGES = 5
+/** Pictures one "Gambar" item may show, one under the other. */
+export const FORM_MAX_PICTURES = 10
 /** A photo is shrunk in the browser before upload; this is the cap on what still arrives. */
 export const FORM_FILE_MAX_BYTES = 5 * 1024 * 1024
 export const FORM_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
+/**
+ * A document sent with "Unggah berkas" cannot be shrunk on the phone, and the
+ * API runs where a request body stops at 4.5 MB, so this is the cap.
+ */
+export const FORM_DOC_MAX_BYTES = 4 * 1024 * 1024
+/** What "Unggah berkas" takes, by extension: the API checks the bytes match. */
+export const FORM_DOC_TYPES: Record<string, string> = {
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+}
+/** For a file input's `accept`. */
+export const FORM_DOC_ACCEPT = Object.keys(FORM_DOC_TYPES).map((x) => `.${x}`).join(',')
+/** The name a stored file was sent with, without its folder and the ULID that keeps it unique. */
+export const storedFileName = (key: string) => (key.split('/').pop() ?? key).replace(/^[0-9A-HJKMNP-TV-Z]{26}-/i, '')
+
+/* ------------------------------ answer validation ---------------------------- */
+
+/**
+ * "Validasi jawaban" as Google Forms offers it for text: a rule the answer
+ * must pass, and the sentence shown when it does not. Length is set apart
+ * (minLength / maxLength), because the box itself enforces the upper bound.
+ */
+export const VALIDATION_RULES = [
+  'contains', 'not_contains', 'email', 'url',
+  'regex_match', 'regex_not_match', 'regex_contains', 'regex_not_contains',
+] as const
+export type ValidationRule = (typeof VALIDATION_RULES)[number]
+
+export const VALIDATION_RULE_LABELS: Record<ValidationRule, string> = {
+  contains: 'Berisi teks',
+  not_contains: 'Tidak berisi teks',
+  email: 'Alamat email',
+  url: 'Alamat web (URL)',
+  regex_match: 'Cocok dengan pola (regex)',
+  regex_not_match: 'Tidak cocok dengan pola (regex)',
+  regex_contains: 'Mengandung pola (regex)',
+  regex_not_contains: 'Tidak mengandung pola (regex)',
+}
+/** Rules that need something written next to them: a text, or a pattern. */
+export const validationNeedsValue = (r: ValidationRule) => r !== 'email' && r !== 'url'
+export const isRegexRule = (r: ValidationRule) => r.startsWith('regex_')
+
+export interface FormValidation {
+  rule: ValidationRule
+  /** The text or the pattern. A pattern is written as in Google Forms, e.g. ^01\.21\d{5}$. */
+  value?: string
+  /** What the member reads when the answer fails; a plain default when empty. */
+  message?: string
+}
+
+const URL_RULE = /^(https?:\/\/)?[\w-]+(\.[\w-]+)+([/?#]\S*)?$/i
+
+/** Null when the pattern cannot be read, so a bad rule never blocks every answer. */
+function compile(pattern: string, whole: boolean): RegExp | null {
+  try { return new RegExp(whole ? `^(?:${pattern})$` : pattern, 'u') } catch {
+    try { return new RegExp(whole ? `^(?:${pattern})$` : pattern) } catch { return null }
+  }
+}
+
+/** Whether a pattern can be used at all, for the console to say so before saving. */
+export const isValidPattern = (pattern: string) => compile(pattern, false) !== null
+
+/** The sentence for a failed rule; null when the answer passes. */
+export function checkValidation(v: FormValidation | null | undefined, s: string): string | null {
+  if (!v?.rule) return null
+  const value = v.value ?? ''
+  const fail = (fallback: string) => v.message?.trim() || fallback
+  const lower = s.toLocaleLowerCase('id-ID')
+  switch (v.rule) {
+    case 'contains': return !value || lower.includes(value.toLocaleLowerCase('id-ID')) ? null : fail(`Jawaban harus berisi “${value}”.`)
+    case 'not_contains': return !value || !lower.includes(value.toLocaleLowerCase('id-ID')) ? null : fail(`Jawaban tidak boleh berisi “${value}”.`)
+    case 'email': return EMAIL_RULE.test(s) ? null : fail('Isi dengan alamat email yang valid.')
+    case 'url': return URL_RULE.test(s) ? null : fail('Isi dengan alamat web yang valid.')
+    default: {
+      if (!value) return null
+      const re = compile(value, v.rule === 'regex_match' || v.rule === 'regex_not_match')
+      if (!re) return null
+      const hit = re.test(s)
+      const ok = v.rule === 'regex_match' || v.rule === 'regex_contains' ? hit : !hit
+      return ok ? null : fail('Format jawaban tidak sesuai.')
+    }
+  }
+}
 /** The longest side a photo is scaled down to before it leaves the phone. */
 export const FORM_IMAGE_MAX_SIDE = 1600
 export const FORM_TEXT_MAX = 4000
@@ -93,13 +190,35 @@ export interface FormField {
   /** scale: what the two ends mean ("Sangat tidak puas" … "Sangat puas"). */
   minLabel?: string
   maxLabel?: string
-  /** image: how many photos may be attached. */
+  /** image, file: how many may be attached. */
   maxFiles?: number
   /** Refuse a second response with the same answer here: one form per member number. */
   unique?: boolean
-  /** picture: the image, a key from the media library (or a full URL). Shown to everyone who opens the form. */
+  /**
+   * picture: the first image, a key from the media library (or a full URL).
+   * Kept for forms saved before a picture could hold several; read through pictureImages().
+   */
   media?: string
+  /** picture: every image, shown one under the other. Shown to everyone who opens the form. */
+  images?: string[]
+  /**
+   * short_text: a fixed start shown beside the box, so the member types only
+   * the rest ("01.21" + "12345"). Stored with the answer, so the console and
+   * the export read the whole number.
+   */
+  prefix?: string
+  /** short_text: accept digits only, and show the number keypad on a phone. */
+  digitsOnly?: boolean
+  /** short_text, long_text: length of what the member types (after the prefix). */
+  minLength?: number | null
+  maxLength?: number | null
+  /** short_text, long_text: "Validasi jawaban". */
+  validation?: FormValidation | null
 }
+
+/** The images of a "Gambar" item, old single-image items included. */
+export const pictureImages = (f: Pick<FormField, 'media' | 'images'>): string[] =>
+  f.images?.length ? f.images.filter(Boolean) : f.media ? [f.media] : []
 
 /** One answer as stored: text, a number, several picks, or file keys. Absent when left empty. */
 export type FormAnswer = string | number | string[]
@@ -123,7 +242,8 @@ export function blankField(type: FormFieldType): FormField {
   const base: FormField = { id: newFieldId(), type, label: '', required: false }
   if (hasOptions(type)) return { ...base, options: ['Pilihan 1', 'Pilihan 2'] }
   if (type === 'scale') return { ...base, min: 1, max: 5, minLabel: '', maxLabel: '' }
-  if (type === 'image') return { ...base, maxFiles: 1 }
+  if (type === 'image' || type === 'file') return { ...base, maxFiles: 1 }
+  if (type === 'picture') return { ...base, images: [] }
   if (type === 'signature') return { ...base, label: 'Tanda tangan', required: true }
   return base
 }
@@ -153,10 +273,34 @@ export const formFieldSchema = z
     maxFiles: z.number().int().min(1).max(FORM_MAX_IMAGES).optional(),
     unique: z.boolean().optional().default(false),
     media: z.string().trim().max(600).optional().default(''),
+    images: z.array(z.string().trim().min(1).max(600)).max(FORM_MAX_PICTURES, `Paling banyak ${FORM_MAX_PICTURES} gambar`).optional(),
+    prefix: z.string().max(40).optional().default(''),
+    digitsOnly: z.boolean().optional().default(false),
+    minLength: z.number().int().min(1).max(FORM_TEXT_MAX).nullable().optional(),
+    maxLength: z.number().int().min(1).max(FORM_TEXT_MAX).nullable().optional(),
+    validation: z
+      .object({
+        rule: z.enum(VALIDATION_RULES),
+        value: z.string().max(300).optional().default(''),
+        message: z.string().trim().max(200).optional().default(''),
+      })
+      .nullable()
+      .optional(),
   })
   .superRefine((f, ctx) => {
     if (isQuestion(f.type) && !f.label) ctx.addIssue({ code: 'custom', path: ['label'], message: 'Tulis pertanyaannya' })
-    if (f.type === 'picture' && !f.media) ctx.addIssue({ code: 'custom', path: ['media'], message: 'Pilih gambarnya' })
+    if (f.type === 'picture' && !pictureImages(f).length) ctx.addIssue({ code: 'custom', path: ['media'], message: 'Pilih gambarnya' })
+    if (f.minLength != null && f.maxLength != null && f.minLength > f.maxLength) {
+      ctx.addIssue({ code: 'custom', path: ['maxLength'], message: 'Jumlah karakter paling banyak lebih kecil dari paling sedikit' })
+    }
+    if (f.type === 'short_text' && f.maxLength != null && f.maxLength > 500) {
+      ctx.addIssue({ code: 'custom', path: ['maxLength'], message: 'Jawaban singkat paling banyak 500 karakter' })
+    }
+    if (f.validation && VALIDATED_TYPES.includes(f.type)) {
+      const v = f.validation
+      if (validationNeedsValue(v.rule) && !v.value) ctx.addIssue({ code: 'custom', path: ['validation'], message: isRegexRule(v.rule) ? 'Tulis polanya' : 'Tulis teksnya' })
+      else if (isRegexRule(v.rule) && !isValidPattern(v.value)) ctx.addIssue({ code: 'custom', path: ['validation'], message: 'Pola regex tidak bisa dibaca. Periksa tanda kurung dan garis miringnya.' })
+    }
     if (f.type === 'section' && !f.label && !f.help) ctx.addIssue({ code: 'custom', path: ['label'], message: 'Tulis judul bagiannya' })
     if (hasOptions(f.type)) {
       const opts = f.options ?? []
@@ -300,16 +444,29 @@ export function checkAnswers(fields: FormField[], raw: Record<string, unknown>):
     if (!isQuestion(f.type)) continue
     let v = raw[f.id]
     if (typeof v === 'string') v = v.trim()
+    // The fixed start alone is an empty answer: the member has not typed anything.
+    const prefix = f.type === 'short_text' ? (f.prefix ?? '').trim() : ''
+    if (prefix && typeof v === 'string' && v === prefix) v = ''
     if (isEmpty(v)) {
-      if (f.required) errors[f.id] = f.type === 'signature' ? 'Bubuhkan tanda tangan Anda.' : f.type === 'image' ? 'Unggah foto yang diminta.' : hasOptions(f.type) || f.type === 'scale' ? 'Pilih salah satu jawaban.' : 'Pertanyaan ini wajib diisi.'
+      if (f.required) errors[f.id] = f.type === 'signature' ? 'Bubuhkan tanda tangan Anda.' : f.type === 'image' ? 'Unggah foto yang diminta.' : f.type === 'file' ? 'Unggah berkas yang diminta.' : hasOptions(f.type) || f.type === 'scale' ? 'Pilih salah satu jawaban.' : 'Pertanyaan ini wajib diisi.'
       continue
     }
 
     switch (f.type) {
       case 'short_text':
       case 'long_text': {
-        const s = String(v)
+        let s = String(v)
+        // What the member typed, without the fixed start; sent either way, stored with it.
+        const typed = prefix ? (s.startsWith(prefix) ? s.slice(prefix.length) : s).trim() : s
+        if (prefix) s = `${prefix}${typed}`
         if (s.length > (f.type === 'short_text' ? 500 : FORM_TEXT_MAX)) { errors[f.id] = 'Jawaban terlalu panjang.'; break }
+        const unit = f.digitsOnly ? 'digit' : 'karakter'
+        if (f.type === 'short_text' && f.digitsOnly && !/^\d+$/.test(typed)) { errors[f.id] = prefix ? `Isi dengan angka saja setelah “${prefix}”.` : 'Isi dengan angka saja.'; break }
+        if (f.minLength != null && f.minLength === f.maxLength && typed.length !== f.minLength) { errors[f.id] = `Harus ${f.minLength} ${unit}${prefix ? ` setelah “${prefix}”` : ''}.`; break }
+        if (f.minLength != null && typed.length < f.minLength) { errors[f.id] = `Paling sedikit ${f.minLength} ${unit}.`; break }
+        if (f.maxLength != null && typed.length > f.maxLength) { errors[f.id] = `Paling banyak ${f.maxLength} ${unit}.`; break }
+        const invalid = checkValidation(f.validation, s)
+        if (invalid) { errors[f.id] = invalid; break }
         answers[f.id] = s
         break
       }
@@ -373,10 +530,12 @@ export function checkAnswers(fields: FormField[], raw: Record<string, unknown>):
         answers[f.id] = s
         break
       }
-      case 'image': {
+      case 'image':
+      case 'file': {
+        const what = f.type === 'image' ? 'foto' : 'berkas'
         const list = (Array.isArray(v) ? v : [v]).map(String)
-        if (list.length > (f.maxFiles ?? 1)) { errors[f.id] = `Paling banyak ${f.maxFiles ?? 1} foto.`; break }
-        if (list.some((s) => !/^forms\/[\w/.-]{10,300}$/.test(s))) { errors[f.id] = 'Foto belum terunggah. Coba lagi.'; break }
+        if (list.length > (f.maxFiles ?? 1)) { errors[f.id] = `Paling banyak ${f.maxFiles ?? 1} ${what}.`; break }
+        if (list.some((s) => !/^forms\/[\w/.-]{10,300}$/.test(s))) { errors[f.id] = `${what === 'foto' ? 'Foto' : 'Berkas'} belum terunggah. Coba lagi.`; break }
         answers[f.id] = list
         break
       }
@@ -419,6 +578,7 @@ export function answerText(f: FormField, v: FormAnswer | undefined): string {
   if (v === undefined || v === null || v === '') return ''
   if (f.type === 'signature') return 'Ada tanda tangan'
   if (f.type === 'image') return `${Array.isArray(v) ? v.length : 1} foto`
+  if (f.type === 'file') return (Array.isArray(v) ? v : [String(v)]).map(storedFileName).join(', ')
   if (f.type === 'date' && typeof v === 'string' && DATE_RULE.test(v)) {
     const [y, m, d] = v.split('-')
     return `${d}/${m}/${y}`
