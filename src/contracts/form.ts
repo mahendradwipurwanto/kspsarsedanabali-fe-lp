@@ -339,6 +339,7 @@ export const formSchema = z
     showProgress: z.boolean().default(true),
     successMessage: z.string().trim().max(1000).optional().default(''),
     submitLabel: z.string().trim().max(40).optional().default(''),
+    allowAnother: z.boolean().default(false),
   })
   .superRefine((f, ctx) => {
     if (!f.fields.some((x) => isQuestion(x.type))) ctx.addIssue({ code: 'custom', path: ['fields'], message: 'Tambahkan paling sedikit satu pertanyaan' })
@@ -670,6 +671,8 @@ export interface PublicForm {
   /** Shown only when the form asks to show its progress. */
   progress: { responses: number; target: number | null } | null
   closesAt: string | null
+  /** After sending, show a link to fill the form again. */
+  allowAnother: boolean
 }
 
 export const DEFAULT_FORM_SUCCESS = 'Terima kasih, jawaban Anda sudah kami terima.'

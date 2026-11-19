@@ -407,6 +407,16 @@ export function PublicFormView({ form, bare = false }: {
 
   const progress = form.progress ? targetProgress(form.progress.responses, form.progress.target) : null
 
+  /** "Kirim jawaban lain": an empty form again, as if the page had just been opened. */
+  function again() {
+    for (const list of Object.values(images)) for (const u of list) URL.revokeObjectURL(u.preview)
+    for (const up of Object.values(sigUploads.current)) if (up.timer) clearTimeout(up.timer)
+    sigUploads.current = {}
+    setValues({}); setOthers({}); setImages({}); setDocs({}); setSigned({})
+    setErrors({}); setError(''); setSuccess(''); setStatus('idle')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   if (form.status !== 'open' || status === 'done') {
     const done = status === 'done'
     return (
@@ -417,6 +427,11 @@ export function PublicFormView({ form, bare = false }: {
         </span>
         <h1 className="t-h2 mt-5 text-ink-900">{done ? 'Jawaban terkirim' : form.title}</h1>
         <p className="t-lead mx-auto mt-4 max-w-md whitespace-pre-line">{done ? success : form.closedMessage}</p>
+        {done && form.allowAnother ? (
+          <button type="button" onClick={again} className="mt-6 cursor-pointer text-[15px] font-semibold text-green-700 underline underline-offset-4 hover:text-green-800">
+            Kirim jawaban lain
+          </button>
+        ) : null}
         {bare ? null : (
           <div className="mt-8 border-t border-line pt-6">
             <Link href="/" className="text-[14px] font-semibold text-green-700 underline underline-offset-4 hover:text-green-800">Ke beranda KSP Sari Sedana</Link>
