@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type FormEvent, type Ref } from 'react'
 import Link from 'next/link'
 import {
-  checkAnswers, formSections, isFileType, mediaSrc, pictureImages, scaleRange, sectionAfter, targetProgress, OTHER_PREFIX, OTHER_LABEL, FORM_IMAGE_MAX_SIDE, FORM_FILE_MAX_BYTES,
+  checkAnswers, formSections, isFileType, mediaSrc, pictureImages, scaleRange, sectionAfter, targetProgress, type FormAnswers, OTHER_PREFIX, OTHER_LABEL, FORM_IMAGE_MAX_SIDE, FORM_FILE_MAX_BYTES,
   FORM_DOC_ACCEPT, FORM_DOC_MAX_BYTES, FORM_DOC_TYPES, type FormField, type PublicForm,
 } from '@/contracts'
 import { API_BASE, apiPost, track } from '@/lib/client'
@@ -418,7 +418,14 @@ export function PublicFormView({ form, bare = false }: {
   const [trail, setTrail] = useState<number[]>([])
   const at = Math.min(rawAt, sections.length - 1)
   const here = sections[at]!
-  const nextAt = sectionAfter(sections, at)
+  // A page's route can hang on what was answered on it ("Buka bagian
+  // berdasarkan jawaban"), so the walk reads the answers, not the form alone.
+  const picked = useMemo(() => {
+    const out: FormAnswers = {}
+    for (const [k, v] of Object.entries(values)) if (typeof v === 'string') out[k] = v
+    return out
+  }, [values])
+  const nextAt = sectionAfter(sections, at, picked)
   const last = nextAt === null
   const paged = sections.length > 1
   /** Every page passed through, this one included: the only questions that are asked. */

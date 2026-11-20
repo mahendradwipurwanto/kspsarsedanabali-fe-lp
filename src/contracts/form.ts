@@ -79,6 +79,14 @@ export const FORM_OPTION_TARGET_MAX = 1_000_000
  */
 export const SECTION_NEXT = 'next'
 export const SECTION_SUBMIT = 'submit'
+/**
+ * Kinds whose own answer may route the form, as Google Forms' "Buka bagian
+ * berdasarkan jawaban" does: one answer, picked from a fixed list. Kotak
+ * centang is left out for the same reason Google leaves it out — several
+ * answers would name several destinations at once.
+ */
+export const BRANCH_TYPES: readonly FormFieldType[] = ['choice', 'dropdown']
+export const canBranch = (t: FormFieldType) => BRANCH_TYPES.includes(t)
 export const FORM_MAX_IMAGES = 5
 /** Pictures one "Gambar" item may show, one under the other. */
 export const FORM_MAX_PICTURES = 10
@@ -233,6 +241,15 @@ export interface FormField {
    */
   optionTargets?: (number | null)[]
   /**
+   * choice, dropdown: where the form goes when each option is the answer, one
+   * entry per option in the same order. An entry is a later section's id,
+   * SECTION_SUBMIT to end the form, or empty to leave the section's own route
+   * alone. Picking an option that routes somewhere overrides nextSection for
+   * that respondent; "Lainnya" never routes, because it is not a listed
+   * option. Only a forward jump is allowed, as for a section.
+   */
+  optionNext?: (string | null)[]
+  /**
    * section: where the form goes once this section is answered — SECTION_NEXT
    * for the section below it, SECTION_SUBMIT to end there, or the id of a
    * later section to skip ahead to. Empty reads as SECTION_NEXT.
@@ -253,6 +270,16 @@ export const hasOptionTargets = (f: Pick<FormField, 'optionTargets'>): boolean =
  */
 export const alignOptionTargets = (targets: (number | null)[] | undefined, count: number): (number | null)[] =>
   Array.from({ length: count }, (_, i) => targets?.[i] ?? null)
+
+/** Where picking the option at `i` sends the form, or '' when it changes nothing. */
+export const optionNextSection = (f: Pick<FormField, 'optionNext'>, i: number): string => f.optionNext?.[i] || ''
+
+/** Whether any option of a question routes the form somewhere of its own. */
+export const hasOptionNext = (f: Pick<FormField, 'optionNext'>): boolean => !!f.optionNext?.some((t) => !!t)
+
+/** Destinations as one entry per option, padded and trimmed the way targets are. */
+export const alignOptionNext = (next: (string | null)[] | undefined, count: number): string[] =>
+  Array.from({ length: count }, (_, i) => next?.[i] ?? '')
 
 /** The images of a "Gambar" item, old single-image items included. */
 export const pictureImages = (f: Pick<FormField, 'media' | 'images'>): string[] =>
@@ -314,6 +341,7 @@ export const formFieldSchema = z
     media: z.string().trim().max(600).optional().default(''),
     images: z.array(z.string().trim().min(1).max(600)).max(FORM_MAX_PICTURES, `Paling banyak ${FORM_MAX_PICTURES} gambar`).optional(),
     optionTargets: z.array(z.number().int().min(1).max(FORM_OPTION_TARGET_MAX).nullable()).max(FORM_MAX_OPTIONS).optional(),
+    optionNext: z.array(z.string().trim().max(16).nullable()).max(FORM_MAX_OPTIONS).optional(),
     nextSection: z.string().trim().max(16).optional().default(''),
     prefix: z.string().max(40).optional().default(''),
     digitsOnly: z.boolean().optional().default(false),
@@ -363,6 +391,10 @@ export const formFieldSchema = z
       if (!hasOptions(f.type)) ctx.addIssue({ code: 'custom', path: ['optionTargets'], message: 'Target pilihan hanya untuk pertanyaan berpilihan' })
       else if (f.optionTargets.length > (f.options?.length ?? 0)) ctx.addIssue({ code: 'custom', path: ['optionTargets'], message: 'Target pilihan tidak cocok dengan jumlah pilihannya' })
     }
+    if (f.optionNext?.some((x) => !!x)) {
+      if (!canBranch(f.type)) ctx.addIssue({ code: 'custom', path: ['optionNext'], message: 'Hanya pilihan ganda dan dropdown yang bisa membuka bagian berdasarkan jawaban' })
+      else if (f.optionNext.length > (f.options?.length ?? 0)) ctx.addIssue({ code: 'custom', path: ['optionNext'], message: 'Tujuan pilihan tidak cocok dengan jumlah pilihannya' })
+    }
     if (f.type === 'number' && f.min != null && f.max != null && f.min > f.max) {
       ctx.addIssue({ code: 'custom', path: ['max'], message: 'Batas atas lebih kecil dari batas bawah' })
     }
@@ -401,12 +433,17 @@ export const formSchema = z
     // looping back on itself and trapping whoever is filling it in.
     const sectionAt = new Map<string, number>()
     f.fields.forEach((x, i) => { if (x.type === 'section') sectionAt.set(x.id, i) })
-    f.fields.forEach((x, i) => {
-      const to = x.nextSection
-      if (x.type !== 'section' || !to || to === SECTION_NEXT || to === SECTION_SUBMIT) return
+    const checkJump = (to: string, i: number, path: (string | number)[]) => {
+      if (!to || to === SECTION_NEXT || to === SECTION_SUBMIT) return
       const at = sectionAt.get(to)
-      if (at === undefined) ctx.addIssue({ code: 'custom', path: ['fields', i, 'nextSection'], message: 'Bagian tujuan sudah tidak ada. Pilih lagi.' })
-      else if (at <= i) ctx.addIssue({ code: 'custom', path: ['fields', i, 'nextSection'], message: 'Hanya bisa melompat ke bagian di bawahnya' })
+      if (at === undefined) ctx.addIssue({ code: 'custom', path, message: 'Bagian tujuan sudah tidak ada. Pilih lagi.' })
+      else if (at <= i) ctx.addIssue({ code: 'custom', path, message: 'Hanya bisa melompat ke bagian di bawahnya' })
+    }
+    f.fields.forEach((x, i) => {
+      if (x.type === 'section') checkJump(x.nextSection ?? '', i, ['fields', i, 'nextSection'])
+      // A per-option jump is measured from the question's own place, not its
+      // section's: a question may sit anywhere inside the page it belongs to.
+      if (canBranch(x.type)) x.optionNext?.forEach((to, oi) => checkJump(to ?? '', i, ['fields', i, 'optionNext', oi]))
     })
   })
 
@@ -447,42 +484,100 @@ export function formSections(fields: FormField[]): FormSection[] {
   return out
 }
 
-/** The page shown after the one at `at`, or null when the form ends there. */
-export function sectionAfter(sections: FormSection[], at: number): number | null {
-  const here = sections[at]
-  if (!here) return null
-  if (here.next === SECTION_SUBMIT) return null
-  if (here.next && here.next !== SECTION_NEXT) {
-    const to = sections.findIndex((s) => s.id === here.next)
-    // Forward only. A jump whose section has since been deleted or moved up
-    // falls back to simply carrying on, rather than ending the form early.
+/**
+ * The route a page takes once it has been answered: its own, unless an answer
+ * given on it says otherwise. When several questions on one page carry
+ * per-option routes, the last one answered wins — the same way Google Forms
+ * resolves a page with more than one branching question.
+ */
+export function sectionRoute(section: FormSection, answers?: FormAnswers): string {
+  let route = section.next || SECTION_NEXT
+  if (!answers) return route
+  for (const f of section.fields) {
+    if (!canBranch(f.type) || !hasOptionNext(f)) continue
+    const a = answers[f.id]
+    if (typeof a !== 'string' || !a) continue
+    // An "Lainnya: …" answer is not one of the listed options, so it never
+    // routes: indexOf gives -1 and the page keeps its own route.
+    const to = optionNextSection(f, (f.options ?? []).indexOf(a))
+    if (to) route = to
+  }
+  return route
+}
+
+/** A route as a page index. Forward only; null when the form ends here. */
+function routeTo(sections: FormSection[], at: number, route: string): number | null {
+  if (route === SECTION_SUBMIT) return null
+  if (route && route !== SECTION_NEXT) {
+    const to = sections.findIndex((s) => s.id === route)
+    // A jump whose section has since been deleted or moved up falls back to
+    // simply carrying on, rather than ending the form early.
     if (to > at) return to
   }
   return at + 1 < sections.length ? at + 1 : null
 }
 
+/**
+ * The page shown after the one at `at`, or null when the form ends there.
+ * Without `answers` this reads the form's own routes only, which is what the
+ * console needs while the form is still being built.
+ */
+export function sectionAfter(sections: FormSection[], at: number, answers?: FormAnswers): number | null {
+  const here = sections[at]
+  if (!here) return null
+  return routeTo(sections, at, sectionRoute(here, answers))
+}
+
 /** Every page a respondent passes through, in order. Sections jumped over never appear. */
-export function sectionPath(sections: FormSection[]): number[] {
+export function sectionPath(sections: FormSection[], answers?: FormAnswers): number[] {
   const path: number[] = []
-  for (let at: number | null = 0; at !== null && !path.includes(at); at = sectionAfter(sections, at)) path.push(at)
+  for (let at: number | null = 0; at !== null && !path.includes(at); at = sectionAfter(sections, at, answers)) path.push(at)
   return path
 }
 
 /**
- * The questions actually asked: those on the path the jumps lay out. A
+ * The questions actually asked: those on the path the routes lay out. A
  * question in a section nothing leads to is never shown, so it is never
- * required and never validated.
+ * required and never validated. Pass the answers and the path follows the
+ * branches the respondent actually took.
  */
-export function reachableFields(fields: FormField[]): FormField[] {
+export function reachableFields(fields: FormField[], answers?: FormAnswers): FormField[] {
   const sections = formSections(fields)
   // The "Judul bagian" items themselves are headings, not questions, so they
   // never come back from here whether the form has one page or ten.
-  return sectionPath(sections).flatMap((i) => sections[i]!.fields)
+  return sectionPath(sections, answers).flatMap((i) => sections[i]!.fields)
+}
+
+/** Every page this one can lead to, over every answer someone might give. */
+function sectionTargets(sections: FormSection[], at: number): number[] {
+  const here = sections[at]
+  if (!here) return []
+  // The page's own route stays in the running even when every option of a
+  // branching question names a destination: an unanswered question falls back
+  // to it, so a section it leads to is not unreachable.
+  const routes = [here.next || SECTION_NEXT]
+  for (const f of here.fields) {
+    if (!canBranch(f.type)) continue
+    for (const to of f.optionNext ?? []) if (to) routes.push(to)
+  }
+  const out = new Set<number>()
+  for (const r of routes) {
+    const i = routeTo(sections, at, r)
+    if (i !== null) out.add(i)
+  }
+  return [...out]
 }
 
 /** Section indexes nothing leads to, for the console to flag while the form is built. */
 export function unreachableSections(sections: FormSection[]): number[] {
-  const seen = new Set(sectionPath(sections))
+  const seen = new Set([0])
+  for (const queue = [0]; queue.length; ) {
+    for (const n of sectionTargets(sections, queue.shift()!)) {
+      if (seen.has(n)) continue
+      seen.add(n)
+      queue.push(n)
+    }
+  }
   return sections.map((_, i) => i).filter((i) => !seen.has(i))
 }
 
