@@ -60,6 +60,10 @@ export const PERMISSIONS = {
   'forms:write': 'Membuat dan mengubah formulir',
   'forms:delete': 'Menghapus formulir dan jawabannya',
   'forms:export': 'Mengunduh jawaban formulir ke Excel',
+  // Targets per pilihan say how many answers each regu, cabang or kategori is
+  // after. They are a management figure rather than part of the questionnaire,
+  // so setting and reading them is kept to the roles that run the koperasi.
+  'forms:targets': 'Mengatur dan melihat target per pilihan di formulir',
 
   // Administration
   'users:read': 'Melihat daftar pengguna',
@@ -93,7 +97,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: Permission[] }[] =
     permissions: ['leads:read:all', 'leads:read:branch', 'leads:update', 'leads:assign', 'leads:export', 'leads:delete'],
   },
   { label: 'Kritik & Saran', permissions: ['feedback:read', 'feedback:update', 'feedback:delete'] },
-  { label: 'Formulir', permissions: ['forms:read', 'forms:write', 'forms:delete', 'forms:export'] },
+  { label: 'Formulir', permissions: ['forms:read', 'forms:write', 'forms:delete', 'forms:export', 'forms:targets'] },
   { label: 'Pengguna & Peran', permissions: ['users:read', 'users:write', 'users:delete', 'roles:read', 'roles:manage'] },
   { label: 'Sistem', permissions: ['analytics:read', 'settings:manage', 'redirects:manage', 'menus:manage', 'audit:read'] },
 ]

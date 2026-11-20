@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useImperativeHandle, useRef, useState, type FormEvent, type Ref } from 'react'
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type FormEvent, type Ref } from 'react'
 import Link from 'next/link'
 import {
-  checkAnswers, isFileType, mediaSrc, pictureImages, scaleRange, targetProgress, OTHER_PREFIX, OTHER_LABEL, FORM_IMAGE_MAX_SIDE, FORM_FILE_MAX_BYTES,
+  checkAnswers, formSections, isFileType, mediaSrc, pictureImages, scaleRange, sectionAfter, targetProgress, OTHER_PREFIX, OTHER_LABEL, FORM_IMAGE_MAX_SIDE, FORM_FILE_MAX_BYTES,
   FORM_DOC_ACCEPT, FORM_DOC_MAX_BYTES, FORM_DOC_TYPES, type FormField, type PublicForm,
 } from '@/contracts'
 import { API_BASE, apiPost, track } from '@/lib/client'
@@ -407,6 +407,23 @@ export function PublicFormView({ form, bare = false }: {
 
   const progress = form.progress ? targetProgress(form.progress.responses, form.progress.target) : null
 
+  /**
+   * The form as the pages it is built from: one per "Judul bagian", answered
+   * one at a time, as in Google Forms. The trail is what "Kembali" walks back
+   * along, because with a jump the page before this one is not always the one
+   * above it. A form without sections is a single page, exactly as before.
+   */
+  const sections = useMemo(() => formSections(form.fields), [form.fields])
+  const [rawAt, setAt] = useState(0)
+  const [trail, setTrail] = useState<number[]>([])
+  const at = Math.min(rawAt, sections.length - 1)
+  const here = sections[at]!
+  const nextAt = sectionAfter(sections, at)
+  const last = nextAt === null
+  const paged = sections.length > 1
+  /** Every page passed through, this one included: the only questions that are asked. */
+  const walked = useMemo(() => [...trail, at].flatMap((i) => sections[i]?.fields ?? []), [trail, at, sections])
+
   /** "Kirim jawaban lain": an empty form again, as if the page had just been opened. */
   function again() {
     for (const list of Object.values(images)) for (const u of list) URL.revokeObjectURL(u.preview)
@@ -414,6 +431,7 @@ export function PublicFormView({ form, bare = false }: {
     sigUploads.current = {}
     setValues({}); setOthers({}); setImages({}); setDocs({}); setSigned({})
     setErrors({}); setError(''); setSuccess(''); setStatus('idle')
+    setAt(0); setTrail([])
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -441,10 +459,10 @@ export function PublicFormView({ form, bare = false }: {
     )
   }
 
-  /** What would be sent, with the files left for the upload step. */
-  function collect(): Record<string, unknown> {
+  /** What would be sent for the given questions, with the files left for the upload step. */
+  function collect(list: FormField[]): Record<string, unknown> {
     const out: Record<string, unknown> = {}
-    for (const f of form.fields) {
+    for (const f of list) {
       const v = values[f.id]
       if (v === undefined) continue
       if ((f.type === 'choice') && v === OTHER_LABEL) out[f.id] = `${OTHER_PREFIX}${(others[f.id] ?? '').trim()}`
@@ -456,10 +474,10 @@ export function PublicFormView({ form, bare = false }: {
     return out
   }
 
-  function localErrors(): Record<string, string> {
-    const plain = form.fields.filter((f) => !isFileType(f.type))
-    const { errors: found } = checkAnswers(plain, collect())
-    for (const f of form.fields) {
+  function localErrors(list: FormField[]): Record<string, string> {
+    const plain = list.filter((f) => !isFileType(f.type))
+    const { errors: found } = checkAnswers(plain, collect(list))
+    for (const f of list) {
       if (f.type === 'signature' && f.required && !signed[f.id]) found[f.id] = 'Bubuhkan tanda tangan Anda.'
       if (f.type === 'image') {
         const list = images[f.id] ?? []
@@ -477,8 +495,20 @@ export function PublicFormView({ form, bare = false }: {
     return found
   }
 
+  /** One page back along the trail actually walked, not simply the section above. */
+  function back() {
+    const t = [...trail]
+    const prev = t.pop()
+    if (prev === undefined) return
+    setTrail(t)
+    setAt(prev)
+    setErrors({})
+    setError('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   function focusFirst(found: Record<string, string>) {
-    const first = form.fields.find((f) => found[f.id])
+    const first = here.fields.find((f) => found[f.id]) ?? form.fields.find((f) => found[f.id])
     if (!first) return
     const el = document.getElementById(`q-${first.id}`)
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -490,14 +520,35 @@ export function PublicFormView({ form, bare = false }: {
     // Read now: React clears currentTarget once the handler has awaited anything.
     const honeypot = String(new FormData(e.currentTarget).get('website') ?? '')
     setError('')
-    const found = localErrors()
+    const found = localErrors(here.fields)
     setErrors(found)
     if (Object.keys(found).length) { focusFirst(found); return }
 
+    // Not the end of the form yet: on to the page this one leads to.
+    if (!last) {
+      setTrail([...trail, at])
+      setAt(nextAt!)
+      setErrors({})
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
+    // Everything the walk passed through. Pages jumped over were never shown,
+    // so their questions were never asked and are not required here either.
+    const all = localErrors(walked)
+    setErrors(all)
+    if (Object.keys(all).length) {
+      const page = [...trail, at].find((i) => sections[i]!.fields.some((f) => all[f.id]))
+      if (page !== undefined && page !== at) { setAt(page); setTrail([...trail, at].slice(0, [...trail, at].indexOf(page))) }
+      else focusFirst(all)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
     setStatus('sending')
     try {
-      const answers = collect()
-      for (const f of form.fields) {
+      const answers = collect(walked)
+      for (const f of walked) {
         if (f.type === 'image' || f.type === 'file') {
           const keys = ((f.type === 'image' ? images : docs)[f.id] ?? []).map((u) => u.key).filter(Boolean)
           if (keys.length) answers[f.id] = keys
@@ -698,6 +749,14 @@ export function PublicFormView({ form, bare = false }: {
       <header className="border-b border-line p-6 sm:p-8">
         <h1 className="t-h2 text-ink-900">{form.title}</h1>
         {form.description ? <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-ink-600">{form.description}</p> : null}
+        {paged ? (
+          <p className="mt-5 flex items-center gap-3 text-[12.5px] font-semibold text-ink-500">
+            Bagian {at + 1} dari {sections.length}
+            <span className="h-1 flex-1 overflow-hidden rounded-full bg-ink-100" aria-hidden="true">
+              <span className="block h-full rounded-full bg-green-600 transition-[width] duration-300" style={{ width: `${((at + 1) / sections.length) * 100}%` }} />
+            </span>
+          </p>
+        ) : null}
         {form.progress ? (
           <div className="mt-5 rounded-[var(--radius-input)] bg-paper px-4 py-3">
             <p className="text-[13px] text-ink-600">
@@ -711,11 +770,17 @@ export function PublicFormView({ form, bare = false }: {
             ) : null}
           </div>
         ) : null}
+        {here.id && (here.title || here.help) ? (
+          <div className="mt-5 border-t border-line pt-5">
+            {here.title ? <h2 className="t-h3 text-ink-900">{here.title}</h2> : null}
+            {here.help ? <p className="mt-1.5 whitespace-pre-line text-[14px] leading-relaxed text-ink-500">{here.help}</p> : null}
+          </div>
+        ) : null}
         <p className="mt-4 text-[12.5px] text-ink-400"><span className="text-[#d1483c]">*</span> wajib diisi</p>
       </header>
 
       <form onSubmit={onSubmit} noValidate className="grid gap-7 p-6 sm:p-8">
-        {form.fields.map((f) =>
+        {here.fields.map((f) =>
           f.type === 'picture' ? (
             // Shown at its own proportions, the full width of the form: a chart from the annual
             // report has to stay readable, so it is never cropped into a fixed box.
@@ -733,11 +798,6 @@ export function PublicFormView({ form, bare = false }: {
               ))}
               {f.help ? <figcaption className="whitespace-pre-line text-[13px] leading-relaxed text-ink-500">{f.help}</figcaption> : null}
             </figure>
-          ) : f.type === 'section' ? (
-            <div key={f.id} className="border-t border-line pt-6 first:border-0 first:pt-0">
-              {f.label ? <h2 className="t-h3 text-ink-900">{f.label}</h2> : null}
-              {f.help ? <p className="mt-1.5 whitespace-pre-line text-[14px] leading-relaxed text-ink-500">{f.help}</p> : null}
-            </div>
           ) : (
             <div key={f.id} id={`q-${f.id}`} className="scroll-mt-24">
               <Field label={f.label} htmlFor={`q-${f.id}-input`} required={f.required} error={errors[f.id]} hint={f.help || undefined}>
@@ -753,10 +813,17 @@ export function PublicFormView({ form, bare = false }: {
         {error ? <Note>{error}</Note> : null}
         {Object.keys(errors).length && !error ? <Note>Ada {Object.keys(errors).length} isian yang perlu diperbaiki. Periksa yang bertanda merah.</Note> : null}
 
-        <Action type="submit" variant="primary" disabled={status === 'sending'} full>
-          {status === 'sending' ? 'Mengirim…' : form.submitLabel}
-          {status === 'sending' ? null : <Icon.arrow className="size-4" />}
-        </Action>
+        <div className="flex items-center gap-3">
+          {trail.length ? (
+            <Action type="button" variant="outline" onClick={back}>Kembali</Action>
+          ) : null}
+          <span className="flex-1">
+            <Action type="submit" variant="primary" disabled={status === 'sending'} full>
+              {status === 'sending' ? 'Mengirim…' : last ? form.submitLabel : 'Berikutnya'}
+              {status === 'sending' ? null : <Icon.arrow className="size-4" />}
+            </Action>
+          </span>
+        </div>
         <p className="text-center text-[12px] leading-relaxed text-ink-400">
           Jawaban Anda hanya dibaca oleh pengurus KSP Sari Sedana Bali dan tidak ditampilkan di website.
         </p>

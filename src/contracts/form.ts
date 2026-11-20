@@ -68,6 +68,17 @@ export const isFileType = (t: FormFieldType) => FILE_TYPES.includes(t)
 
 export const FORM_MAX_FIELDS = 80
 export const FORM_MAX_OPTIONS = 40
+/** The most answers one option may be set to aim for. */
+export const FORM_OPTION_TARGET_MAX = 1_000_000
+
+/**
+ * Where a form goes once a section is answered, as Google Forms' "Setelah
+ * bagian ini" offers it: on to the next section, straight to the end, or
+ * ahead to a named section. A jump only ever goes forward, so a form can
+ * never send a respondent round in a circle.
+ */
+export const SECTION_NEXT = 'next'
+export const SECTION_SUBMIT = 'submit'
 export const FORM_MAX_IMAGES = 5
 /** Pictures one "Gambar" item may show, one under the other. */
 export const FORM_MAX_PICTURES = 10
@@ -214,7 +225,34 @@ export interface FormField {
   maxLength?: number | null
   /** short_text, long_text: "Validasi jawaban". */
   validation?: FormValidation | null
+  /**
+   * choice, dropdown, checkboxes: how many answers each option is after, one
+   * entry per option in the same order, null where nothing is set. A regu with
+   * a target of 1000 and three answers reads as "3 dari 1.000" in the recap.
+   * Only a role holding forms:targets may set them.
+   */
+  optionTargets?: (number | null)[]
+  /**
+   * section: where the form goes once this section is answered — SECTION_NEXT
+   * for the section below it, SECTION_SUBMIT to end there, or the id of a
+   * later section to skip ahead to. Empty reads as SECTION_NEXT.
+   */
+  nextSection?: string
 }
+
+/** How many answers an option is after, by its position; null when none is set. */
+export const optionTarget = (f: Pick<FormField, 'optionTargets'>, i: number): number | null => f.optionTargets?.[i] ?? null
+
+/** Whether any option of a question carries a target at all. */
+export const hasOptionTargets = (f: Pick<FormField, 'optionTargets'>): boolean => !!f.optionTargets?.some((t) => t != null)
+
+/**
+ * Targets as one entry per option, padded with nulls and trimmed to fit.
+ * The two arrays are kept side by side so that moving, adding or removing an
+ * option carries its own target with it rather than shifting every other one.
+ */
+export const alignOptionTargets = (targets: (number | null)[] | undefined, count: number): (number | null)[] =>
+  Array.from({ length: count }, (_, i) => targets?.[i] ?? null)
 
 /** The images of a "Gambar" item, old single-image items included. */
 export const pictureImages = (f: Pick<FormField, 'media' | 'images'>): string[] =>
@@ -245,6 +283,7 @@ export function blankField(type: FormFieldType): FormField {
   if (type === 'image' || type === 'file') return { ...base, maxFiles: 1 }
   if (type === 'picture') return { ...base, images: [] }
   if (type === 'signature') return { ...base, label: 'Tanda tangan', required: true }
+  if (type === 'section') return { ...base, nextSection: SECTION_NEXT }
   return base
 }
 
@@ -274,6 +313,8 @@ export const formFieldSchema = z
     unique: z.boolean().optional().default(false),
     media: z.string().trim().max(600).optional().default(''),
     images: z.array(z.string().trim().min(1).max(600)).max(FORM_MAX_PICTURES, `Paling banyak ${FORM_MAX_PICTURES} gambar`).optional(),
+    optionTargets: z.array(z.number().int().min(1).max(FORM_OPTION_TARGET_MAX).nullable()).max(FORM_MAX_OPTIONS).optional(),
+    nextSection: z.string().trim().max(16).optional().default(''),
     prefix: z.string().max(40).optional().default(''),
     digitsOnly: z.boolean().optional().default(false),
     minLength: z.number().int().min(1).max(FORM_TEXT_MAX).nullable().optional(),
@@ -318,6 +359,10 @@ export const formFieldSchema = z
         ctx.addIssue({ code: 'custom', path: ['max'], message: 'Skala mulai dari 0 atau 1 sampai 2–10' })
       }
     }
+    if (f.optionTargets?.length) {
+      if (!hasOptions(f.type)) ctx.addIssue({ code: 'custom', path: ['optionTargets'], message: 'Target pilihan hanya untuk pertanyaan berpilihan' })
+      else if (f.optionTargets.length > (f.options?.length ?? 0)) ctx.addIssue({ code: 'custom', path: ['optionTargets'], message: 'Target pilihan tidak cocok dengan jumlah pilihannya' })
+    }
     if (f.type === 'number' && f.min != null && f.max != null && f.min > f.max) {
       ctx.addIssue({ code: 'custom', path: ['max'], message: 'Batas atas lebih kecil dari batas bawah' })
     }
@@ -352,10 +397,94 @@ export const formSchema = z
       ctx.addIssue({ code: 'custom', path: ['closesAt'], message: 'Waktu tutup harus setelah waktu buka' })
     }
     if (f.closeAtTarget && !f.targetResponses) ctx.addIssue({ code: 'custom', path: ['targetResponses'], message: 'Isi target responden dulu' })
+    // A jump only ever goes forward: that alone is what keeps a form from
+    // looping back on itself and trapping whoever is filling it in.
+    const sectionAt = new Map<string, number>()
+    f.fields.forEach((x, i) => { if (x.type === 'section') sectionAt.set(x.id, i) })
+    f.fields.forEach((x, i) => {
+      const to = x.nextSection
+      if (x.type !== 'section' || !to || to === SECTION_NEXT || to === SECTION_SUBMIT) return
+      const at = sectionAt.get(to)
+      if (at === undefined) ctx.addIssue({ code: 'custom', path: ['fields', i, 'nextSection'], message: 'Bagian tujuan sudah tidak ada. Pilih lagi.' })
+      else if (at <= i) ctx.addIssue({ code: 'custom', path: ['fields', i, 'nextSection'], message: 'Hanya bisa melompat ke bagian di bawahnya' })
+    })
   })
 
 export type FormInput = z.input<typeof formSchema>
 export type FormValues = z.output<typeof formSchema>
+
+/* --------------------------------- sections --------------------------------- */
+
+/** One page of a form: a "Judul bagian" and everything asked under it. */
+export interface FormSection {
+  /** The id of the section item that opens it; empty for a form that starts with questions. */
+  id: string
+  title: string
+  help: string
+  /** Everything shown on the page. The section item that opens it is not among them. */
+  fields: FormField[]
+  /** SECTION_NEXT, SECTION_SUBMIT, or the id of a later section. */
+  next: string
+}
+
+/**
+ * The form as the pages a respondent walks through, one per "Judul bagian",
+ * with an opening page for anything asked before the first one. A form
+ * without a single section item is one page, which is how every form behaved
+ * before sections could be jumped between.
+ */
+export function formSections(fields: FormField[]): FormSection[] {
+  const out: FormSection[] = []
+  const open = (id: string, title: string, help: string, next: string) => out.push({ id, title, help, fields: [], next })
+  for (const f of fields) {
+    if (f.type === 'section') open(f.id, f.label, f.help ?? '', f.nextSection || SECTION_NEXT)
+    else {
+      if (!out.length) open('', '', '', SECTION_NEXT)
+      out[out.length - 1]!.fields.push(f)
+    }
+  }
+  if (!out.length) open('', '', '', SECTION_NEXT)
+  return out
+}
+
+/** The page shown after the one at `at`, or null when the form ends there. */
+export function sectionAfter(sections: FormSection[], at: number): number | null {
+  const here = sections[at]
+  if (!here) return null
+  if (here.next === SECTION_SUBMIT) return null
+  if (here.next && here.next !== SECTION_NEXT) {
+    const to = sections.findIndex((s) => s.id === here.next)
+    // Forward only. A jump whose section has since been deleted or moved up
+    // falls back to simply carrying on, rather than ending the form early.
+    if (to > at) return to
+  }
+  return at + 1 < sections.length ? at + 1 : null
+}
+
+/** Every page a respondent passes through, in order. Sections jumped over never appear. */
+export function sectionPath(sections: FormSection[]): number[] {
+  const path: number[] = []
+  for (let at: number | null = 0; at !== null && !path.includes(at); at = sectionAfter(sections, at)) path.push(at)
+  return path
+}
+
+/**
+ * The questions actually asked: those on the path the jumps lay out. A
+ * question in a section nothing leads to is never shown, so it is never
+ * required and never validated.
+ */
+export function reachableFields(fields: FormField[]): FormField[] {
+  const sections = formSections(fields)
+  // The "Judul bagian" items themselves are headings, not questions, so they
+  // never come back from here whether the form has one page or ten.
+  return sectionPath(sections).flatMap((i) => sections[i]!.fields)
+}
+
+/** Section indexes nothing leads to, for the console to flag while the form is built. */
+export function unreachableSections(sections: FormSection[]): number[] {
+  const seen = new Set(sectionPath(sections))
+  return sections.map((_, i) => i).filter((i) => !seen.has(i))
+}
 
 /* ---------------------------------- status ---------------------------------- */
 
