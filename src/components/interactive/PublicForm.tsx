@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type FormEvent, type Ref } from 'react'
 import Link from 'next/link'
 import {
-  checkAnswers, formSections, isFileType, mediaSrc, pictureImages, scaleRange, sectionAfter, targetProgress, type FormAnswers, OTHER_PREFIX, OTHER_LABEL, FORM_IMAGE_MAX_SIDE, FORM_FILE_MAX_BYTES,
+  checkAnswers, formSections, isFileType, isImageKey, isPdfKey, mediaDownloadSrc, mediaSrc, otherLabelOf, pictureCanDownload, pictureImages, scaleRange, sectionAfter, storedFileName, targetProgress, type FormAnswers, OTHER_PREFIX, OTHER_LABEL, FORM_IMAGE_MAX_SIDE, FORM_FILE_MAX_BYTES,
   FORM_DOC_ACCEPT, FORM_DOC_MAX_BYTES, FORM_DOC_TYPES, type FormField, type PublicForm,
 } from '@/contracts'
 import { API_BASE, apiPost, track } from '@/lib/client'
@@ -338,6 +338,51 @@ function DocumentInput({ id, slug, max, value, onChange, invalid }: { id: string
   )
 }
 
+/* ────────────────────────── pictures and PDFs ─────────────────────── */
+
+/**
+ * One file of a "Gambar" item: a picture at its own proportions, or a PDF in
+ * a reader right here in the form — the annual report is read where it is
+ * asked about, never in another tab — with an "Unduh" link under it when the
+ * form allows one. The link always goes through the website's own media
+ * proxy, because that is what answers with "save this file".
+ */
+function PictureFile({ value, alt, canDownload }: { value: string; alt: string; canDownload: boolean }) {
+  const src = mediaSrc(value, { publicBase: process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL })
+  const pdf = isPdfKey(value)
+  const name = storedFileName(value)
+  return (
+    <div className="grid gap-1.5">
+      {pdf ? (
+        <object data={`${src}#view=FitH`} type="application/pdf" aria-label={alt} className="h-[min(78vh,780px)] min-h-[360px] w-full rounded-[var(--radius-input)] border border-line bg-white">
+          {/* A phone that cannot show a PDF in the page still has to be able to read it. */}
+          <p className="p-4 text-[13px] leading-relaxed text-ink-500">
+            Peramban ini tidak bisa menampilkan PDF di halaman.{' '}
+            <a href={mediaDownloadSrc(value)} className="font-semibold text-green-700 underline">Unduh {name}</a>
+          </p>
+        </object>
+      ) : isImageKey(value) ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt={alt} loading="lazy" className="h-auto w-full rounded-[var(--radius-input)] border border-line bg-white" />
+      ) : (
+        // Word, Excel and the rest cannot be drawn in the page; they are offered as what they are.
+        <span className="flex items-center gap-2.5 rounded-[var(--radius-input)] border border-line bg-white px-4 py-3 text-[13.5px] text-ink-700">
+          <Icon.download className="size-4 shrink-0" aria-hidden="true" /> {name}
+        </span>
+      )}
+      {canDownload ? (
+        <a
+          href={mediaDownloadSrc(value)}
+          download={name}
+          className="inline-flex w-fit items-center gap-1.5 rounded-[var(--radius-input)] border border-line bg-white px-3 py-1.5 text-[13px] font-semibold text-ink-700 transition-colors hover:border-ink-900 hover:text-ink-900"
+        >
+          <Icon.download className="size-4" /> Unduh {pdf ? 'PDF' : isImageKey(value) ? 'gambar' : 'berkas'}
+        </a>
+      ) : null}
+    </div>
+  )
+}
+
 /* ───────────────────────────── the form ───────────────────────────── */
 
 const choiceBox = (active: boolean) =>
@@ -657,7 +702,7 @@ export function PublicFormView({ form, bare = false }: {
                     className={`${choiceBox(on)} w-full text-left`}
                   >
                     <Marker round={!multi} on={on} />
-                    <span className="min-w-0 flex-1">{o === OTHER_LABEL ? 'Lainnya' : o}</span>
+                    <span className="min-w-0 flex-1">{o === OTHER_LABEL ? otherLabelOf(f) : o}</span>
                   </button>
                   {o === OTHER_LABEL && on ? (
                     <input
@@ -794,14 +839,7 @@ export function PublicFormView({ form, bare = false }: {
             <figure key={f.id} className="grid gap-2.5">
               {f.label ? <p className="text-[15px] font-bold text-ink-900">{f.label}</p> : null}
               {pictureImages(f).map((m, i, all) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={`${i}-${m}`}
-                  src={mediaSrc(m, { publicBase: process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL })}
-                  alt={`${f.help || f.label || 'Gambar'}${all.length > 1 ? ` (${i + 1} dari ${all.length})` : ''}`}
-                  loading="lazy"
-                  className="h-auto w-full rounded-[var(--radius-input)] border border-line bg-white"
-                />
+                <PictureFile key={`${i}-${m}`} value={m} alt={`${f.help || f.label || 'Gambar'}${all.length > 1 ? ` (${i + 1} dari ${all.length})` : ''}`} canDownload={pictureCanDownload(f)} />
               ))}
               {f.help ? <figcaption className="whitespace-pre-line text-[13px] leading-relaxed text-ink-500">{f.help}</figcaption> : null}
             </figure>

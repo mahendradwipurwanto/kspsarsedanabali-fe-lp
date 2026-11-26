@@ -203,6 +203,13 @@ export interface FormField {
   options?: string[]
   /** choice and checkboxes: add an "Lainnya: …" option with a text box. */
   allowOther?: boolean
+  /**
+   * choice and checkboxes: what that last option is called, when "Lainnya"
+   * is not what it is asking for — "Tidak setuju, alasannya" on a vote, say.
+   * Only the wording changes: the answer is still stored as "Lainnya: …",
+   * so a question renamed after the first answers still counts them together.
+   */
+  otherLabel?: string
   /** scale: the ends of the range. number: the allowed range, when set. */
   min?: number | null
   max?: number | null
@@ -218,8 +225,14 @@ export interface FormField {
    * Kept for forms saved before a picture could hold several; read through pictureImages().
    */
   media?: string
-  /** picture: every image, shown one under the other. Shown to everyone who opens the form. */
+  /** picture: every image or PDF, shown one under the other. Shown to everyone who opens the form. */
   images?: string[]
+  /**
+   * picture: offer an "Unduh" button under each file. On by default, so a
+   * report put in a form can be kept; switch it off for something that is
+   * only meant to be looked at.
+   */
+  allowDownload?: boolean
   /**
    * short_text: a fixed start shown beside the box, so the member types only
    * the rest ("01.21" + "12345"). Stored with the answer, so the console and
@@ -285,6 +298,15 @@ export const alignOptionNext = (next: (string | null)[] | undefined, count: numb
 export const pictureImages = (f: Pick<FormField, 'media' | 'images'>): string[] =>
   f.images?.length ? f.images.filter(Boolean) : f.media ? [f.media] : []
 
+/** Whether a stored media key is a PDF, which a form shows in a reader rather than as a picture. */
+export const isPdfKey = (key: string): boolean => /\.pdf(?:$|[?#])/i.test(key)
+
+/** Whether a stored media key is a picture, so a form can draw it rather than offer it as a file. */
+export const isImageKey = (key: string): boolean => /\.(?:jpe?g|png|webp|gif|avif|svg)(?:$|[?#])/i.test(key)
+
+/** Whether the files of a "Gambar" item may be saved by whoever opens the form; on unless turned off. */
+export const pictureCanDownload = (f: Pick<FormField, 'allowDownload'>): boolean => f.allowDownload !== false
+
 /** One answer as stored: text, a number, several picks, or file keys. Absent when left empty. */
 export type FormAnswer = string | number | string[]
 export type FormAnswers = Record<string, FormAnswer>
@@ -292,6 +314,16 @@ export type FormAnswers = Record<string, FormAnswer>
 /** The prefix an "Lainnya" answer is stored with, so it counts apart from the listed options. */
 export const OTHER_PREFIX = 'Lainnya: '
 export const OTHER_LABEL = 'Lainnya'
+
+/** What the "Lainnya" option is called on this question: its own wording, or "Lainnya". */
+export const otherLabelOf = (f: Pick<FormField, 'otherLabel'>): string => f.otherLabel?.trim() || OTHER_LABEL
+
+/** Whether an answer was written in the "Lainnya" box at all, the empty box included ("Lainnya:" after trimming). */
+export const isOtherAnswer = (s: string): boolean => s.startsWith(OTHER_PREFIX) || s === OTHER_PREFIX.trimEnd()
+
+/** An answer stored as "Lainnya: …" read back under the question's own wording. */
+export const otherAnswerText = (f: Pick<FormField, 'otherLabel'>, s: string): string =>
+  s.startsWith(OTHER_PREFIX) ? `${otherLabelOf(f)}: ${s.slice(OTHER_PREFIX.length)}` : s
 
 /** A fresh question id: eight characters, enough that two never collide on one form. */
 export function newFieldId(): string {
@@ -332,6 +364,8 @@ export const formFieldSchema = z
     placeholder: z.string().trim().max(120).optional().default(''),
     options: z.array(z.string().trim().min(1, 'Pilihan tidak boleh kosong').max(200)).max(FORM_MAX_OPTIONS).optional(),
     allowOther: z.boolean().optional().default(false),
+    otherLabel: z.string().trim().max(60).optional().default(''),
+    allowDownload: z.boolean().optional().default(true),
     min: z.number().finite().nullable().optional(),
     max: z.number().finite().nullable().optional(),
     minLabel: z.string().trim().max(60).optional().default(''),
@@ -358,7 +392,7 @@ export const formFieldSchema = z
   })
   .superRefine((f, ctx) => {
     if (isQuestion(f.type) && !f.label) ctx.addIssue({ code: 'custom', path: ['label'], message: 'Tulis pertanyaannya' })
-    if (f.type === 'picture' && !pictureImages(f).length) ctx.addIssue({ code: 'custom', path: ['media'], message: 'Pilih gambarnya' })
+    if (f.type === 'picture' && !pictureImages(f).length) ctx.addIssue({ code: 'custom', path: ['media'], message: 'Pilih gambar atau PDF-nya' })
     if (f.minLength != null && f.maxLength != null && f.minLength > f.maxLength) {
       ctx.addIssue({ code: 'custom', path: ['maxLength'], message: 'Jumlah karakter paling banyak lebih kecil dari paling sedikit' })
     }
@@ -731,7 +765,7 @@ export function checkAnswers(fields: FormField[], raw: Record<string, unknown>):
       case 'dropdown': {
         const s = String(v)
         const picked = pickOption(f, s)
-        if (picked === null) { errors[f.id] = f.allowOther && s.startsWith(OTHER_PREFIX) ? 'Tuliskan jawaban “Lainnya”.' : 'Pilihan tidak dikenal.'; break }
+        if (picked === null) { errors[f.id] = f.allowOther && isOtherAnswer(s) ? `Tuliskan jawaban “${otherLabelOf(f)}”.` : 'Pilihan tidak dikenal.'; break }
         answers[f.id] = picked
         break
       }
@@ -773,7 +807,7 @@ export function checkAnswers(fields: FormField[], raw: Record<string, unknown>):
 function pickOption(f: FormField, s: string): string | null {
   const hit = (f.options ?? []).find((o) => o.toLocaleLowerCase('id-ID') === s.toLocaleLowerCase('id-ID'))
   if (hit) return hit
-  if (f.allowOther && f.type !== 'dropdown' && s.startsWith(OTHER_PREFIX)) {
+  if (f.allowOther && f.type !== 'dropdown' && isOtherAnswer(s)) {
     const rest = s.slice(OTHER_PREFIX.length).trim().slice(0, 300)
     return rest ? `${OTHER_PREFIX}${rest}` : null
   }
@@ -809,8 +843,8 @@ export function answerText(f: FormField, v: FormAnswer | undefined): string {
     return `${d}/${m}/${y}`
   }
   if (typeof v === 'number') return idNumber.format(v)
-  if (Array.isArray(v)) return v.join(', ')
-  return v
+  if (Array.isArray(v)) return v.map((x) => otherAnswerText(f, String(x))).join(', ')
+  return otherAnswerText(f, v)
 }
 
 /* ---------------------------------- charts ---------------------------------- */
@@ -836,7 +870,7 @@ export function questionChart(f: FormField, answers: (FormAnswer | undefined)[])
       else if (String(one).startsWith(OTHER_PREFIX)) other++
     }
   }
-  if (other || (f.allowOther && f.type !== 'scale')) { labels.push(OTHER_LABEL); counts.push(other) }
+  if (other || (f.allowOther && f.type !== 'scale')) { labels.push(otherLabelOf(f)); counts.push(other) }
   if (f.type === 'scale') {
     if (f.minLabel) labels[0] = `${labels[0]} · ${f.minLabel}`
     if (f.maxLabel) labels[labels.length - 1] = `${labels[labels.length - 1]} · ${f.maxLabel}`

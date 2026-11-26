@@ -395,6 +395,21 @@ export function mediaSrc(value: string | null | undefined, opts: { publicBase?: 
   return `${opts.proxyBase ?? ''}/api/media/${encodeURIComponent(value)}`
 }
 
+/**
+ * The same file as a link that saves it instead of opening it.
+ *
+ * Always through the website's own `/api/media/…?download=1`, never the
+ * bucket: a browser ignores `download` on a link to another origin, and the
+ * proxy is what can answer with `content-disposition: attachment`.
+ */
+export function mediaDownloadSrc(value: string | null | undefined, opts: { proxyBase?: string } = {}): string {
+  if (!value) return ''
+  if (/^https?:\/\//.test(value)) return value
+  if (value.startsWith('/api/media/')) return `${opts.proxyBase ?? ''}${value}?download=1`
+  if (value.startsWith('/')) return value
+  return `${opts.proxyBase ?? ''}/api/media/${encodeURIComponent(value)}?download=1`
+}
+
 /* ────────────────────────── SEO infrastructure ─────────────────────────── */
 
 /**

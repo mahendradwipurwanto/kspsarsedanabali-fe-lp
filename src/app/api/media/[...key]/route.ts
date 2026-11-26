@@ -13,9 +13,15 @@ import { NextResponse, type NextRequest } from 'next/server'
 const failure = (status: number, error: string) =>
   NextResponse.json({ error }, { status, headers: { 'cache-control': 'no-store' } })
 
+/** The name a file is saved under: its key without the folder and the ULID that keeps it unique. */
+const downloadName = (key: string) =>
+  (key.split('/').pop() ?? key).replace(/^[0-9A-HJKMNP-TV-Z]{26}-/i, '').replace(/["\\]/g, '') || 'berkas'
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ key: string[] }> }) {
   const { key } = await params
   const objectKey = key.map(decodeURIComponent).join('/')
+  /** `?download=1` saves the file instead of opening it: a report attached to a form is meant to be kept. */
+  const asDownload = req.nextUrl.searchParams.get('download') === '1'
 
   // Private prefixes must never be reachable without a signed URL.
   if (objectKey.startsWith('cv/')) return failure(404, 'Not found')
@@ -60,6 +66,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ key:
       // The object key contains a ULID, so content at a given key never changes.
       'cache-control': 'public, max-age=31536000, immutable',
     }
+    if (asDownload) headers['content-disposition'] = `attachment; filename="${downloadName(objectKey)}"`
     const length = upstream.headers.get('content-length')
     if (length) headers['content-length'] = length
     return new NextResponse(upstream.body, { headers })
