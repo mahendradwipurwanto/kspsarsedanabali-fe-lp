@@ -40,7 +40,7 @@ export const FORM_FIELD_TYPE_LABELS: Record<FormFieldType, string> = {
   image: 'Unggah foto / gambar',
   file: 'Unggah berkas (PDF, Word, Excel)',
   section: 'Judul bagian (bukan pertanyaan)',
-  picture: 'Gambar (bukan pertanyaan)',
+  picture: 'Gambar/File (bukan pertanyaan)',
 }
 
 /** Kinds with a list of options to pick from. */

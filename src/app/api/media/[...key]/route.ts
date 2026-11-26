@@ -65,6 +65,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ key:
       'content-type': upstream.headers.get('content-type') ?? 'application/octet-stream',
       // The object key contains a ULID, so content at a given key never changes.
       'cache-control': 'public, max-age=31536000, immutable',
+      // These are the site's public files; the console reads the same PDFs
+      // with pdf.js from its own origin, which a fetch needs permission for.
+      'access-control-allow-origin': '*',
     }
     if (asDownload) headers['content-disposition'] = `attachment; filename="${downloadName(objectKey)}"`
     const length = upstream.headers.get('content-length')

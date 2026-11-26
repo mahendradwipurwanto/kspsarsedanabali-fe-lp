@@ -36,6 +36,9 @@ Thumbs.db
 npm-debug.log*
 yarn-error.log*
 
+# ── Copied out of node_modules on every build (scripts/copy-pdf-worker.mjs) ──
+public/pdf.worker.min.mjs
+
 # ── Next.js ──────────────────────────────────────────────────────────────────
 .next/
 next-env.d.ts

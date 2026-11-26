@@ -396,18 +396,29 @@ export function mediaSrc(value: string | null | undefined, opts: { publicBase?: 
 }
 
 /**
- * The same file as a link that saves it instead of opening it.
+ * The same file through the website's own `/api/media/…`, never the bucket.
  *
- * Always through the website's own `/api/media/…?download=1`, never the
- * bucket: a browser ignores `download` on a link to another origin, and the
- * proxy is what can answer with `content-disposition: attachment`.
+ * What has to come from one origin asks for it here: a PDF read with pdf.js
+ * (another origin would need a CORS rule the bucket has not got) and a link
+ * that saves a file (a browser ignores `download` across origins).
+ */
+export function mediaProxySrc(value: string | null | undefined, opts: { proxyBase?: string } = {}): string {
+  if (!value) return ''
+  if (/^https?:\/\//.test(value)) return value
+  if (value.startsWith('/api/media/')) return `${opts.proxyBase ?? ''}${value}`
+  if (value.startsWith('/')) return value
+  return `${opts.proxyBase ?? ''}/api/media/${encodeURIComponent(value)}`
+}
+
+/**
+ * The same file as a link that saves it instead of opening it: the proxy is
+ * what can answer with `content-disposition: attachment`.
  */
 export function mediaDownloadSrc(value: string | null | undefined, opts: { proxyBase?: string } = {}): string {
   if (!value) return ''
-  if (/^https?:\/\//.test(value)) return value
-  if (value.startsWith('/api/media/')) return `${opts.proxyBase ?? ''}${value}?download=1`
-  if (value.startsWith('/')) return value
-  return `${opts.proxyBase ?? ''}/api/media/${encodeURIComponent(value)}?download=1`
+  const src = mediaProxySrc(value, opts)
+  // Anything already absolute, or a path of the site's own, is served as it is.
+  return /^https?:\/\//.test(value) || (value.startsWith('/') && !value.startsWith('/api/media/')) ? src : `${src}?download=1`
 }
 
 /* ────────────────────────── SEO infrastructure ─────────────────────────── */
