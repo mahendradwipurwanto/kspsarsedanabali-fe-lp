@@ -9,6 +9,7 @@ import {
 import { API_BASE, apiPost, track } from '@/lib/client'
 import { Action, Icon } from '../ui'
 import { PdfReader } from './PdfReader'
+import { DateField } from './DateField'
 import { Field, Note, Select, field as fieldCls } from '../ui/form'
 
 /* ───────────────────────────── uploading ──────────────────────────── */
@@ -738,7 +739,7 @@ export function PublicFormView({ form, bare = false }: {
       case 'long_text':
         return <textarea id={id} value={text} onChange={(e) => set(f.id, e.target.value)} rows={4} maxLength={f.maxLength ?? 4000} placeholder={f.placeholder || undefined} aria-invalid={err ? true : undefined} className={fieldCls} />
       case 'date':
-        return <input id={id} type="date" value={text} onChange={(e) => set(f.id, e.target.value)} aria-invalid={err ? true : undefined} className={`${fieldCls} max-w-[240px]`} />
+        return <DateField id={id} value={text} label={f.label} invalid={!!err} onChange={(v) => set(f.id, v)} className="max-w-[260px]" />
       case 'dropdown':
         return <Select id={id} value={text} onChange={(x) => set(f.id, x)} placeholder="Pilih…" options={(f.options ?? []).map((o) => ({ value: o, label: o }))} />
       case 'choice':
