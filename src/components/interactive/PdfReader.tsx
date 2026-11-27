@@ -11,8 +11,11 @@ import { useEffect, useRef, useState } from 'react'
  * with pdf.js into an ordinary scrolling column of canvases, which behaves
  * the same on an iPad, an Android phone and a desktop.
  *
- * pdf.js is loaded only when a form actually shows a PDF, and its worker is
- * served from /pdf.worker.min.mjs (put there by scripts/copy-pdf-worker.mjs).
+ * pdf.js is loaded only when a form actually shows a PDF. It is the legacy
+ * build: the modern one drew every page white on Samsung Internet, whose
+ * Chromium runs several versions behind. Its worker, standard fonts, CMaps
+ * and wasm decoders are served from /pdfjs/ (put there by
+ * scripts/copy-pdf-worker.mjs).
  * A page is drawn when it comes near the viewport and, in a long document,
  * dropped again once it is far behind, so a hundred-page report does not keep
  * a hundred canvases alive on a phone.
@@ -21,6 +24,8 @@ import { useEffect, useRef, useState } from 'react'
  * frame and the message, pdf.js owns what is inside the column.
  */
 
+/** Where scripts/copy-pdf-worker.mjs puts pdf.js's worker and data files. */
+const ASSETS = '/pdfjs'
 /** Drawn at the screen's own pixels, capped: past 2× a canvas costs memory without looking better. */
 const MAX_DPR = 2
 /** Pages past this are not drawn; a document that long is meant to be downloaded. */
@@ -42,12 +47,22 @@ export function PdfReader({ src, label, className }: { src: string; label: strin
 
     void (async () => {
       try {
-        const pdfjs = await import('pdfjs-dist')
+        const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
         if (dead) return
-        pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+        pdfjs.GlobalWorkerOptions.workerSrc = `${ASSETS}/pdf.worker.min.mjs`
 
         // The loading task, not the document, is what closes the worker again.
-        const task = pdfjs.getDocument({ url: src })
+        const task = pdfjs.getDocument({
+          url: src,
+          standardFontDataUrl: `${ASSETS}/standard_fonts/`,
+          cMapUrl: `${ASSETS}/cmaps/`,
+          cMapPacked: true,
+          wasmUrl: `${ASSETS}/wasm/`,
+          // Both are fast paths some Android GPUs and browsers get wrong, and
+          // what they get wrong is drawn as nothing; the plain path draws everywhere.
+          isOffscreenCanvasSupported: false,
+          isImageDecoderSupported: false,
+        })
         const doc = await task.promise
         if (dead) { void task.destroy(); return }
         stop.push(() => void task.destroy())
@@ -66,9 +81,11 @@ export function PdfReader({ src, label, className }: { src: string; label: strin
           canvas.height = Math.floor(viewport.height)
           try {
             await page.render({ canvas, viewport }).promise
-          } catch {
-            // A render cancelled by a resize or by leaving the page is not a failure; let it be drawn again.
+          } catch (err) {
             delete canvas.dataset.width
+            // A render cancelled by a resize or by leaving the page is not a failure; let it be drawn again.
+            // Anything else would leave a white page that looks like an empty document: say so instead.
+            if (!dead && (err as { name?: string })?.name !== 'RenderingCancelledException') setStatus('failed')
           }
         }
 
@@ -140,7 +157,7 @@ export function PdfReader({ src, label, className }: { src: string; label: strin
       aria-busy={status === 'loading'}
       aria-label={label}
     >
-      <div ref={column} className="grid gap-2" />
+      <div ref={column} className={status === 'failed' ? 'hidden' : 'grid gap-2'} />
       {status !== 'ready' ? (
         <p className="p-6 text-center text-[13px] leading-relaxed text-ink-500">
           {status === 'loading' ? 'Memuat PDF…' : 'PDF ini tidak bisa ditampilkan di sini. Unduh berkasnya untuk membacanya.'}

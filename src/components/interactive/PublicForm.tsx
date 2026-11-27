@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type FormEvent, type Ref } from 'react'
+import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type Ref, type TextareaHTMLAttributes } from 'react'
 import Link from 'next/link'
 import {
   checkAnswers, formSections, isFileType, isImageKey, isPdfKey, mediaDownloadSrc, mediaProxySrc, mediaSrc, otherLabelOf, pictureCanDownload, pictureImages, scaleRange, sectionAfter, storedFileName, targetProgress, type FormAnswers, OTHER_PREFIX, OTHER_LABEL, FORM_IMAGE_MAX_SIDE, FORM_FILE_MAX_BYTES,
@@ -342,6 +342,60 @@ function DocumentInput({ id, slug, max, value, onChange, invalid }: { id: string
 /* ────────────────────────── pictures and PDFs ─────────────────────── */
 
 /**
+ * Save a file to the device instead of opening it.
+ *
+ * A plain link with `download` and an attachment header is not enough on an
+ * iPhone or iPad: Safari opens a PDF in its own viewer in a new tab anyway.
+ * Handing it the file as a blob of no particular type, under its name, is
+ * what makes every browser — iOS Safari included — offer to save it. When
+ * the fetch fails the link is simply followed, as it would have been.
+ */
+async function saveFile(e: MouseEvent<HTMLAnchorElement>, name: string) {
+  const link = e.currentTarget
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+  e.preventDefault()
+  try {
+    const res = await fetch(link.href)
+    if (!res.ok) throw new Error(String(res.status))
+    const blob = new Blob([await res.arrayBuffer()], { type: 'application/octet-stream' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    document.body.append(a)
+    a.click()
+    a.remove()
+    // Safari reads the blob after the click returns; let it go a while later.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  } catch {
+    window.location.href = link.href
+  }
+}
+
+/** A text box that grows with what is typed, so a long "Lainnya" answer is read whole rather than cut off. */
+function GrowingText({ value, onChange, className, ...rest }: Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange' | 'value'> & { value: string; onChange: (v: string) => void }) {
+  const box = useRef<HTMLTextAreaElement>(null)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`
+  }, [value])
+  return (
+    <textarea
+      ref={box}
+      rows={1}
+      value={value}
+      // One answer, not a paragraph: Enter does not start a new line.
+      onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
+      onChange={(e) => onChange(e.target.value.replace(/\s*\n\s*/g, ' '))}
+      className={`${className ?? ''} resize-none overflow-hidden break-words`}
+      {...rest}
+    />
+  )
+}
+
+/**
  * One file of a "Gambar/File" item: a picture at its own proportions, a PDF
  * read right here in the form — the laporan tahunan is read where it is
  * being asked about, never in another tab — or any other document offered by
@@ -375,6 +429,7 @@ function PictureFile({ value, alt, canDownload }: { value: string; alt: string; 
         <a
           href={mediaDownloadSrc(value)}
           download={name}
+          onClick={(e) => void saveFile(e, name)}
           aria-label={`Unduh ${name}`}
           title={`Unduh ${name}`}
           className="absolute right-2.5 top-2.5 grid size-9 place-items-center rounded-full border border-line bg-white/95 text-ink-700 shadow-sm backdrop-blur transition-colors hover:border-ink-900 hover:text-ink-900"
@@ -708,9 +763,9 @@ export function PublicFormView({ form, bare = false }: {
                     <span className="min-w-0 flex-1">{o === OTHER_LABEL ? otherLabelOf(f) : o}</span>
                   </button>
                   {o === OTHER_LABEL && on ? (
-                    <input
+                    <GrowingText
                       value={others[f.id] ?? ''}
-                      onChange={(e) => setOthers((x) => ({ ...x, [f.id]: e.target.value }))}
+                      onChange={(text) => setOthers((x) => ({ ...x, [f.id]: text }))}
                       maxLength={300}
                       placeholder="Tuliskan jawaban Anda"
                       className={`${fieldCls} mt-2`}
